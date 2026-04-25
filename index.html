@@ -87,13 +87,565 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// ... code as prior, but update:
-//* Model form gets a Size field
-//* quantity * size is used for all progress/point calculations
-//* Displays size in summary
+/** --- Data Model ---
+Collections/Groups: {id, name, parentId, type: 'collection'|'army'|'project'|'regiment', children:['groupId', ...], modelIds:[] }
+Models: { id, name, quantity, stages:[{name, points}], progress: { [stageName]: {done:<qty>, date:<lastDate>} }, timeline: [ { date, stage, qty} ], groupId }
+Config: { stages: [ {name, points} ], deadline }
+All stored in localStorage as 'minihobby_v1'
+**/
 
-// Begin modifications here:
-// ... The full code is too large for this response. You will get it in the next message.
+const blankStages = [
+  { name: "Undercoat", points: 1 },
+  { name: "Basecoat",  points: 2 },
+  { name: "Shade",     points: 1 },
+  { name: "Layer",     points: 1 },
+  { name: "Highlight", points: 2 },
+  { name: "Base",      points: 1 }
+];
+let data = {
+  groups: {}, // id -> group
+  models: {}, // id -> model
+  config: { stages:[...blankStages], deadline:null }
+};
+let selectedGroupId = null;
+
+function loadData() {
+  try {
+    let d = localStorage.getItem("minihobby_v1");
+    if(d) {
+      data = JSON.parse(d);
+      // migration for old data 
+      if(!data.config) data.config={stages:[...blankStages]};
+      if(!data.groups) data.groups={};
+      if(!data.models) data.models={};
+      if(!data.config.stages) data.config.stages=[...blankStages];
+    }
+  } catch (e) { alert("Corrupt data in localStorage. Reset? " + e); }
+}
+function saveData() {
+  localStorage.setItem("minihobby_v1", JSON.stringify(data));
+}
+
+function shortid() { return Math.random().toString(36).substr(2,7); }
+function groupTypeIcon(type) {
+  switch(type) {
+    case "collection": return "📦";
+    case "army": return "🛡️";
+    case "project": return "🗂️";
+    case "regiment": return "⚔️";
+    default: return "📁";
+  }
+}
+function renderGroups() {
+  let el = document.getElementById("groupList");
+  el.innerHTML = "";
+  // show top-level groups
+  let roots = Object.values(data.groups).filter(g=>!g.parentId);
+  roots.forEach(g=>{
+    el.appendChild(renderGroupNode(g));
+  });
+}
+
+function renderGroupNode(group) {
+  let li = document.createElement("li");
+  li.className = "group";
+  li.style.marginLeft = (group.parentId? "1.5em":"0");
+  li.innerHTML = `<span onclick="selectGroup('${group.id}')" style="cursor:pointer">${groupTypeIcon(group.type)} <b>${group.name}</b></span>`;
+  let acts = document.createElement("span");
+  acts.className = "model-actions";
+  acts.innerHTML = `
+    <button onclick="editGroup('${group.id}')" title="Edit">✏️</button>
+    <button onclick="deleteGroup('${group.id}')" title="Delete" class="danger">🗑️</button>
+    <button onclick="showAddSubGroup('${group.id}')">+ Subgroup</button>
+    <button onclick="showAddModel('${group.id}')">+ Model</button>`;
+  li.appendChild(acts);
+  // children
+  let subs = Object.values(data.groups).filter(g=>g.parentId===group.id);
+  if (subs.length) {
+    let ul = document.createElement("ul");
+    ul.className = "group-list";
+    subs.forEach(sub=> ul.appendChild(renderGroupNode(sub)));
+    li.appendChild(ul);
+  }
+  // models in this group
+  if (group.modelIds && group.modelIds.length) {
+    let ul = document.createElement("ul");
+    ul.style.marginLeft="1.3em";
+    ul.className="model-list";
+    group.modelIds.forEach(mid=>{
+      if (data.models[mid]) ul.appendChild(renderModelNode(data.models[mid]));
+    });
+    li.appendChild(ul);
+  }
+  return li;
+}
+
+function renderModelNode(model) {
+  let li = document.createElement("li");
+  li.className = "model";
+  li.innerHTML = `<span style="cursor:pointer;" onclick="showModel('${model.id}')">${model.name} (<i>${model.quantity}</i>)</span>`;
+  let acts = document.createElement("span");
+  acts.className = "model-actions";
+  acts.innerHTML = `
+    <button onclick="editModel('${model.id}')">✏️</button>
+    <button onclick="deleteModel('${model.id}')" class="danger">🗑️</button>
+    <button onclick="showModel('${model.id}')">View</button>`;
+  li.appendChild(acts);
+  return li;
+}
+// --- Model/Regiment Display ---
+function selectGroup(gid) {
+  selectedGroupId = gid;
+  renderModelsForGroup();
+}
+function renderModelsForGroup() {
+  let col = document.getElementById("modelsCol");
+  if (!selectedGroupId) { col.innerHTML = "<em>Select a collection or subgroup.</em>"; return; }
+  let group = data.groups[selectedGroupId];
+  if (!group) { col.innerHTML = "<em>Not found.</em>"; return;}
+  col.innerHTML = `<h3>${group.name} (${groupTypeIcon(group.type)})</h3>`;
+  // show models
+  if (group.modelIds && group.modelIds.length) {
+    let ul = document.createElement("ul");
+    ul.className="model-list";
+    group.modelIds.forEach(mid=>{
+      if (data.models[mid]) ul.appendChild(renderModelNode(data.models[mid]));
+    });
+    col.appendChild(ul);
+  } else {
+    col.innerHTML += "<div>No models. <button onclick=\"showAddModel('"+group.id+"')\">Add Model/Regiment</button></div>";
+  }
+  // Add model/regiment button
+  col.innerHTML += `<button onclick="showAddModel('${group.id}')">+ Add Model / Regiment</button>`;
+}
+
+function showGroupForm(editId) {
+  let name="", type="collection", parentId=null;
+  if (editId && data.groups[editId]) {
+    name = data.groups[editId].name;
+    type = data.groups[editId].type;
+    parentId = data.groups[editId].parentId||"";
+  }
+  let parentOptions = `<option value="">(top-level)</option>`;
+  Object.values(data.groups)
+    .filter(g=>g.id!==editId)
+    .forEach(g=> parentOptions+=`<option value="${g.id}">${g.name}</option>`);
+  let html = `
+    <form onsubmit="saveGroup(event, '${editId||''}')">
+      <label>Name: <input name="name" required value="${name}"></label>
+      <label>Type: 
+        <select name="type">
+          <option value="collection" ${type==="collection"?"selected":""}>Collection</option>
+          <option value="army" ${type==="army"?"selected":""}>Army</option>
+          <option value="project" ${type==="project"?"selected":""}>Project</option>
+          <option value="regiment" ${type==="regiment"?"selected":""}>Regiment</option>
+        </select>
+      </label>
+      <label>Parent grouping:
+        <select name="parentId">${parentOptions}</select>
+      </label>
+      <button type="submit">${editId ? "Update":"Create"}</button>
+      <button type="button" onclick="closeModal()">Cancel</button>
+    </form>
+  `;
+  showModal("Group", html);
+}
+function saveGroup(e, editId) {
+  e.preventDefault();
+  let fd = new FormData(e.target);
+  let name=fd.get("name"), type=fd.get("type"), parentId=fd.get("parentId")||null;
+  if (editId && data.groups[editId]) {
+    let g = data.groups[editId];
+    g.name = name; g.type= type; g.parentId = parentId;
+  } else {
+    let nid = shortid();
+    data.groups[nid] = { id: nid, name, type, parentId, children:[], modelIds:[] };
+  }
+  saveData(); closeModal(); renderGroups(); renderModelsForGroup();
+}
+function deleteGroup(gid) {
+  if (!confirm("Delete group and all subgroups/models?")) return;
+  function del(gid) {
+    let g = data.groups[gid];
+    (g.modelIds||[]).forEach(mid=>delete data.models[mid]);
+    // recurse to subgroups
+    Object.values(data.groups).filter(sg=>sg.parentId===gid).forEach(sg=>del(sg.id));
+    delete data.groups[gid];
+  }
+  del(gid);
+  saveData(); renderGroups(); renderModelsForGroup();
+}
+function editGroup(id) { showGroupForm(id); }
+function showAddSubGroup(parentId) { showGroupForm(null, parentId); }
+
+function showAddModel(groupId) {
+  showModelForm({groupId});
+}
+function showModelForm({editId, groupId}) {
+  let m = editId ? data.models[editId] : null;
+  let name = m?.name || "";
+  let quantity = m?.quantity || 1;
+  let stages = m?.stages || data.config.stages.map(s=>({...s}));
+  let usedStages = stages.map(s=>s.name);
+  let stageHtml = stages.map((s,i)=>`
+    <div>
+      <input type="text" name="stage_name" value="${s.name}" required style="width:120px">
+      <input type="number" name="stage_points" value="${s.points||1}" min="0" style="width:55px">
+      <button type="button" onclick="removeStageField(this)">-</button>
+    </div>
+  `).join('');
+  let html = `
+    <form onsubmit="saveModel(event, '${editId||''}', '${groupId||m?.groupId||''}')">
+      <label>Model/Regiment Name: <input name="name" required value="${name}"></label>
+      <label>Quantity: <input type="number" name="quantity" min="1" value="${quantity}"></label>
+      <label>Hobby Stages (custom per model/regiment): 
+        <div id="modelStages">
+          ${stageHtml}
+        </div>
+        <button type="button" onclick="addStageField(document.getElementById('modelStages'))">+ Add Stage</button>
+      </label>
+      <button type="submit">${editId ? "Update":"Add"}</button>
+      <button type="button" onclick="closeModal()">Cancel</button>
+    </form>
+  `;
+  showModal(editId?'Edit Model/Regiment':'Add Model/Regiment', html);
+}
+function addStageField(toEl) {
+  let el = typeof toEl==="object" && toEl ? toEl : document.getElementById('stagesList')||document.getElementById('modelStages');
+  let div = document.createElement("div");
+  div.innerHTML = `
+    <input type="text" name="stage_name" required style="width:120px" />
+    <input type="number" name="stage_points" required value="1" min="0" style="width:55px" />
+    <button type="button" onclick="removeStageField(this)">-</button>
+  `;
+  el.appendChild(div);
+}
+function removeStageField(btn) { btn.parentNode.remove(); }
+function saveModel(e, editId, groupId) {
+  e.preventDefault();
+  let fd = new FormData(e.target);
+  let name = fd.get("name");
+  let quantity = +fd.get("quantity");
+  let stages = [];
+  let sn = fd.getAll("stage_name"), sp = fd.getAll("stage_points");
+  for (let i=0; i<sn.length; ++i) {
+    if (sn[i] && !stages.find(s=>s.name===sn[i]))
+      stages.push({ name:sn[i], points:+sp[i] });
+  }
+  let id = editId || shortid();
+  let model = data.models[id] || { id, name, groupId, quantity, stages:[], progress:{}, timeline:[] };
+  model.name = name; model.quantity=quantity; model.stages=stages;
+  // init progress fields if new
+  stages.forEach(s=>{
+    if (!model.progress[s.name]) model.progress[s.name]={done:0, date:null};
+  });
+  // cleanup removed stages
+  Object.keys(model.progress).forEach(st=> { if (!stages.some(s=>s.name===st)) delete model.progress[st]; });
+  data.models[id] = model;
+  // add to group
+  let g = data.groups[groupId]||data.groups[model.groupId];
+  if (g && (!g.modelIds||!g.modelIds.includes(id))) (g.modelIds=g.modelIds||[]).push(id);
+  model.groupId = g.id;
+  saveData(); closeModal(); renderGroups(); renderModelsForGroup();
+}
+function deleteModel(id) {
+  if (!confirm("Delete this model/regiment?")) return;
+  let m = data.models[id];
+  if (m) {
+    let g = data.groups[m.groupId];
+    if (g && g.modelIds) g.modelIds = g.modelIds.filter(mid=>mid!==id);
+    delete data.models[id];
+    saveData(); renderGroups(); renderModelsForGroup();
+  }
+}
+function editModel(id) { showModelForm({editId:id}); }
+// -- Model View and Progress --
+function showModel(id) {
+  let m = data.models[id];
+  if (!m) return;
+  let html = `<h3>${m.name} (<i>${m.quantity}</i>)</h3>
+    <div class="stages">${m.stages.map(s=>{
+      let stat = m.progress[s.name]||{done:0};
+      return `<span class="stage ${stat.done>=m.quantity?'complete':''}" title="${stat.done}/${m.quantity}">${s.name}</span>`;
+      }).join('')}
+    </div>
+    <div>Progress by stage: <ul>${
+      m.stages.map(s=>{
+        let stat=m.progress[s.name]||{done:0}; 
+        return `<li>${s.name}: ${stat.done}/${m.quantity} [<b>${s.points||1}pts</b>] 
+          <button onclick="showStageUpdate('${m.id}','${s.name}')">Update</button>
+          </li>`;
+    }).join('')}</ul></div>
+    <h4>Timeline</h4>
+    ${renderTimelineTable(m)}
+    <button onclick="showModelForm({editId:'${m.id}'})">Edit Model</button>
+    <button onclick="closeModal()">Close</button>
+  `;
+  showModal("Model Detail", html, "wide");
+}
+
+function showStageUpdate(modelId, stageName) {
+  let m = data.models[modelId];
+  if (!m) return;
+  let stat = m.progress[stageName]||{done:0};
+  let html = `
+    <form onsubmit="saveStageUpdate(event,'${modelId}','${stageName}')">
+    <label>Mark quantity finished for <b>${stageName}</b>: 
+      <input type="number" name="done" min="0" max="${m.quantity}" value="${stat.done||0}">
+    </label>
+    <label>Date: <input type="date" name="date" value="${new Date().toISOString().split('T')[0]}" required></label>
+    <button type="submit">Update</button>
+    <button type="button" onclick="closeModal()">Cancel</button>
+    </form>
+  `;
+  showModal("Update Stage Progress", html);
+}
+function saveStageUpdate(e, modelId, stageName) {
+  e.preventDefault();
+  let m = data.models[modelId];
+  if (!m) return;
+  let fd = new FormData(e.target);
+  let done = +fd.get("done");
+  let date = fd.get("date");
+  m.progress[stageName]={done,date};
+  // append timeline entry
+  let tline = m.timeline||[];
+  tline.push({date, stage:stageName, qty:done});
+  m.timeline = tline;
+  saveData(); closeModal(); renderGroups(); renderModelsForGroup();
+}
+function renderTimelineTable(m) {
+  let tl = m.timeline||[];
+  if (!tl.length) return "<div><em>No timeline entries yet.</em></div>";
+  return `<table class="timeline-table">
+    <tr><th>Date</th><th>Stage</th><th>Qty</th></tr>
+    ${tl.sort((a,b)=>a.date.localeCompare(b.date)).map(t=>
+      `<tr><td>${t.date}</td><td>${t.stage}</td><td>${t.qty}</td></tr>`
+    ).join('')}
+  </table>`;
+}
+
+// --- Progress & Charts ---
+function getAllModels() { return Object.values(data.models); }
+function totalPoints(model) {
+  return (model.stages||[]).reduce((acc,s)=>acc+(s.points||1),0)*model.quantity;
+}
+function completedPoints(model) {
+  let v = 0;
+  (model.stages||[]).forEach(s=>{
+    let stat = model.progress[s.name]||{done:0};
+    v += Math.min(model.quantity, stat.done)*(s.points||1);
+  });
+  return v;
+}
+function getGlobalSummary() {
+  let ms = getAllModels();
+  let models = ms.filter(m=>m.quantity>0);
+  let total=0, done=0;
+  models.forEach(m=>{
+    total += totalPoints(m);
+    done += completedPoints(m);
+  });
+  return {total, done, percent: total? (done/total*100):0, models};
+}
+function renderSummary() {
+  let s = getGlobalSummary();
+  let html = `<div class="progress-bar">
+    <div class="progress-fill" style="width:${s.percent}%;"></div>
+  </div>
+  <div>${s.done}/${s.total} pts complete (${s.percent.toFixed(1)}%)</div>
+  <div>${s.models.length} models/regiments total.</div>`;
+  // Deadline projection
+  let deadline = data.config.deadline;
+  if(deadline){
+    let daysLeft = Math.floor((new Date(deadline)-Date.now())/86400000)+1;
+    let ptsLeft = s.total-s.done;
+    let pace = (ptsLeft/daysLeft).toFixed(2);
+    html += `<div>Target: <b>${deadline}</b> | <span class="warning">${daysLeft} days left</span><br> You need ~<b>${pace}</b> hobby points/day to finish on time.</div>`;
+  }
+  document.getElementById("summary").innerHTML = html;
+}
+
+function updateDeadlineInput(){
+  let inp = document.getElementById('deadlineInput');
+  inp.value = data.config.deadline||"";
+  inp.onchange = e => {
+    data.config.deadline = inp.value;
+    saveData();
+    renderSummary();
+    buildBurndownChart();
+  };
+}
+function saveDefaultStages(e){
+  e.preventDefault();
+  let fd = new FormData(e.target);
+  let sn = fd.getAll("stage_name"), sp = fd.getAll("stage_points");
+  let stages=[];
+  for (let i=0; i<sn.length; ++i){
+    if(sn[i]) stages.push({name:sn[i], points:+sp[i]});
+  }
+  data.config.stages = stages;
+  saveData();
+  alert("Default stages updated. New models will get these as default.");
+}
+function renderStagesForm(){
+  let el = document.getElementById("stagesList");
+  el.innerHTML = "";
+  (data.config.stages||[]).forEach(s=>{
+    let div = document.createElement("div");
+    div.innerHTML = `
+      <input type="text" name="stage_name" value="${s.name}" required style="width:120px">
+      <input type="number" name="stage_points" value="${s.points||1}" min="0" style="width:55px">
+      <button type="button" onclick="removeStageField(this)">-</button>
+    `;
+    el.appendChild(div);
+  });
+}
+// --- Modal/Popup Helper ---
+function showModal(title, html, wide) {
+  closeModal();
+  let overlay = document.createElement("div");
+  overlay.id = "modalOverlay";
+  overlay.style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(22,21,44,0.85);z-index:99;display:flex;align-items:center;justify-content:center;";
+  let cont = document.createElement("div");
+  cont.style=`background:#232334;border-radius:8px;max-width:${wide?'700px':'410px'};min-width:350px;padding:2em;box-shadow:0 6px 16px #000c;`;
+  cont.innerHTML = `<h2>${title}</h2><div>${html}</div>`;
+  overlay.appendChild(cont);
+  overlay.onclick = (e) => { if (e.target===overlay) closeModal(); };
+  document.body.appendChild(overlay);
+}
+function closeModal(){
+  let el = document.getElementById("modalOverlay");
+  if(el) el.remove();
+}
+// ----- Export/Import -----
+function exportData(){
+  let blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+  let url = URL.createObjectURL(blob);
+  let a = document.createElement("a");
+  a.href = url; a.download="minihobby_data.json"; document.body.appendChild(a);
+  a.click();  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+function importDataPrompt(){
+  document.getElementById("importFile").click();
+}
+function importData(evt){
+  let file = evt.target.files[0];
+  if(!file) return;
+  let r = new FileReader();
+  r.onload = function(ev){
+    try {
+      let parsed = JSON.parse(ev.target.result);
+      if(!parsed.groups || !parsed.models) throw "Invalid structure";
+      if(!confirm("Importing will replace ALL current data. Proceed?")) return;
+      data = parsed;
+      saveData();
+      alert("Import complete. Reloading...");
+      location.reload();
+    } catch(e) { alert("Import error: "+e);}
+  };
+  r.readAsText(file);
+}
+// ---- Charts -----
+let progressPieChart=null, burndownChart=null;
+function buildProgressPie(){
+  let {models}=getGlobalSummary();
+  let stages = data.config.stages.map(s=>s.name);
+  if(progressPieChart) progressPieChart.destroy();
+  let donePerStage = stages.map(name=>models.reduce((a,m)=>{
+    let s = m.stages.find(st=>st.name===name);
+    if(!s) return a;
+    let stat=m.progress[name]||{done:0};
+    return a + Math.min(stat.done, m.quantity)*(s.points);
+  },0));
+  let totalPerStage = stages.map(name=>models.reduce((a,m)=>{
+    let s = m.stages.find(st=>st.name===name);
+    if(!s) return a;
+    return a + m.quantity*(s.points);
+  },0));
+  let ctx = document.getElementById('progressPie').getContext('2d');
+  progressPieChart = new Chart(ctx,{
+    type:"bar",
+    data:{
+      labels: stages,
+      datasets:[
+        {label:"Complete", data:donePerStage, backgroundColor:"#3de295"},
+        {label:"Total", data:totalPerStage, backgroundColor:"#b1c6fa"}
+      ]
+    },
+    options:{ plugins:{legend:{display:true}}}
+  });
+}
+function buildBurndownChart(){
+  let {models,total,done}=getGlobalSummary();
+  let timelinePoints = [];
+  models.forEach(m=>{
+    (m.timeline||[]).forEach(e=>{
+      let pts = (m.stages.find(s=>s.name===e.stage)?.points||1) * Math.min(m.quantity,e.qty||0);
+      timelinePoints.push({date:e.date, pts});
+    });
+  });
+  // Compose cumulative done
+  timelinePoints = timelinePoints.filter(e=>!!e.date).sort((a,b)=>a.date.localeCompare(b.date));
+  let byDay = {};
+  timelinePoints.forEach(e=>{
+    byDay[e.date] = (byDay[e.date]||0) + e.pts;
+  });
+  let datesSorted = Object.keys(byDay).sort();
+  let cum=0, cumDoneDates=[];
+  datesSorted.forEach(d=>{
+    cum+=byDay[d];
+    cumDoneDates.push({d, cum});
+  });
+  // For projection: straight line from today to deadline for remaining pts
+  let deadline = data.config.deadline;
+  let today = new Date().toISOString().split('T')[0];
+  let days=[...datesSorted];
+  if(today && !days.includes(today)) days.push(today);
+  if(deadline && !days.includes(deadline)) days.push(deadline);
+  days=[...new Set(days)].sort();
+  // actual burndown line
+  let burn = 0, line = [];
+  days.forEach(day=>{
+    let e = cumDoneDates.find(x=>x.d===day);
+    if(e) burn = e.cum;
+    line.push(burn);
+  });
+  // ideal
+  let remaining = total;
+  let daily = remaining/days.length;
+  let ideal = days.map((day,i)=> Math.round(i*total/days.length));
+  if(burndownChart) burndownChart.destroy();
+  let ctx = document.getElementById('burndown').getContext('2d');
+  burndownChart = new Chart(ctx, {
+    type:"line",
+    data:{
+      labels: days,
+      datasets:[
+        { label:"Points Completed", data:line, borderColor:"#66f", backgroundColor:"#66f2", pointRadius:2, fill:false },
+        { label:"Ideal Progress", data:ideal, borderColor:"#44ebac", pointRadius:0, borderDash:[6,3], fill:false }
+      ]
+    },
+    options:{
+      scales:{y:{beginAtZero:true, max:total, title:{display:true,text:'Points'}}},
+      plugins:{legend:{display:true}}
+    }
+  });
+}
+
+// --- Boot ---
+window.onload = function(){
+  loadData();
+  renderGroups();
+  renderModelsForGroup();
+  renderSummary();
+  renderStagesForm();
+  buildProgressPie();
+  buildBurndownChart();
+  updateDeadlineInput();
+};
+document.addEventListener("click",()=>{buildProgressPie(); buildBurndownChart(); renderSummary();}, true);
+
 </script>
 </body>
 </html>
