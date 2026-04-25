@@ -14,4 +14,80 @@
     input, select, textarea, button { font-size: 1em; border-radius: 4px; border: 1px solid #444; margin-bottom: 1em; }
     input, select, textarea { padding: 5px; background-color: #232334; color: #eee; }
     button { background: #191970; color: #fff; border: none; padding: 7px 14px; margin-right: 6px; cursor: pointer; }
-   ...
+    button:hover { background: #0547b6;}
+    .row { display: flex; gap: 1.4em; margin-bottom: 1em; }
+    .col { flex: 1; }
+    .group, .model { margin-bottom: 1em; }
+    .model-list, .group-list { margin: 0; padding: 0; list-style: none;}
+    .model-actions { margin-left: 0.8em; }
+    .small { font-size: 0.9em; color: #aaf; }
+    .progress-bar { background: #333; border-radius: 4px; overflow: hidden; margin-bottom: 0.3em;}
+    .progress-fill { background: #3de295; height: 20px; transition: width 0.5s;}
+    .stages { display: flex; gap: 0.3em;}
+    .stage { border-radius: 4px; padding: 2px 6px; background: #333; margin-right: 2px; }
+    .stage.complete { background: #2a9d8f;}
+    .timeline-table { width: 100%; border-collapse: collapse;}
+    .timeline-table th, .timeline-table td { border: 1px solid #444; padding: 5px;}
+    .chart-container { background: #232334; border-radius:5px; padding:16px;}
+    .flex-center { display:flex; align-items:center; }
+    .danger { background: #932836; }
+    .warning { background: #eeba2b; color: #242; }
+    @media(max-width:700px){
+      main { padding: 0.4em;}
+      .row { flex-direction:column; gap:initial;}
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>Miniature Project Manager <span class="small">(Warhammer & 40k)</span></h1>
+</header>
+<main>
+  <section id="export-import">
+    <button onclick="exportData()">Export Data</button>
+    <button onclick="importDataPrompt()">Import Data</button>
+    <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+  </section>
+  <section>
+    <h2>Target Deadline & Summary</h2>
+    <label>
+      Deadline: <input type="date" id="deadlineInput">
+    </label>
+    <div id="summary"></div>
+  </section>
+  <section>
+    <div class="row">
+      <div class="col">
+        <h2>Collections / Armies</h2>
+        <ul id="groupList" class="group-list"></ul>
+        <button onclick="showGroupForm()">+ New Collection / Army</button>
+      </div>
+      <div class="col" id="modelsCol"></div>
+    </div>
+  </section>
+  <section>
+    <h2>Burndown & Progress Charts</h2>
+    <div class="row">
+      <div class="col chart-container">
+        <canvas id="progressPie"></canvas>
+      </div>
+      <div class="col chart-container">
+        <canvas id="burndown"></canvas>
+      </div>
+    </div>
+  </section>
+  <section id="stageConfig">
+    <h2>Default Hobby Stages</h2>
+    <form id="stagesForm" onsubmit="saveDefaultStages(event)">
+      <div id="stagesList"></div>
+      <button type="button" onclick="addStageField()">+ Add Stage</button>
+      <button type="submit">Save Stages</button>
+    </form>
+  </section>
+</main>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// ... (Truncated for brevity)
+</script>
+</body>
+</html>
