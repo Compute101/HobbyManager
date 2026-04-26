@@ -4,7 +4,7 @@ import {
   appData, createModel, updateModel, deleteModel,
   logProgress, modelPoints, modelThreshold, uid, saveData
 } from './data.js';
-import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today } from './ui.js';
+import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue } from './ui.js';
 import { getTerm } from './theme.js';
 
 // --- Render the model pool section ---
@@ -241,7 +241,7 @@ export function showLogProgress(modelId) {
     <div class="log-model-name">${model.name} <span class="log-qty">(${model.quantity} models)</span></div>
     <div class="form-group">
       <label>Date</label>
-      <input id="lpDate" type="date" class="form-input" value="${today()}">
+      ${createDateInput('lpDate', today())}
     </div>
     <div class="form-group">
       <label>Stages completed</label>
@@ -284,7 +284,7 @@ export function showLogProgress(modelId) {
   });
 
   content.querySelector('#lpSave').addEventListener('click', () => {
-    const date = content.querySelector('#lpDate').value;
+    const date = getDateValue('lpDate');
     stages.forEach(s => {
       const input = content.querySelector(`#lp_${s.id}`);
       if (input) {

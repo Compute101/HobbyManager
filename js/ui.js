@@ -81,6 +81,12 @@ function createToastContainer() {
   return el;
 }
 
+// --- Confirm dialog ---
+
+export function confirm(message) {
+  return window.confirm(message);
+}
+
 // --- Progress bar ---
 
 export function progressBar(pct, colorVar = '--accent') {
@@ -113,6 +119,65 @@ export function today() {
 export function daysUntil(dateStr) {
   if (!dateStr) return null;
   return Math.ceil((new Date(dateStr) - new Date()) / 86400000);
+}
+
+// --- Smart date input ---
+// On mobile: native <input type="date"> (works great)
+// On desktop: three dropdowns (day / month / year)
+
+const isMobile = () => window.matchMedia('(pointer: coarse)').matches;
+
+export function createDateInput(id, value = '') {
+  // value expected as YYYY-MM-DD or ''
+  const parts = value ? value.split('-') : [];
+  const y = parts[0] || '';
+  const m = parts[1] || '';
+  const d = parts[2] || '';
+
+  if (isMobile()) {
+    return `<input type="date" id="${id}" class="form-input" value="${value}">`;
+  }
+
+  const days = Array.from({length: 31}, (_, i) => i + 1);
+  const months = [
+    'January','February','March','April','May','June',
+    'July','August','September','October','November','December'
+  ];
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({length: 6}, (_, i) => currentYear + i);
+
+  return `
+    <div class="date-dropdowns" id="${id}">
+      <select class="form-input date-dd">
+        <option value="">Day</option>
+        ${days.map(n => `<option value="${String(n).padStart(2,'0')}" ${d === String(n).padStart(2,'0') ? 'selected' : ''}>${n}</option>`).join('')}
+      </select>
+      <select class="form-input date-mm">
+        <option value="">Month</option>
+        ${months.map((name, i) => {
+          const val = String(i+1).padStart(2,'0');
+          return `<option value="${val}" ${m === val ? 'selected' : ''}>${name}</option>`;
+        }).join('')}
+      </select>
+      <select class="form-input date-yy">
+        <option value="">Year</option>
+        ${years.map(yr => `<option value="${yr}" ${y === String(yr) ? 'selected' : ''}>${yr}</option>`).join('')}
+      </select>
+    </div>
+  `;
+}
+
+export function getDateValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return '';
+  // Native input
+  if (el.tagName === 'INPUT') return el.value;
+  // Dropdowns
+  const dd = el.querySelector('.date-dd')?.value;
+  const mm = el.querySelector('.date-mm')?.value;
+  const yy = el.querySelector('.date-yy')?.value;
+  if (!dd || !mm || !yy) return '';
+  return `${yy}-${mm}-${dd}`;
 }
 
 // --- Render a stage progress row ---

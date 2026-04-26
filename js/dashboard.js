@@ -1,7 +1,7 @@
 // dashboard.js — dashboard summary, deadline, pace tracking
 
 import { appData, globalStats, saveData } from './data.js';
-import { progressBar, toast, daysUntil, today } from './ui.js';
+import { progressBar, toast, daysUntil, today, createDateInput, getDateValue } from './ui.js';
 import { renderDashboardCharts } from './charts.js';
 import { THRESHOLDS } from './data.js';
 
@@ -49,7 +49,7 @@ export function renderDashboard() {
         <h3>Deadline & Pace</h3>
         <div class="deadline-input-row">
           <label>Target date</label>
-          <input type="date" id="deadlineInput" class="form-input" value="${deadline || ''}">
+          ${createDateInput('deadlineInput', deadline || '')}
         </div>
         ${deadline ? `
           <div class="deadline-info ${urgencyClass}">
@@ -87,12 +87,24 @@ export function renderDashboard() {
     </div>
   `;
 
-  document.getElementById('deadlineInput')?.addEventListener('change', e => {
-    appData.config.deadline = e.target.value || null;
-    saveData();
-    toast('Deadline saved', 'success');
-    renderDashboard();
-  });
+  // Handle deadline changes — works for both native date input and dropdowns
+  const deadlineEl = document.getElementById('deadlineInput');
+  const saveDeadline = () => {
+    const val = getDateValue('deadlineInput');
+    if (val !== appData.config.deadline) {
+      appData.config.deadline = val || null;
+      saveData();
+      toast('Deadline saved', 'success');
+      renderDashboard();
+    }
+  };
+  if (deadlineEl) {
+    if (deadlineEl.tagName === 'INPUT') {
+      deadlineEl.addEventListener('change', saveDeadline);
+    } else {
+      deadlineEl.querySelectorAll('select').forEach(sel => sel.addEventListener('change', saveDeadline));
+    }
+  }
 
   // Render charts after DOM is ready
   requestAnimationFrame(() => renderDashboardCharts());
