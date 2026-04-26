@@ -293,18 +293,22 @@ function calcModelPoints(model) {
 function calcModelThreshold(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
-  const thresholdOrder = ['table_ready', 'painted', 'finished'];
+  const activeStages = stages.filter(s => !skipped.includes(s.id));
 
-  for (let i = thresholdOrder.length - 1; i >= 0; i--) {
-    const thresh = thresholdOrder[i];
+  const hasThresholds = stages.some(s => s.threshold);
+  if (!hasThresholds) {
+    const allDone = activeStages.length > 0 &&
+      activeStages.every(s => (model.progress[s.id]?.done || 0) >= model.quantity);
+    return allDone ? 'finished' : null;
+  }
+
+  for (const thresh of ['finished', 'painted', 'table_ready']) {
     const threshStageIdx = stages.findIndex(s => s.threshold === thresh);
     if (threshStageIdx === -1) continue;
-
     const allDone = stages.slice(0, threshStageIdx + 1).every(s => {
       if (skipped.includes(s.id)) return true;
       return (model.progress[s.id]?.done || 0) >= model.quantity;
     });
-
     if (allDone) return thresh;
   }
   return null;

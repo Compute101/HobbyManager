@@ -234,14 +234,20 @@ export function showModelForm(editId = null) {
 }
 
 function stageConfigRow(s, skipped) {
+  const milestoneOptions = [
+    { value: '', label: 'None' },
+    { value: 'table_ready', label: '⚔️ Table Ready' },
+    { value: 'painted',     label: '🎨 Painted' },
+    { value: 'finished',    label: '🏆 Finished' },
+  ];
   return `
     <div class="stage-config-row" data-sid="${s.id}">
       <input type="text" class="form-input stage-cfg-name" value="${s.name}" placeholder="Stage name">
       <input type="number" class="form-input stage-cfg-pts" value="${s.points || 1}" min="0" max="20" title="Points">
-      <label class="stage-cfg-skip" title="Skippable">
-        <input type="checkbox" class="stage-cfg-skippable" ${s.skippable ? 'checked' : ''}> Opt
-      </label>
-      <label class="stage-cfg-skip" title="Skip for this regiment">
+      <select class="form-input stage-cfg-milestone" title="Milestone this stage completes">
+        ${milestoneOptions.map(o => `<option value="${o.value}" ${(s.threshold || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+      </select>
+      <label class="stage-cfg-skip" title="Skip this stage for this regiment">
         <input type="checkbox" class="stage-cfg-skipped" ${skipped.includes(s.id) ? 'checked' : ''}> Skip
       </label>
       <button class="btn btn-xs btn-danger stage-cfg-del">✕</button>
@@ -254,8 +260,8 @@ function collectStages(content) {
   content.querySelectorAll('.stage-config-row').forEach(row => {
     const name = row.querySelector('.stage-cfg-name').value.trim();
     const pts = parseInt(row.querySelector('.stage-cfg-pts').value) || 1;
-    const skippable = row.querySelector('.stage-cfg-skippable').checked;
-    if (name) stages.push({ id: row.dataset.sid, name, points: pts, skippable });
+    const threshold = row.querySelector('.stage-cfg-milestone').value || null;
+    if (name) stages.push({ id: row.dataset.sid, name, points: pts, threshold });
   });
   return stages;
 }
@@ -266,10 +272,10 @@ function collectStagesAndSkipped(content) {
   content.querySelectorAll('.stage-config-row').forEach(row => {
     const name = row.querySelector('.stage-cfg-name').value.trim();
     const pts = parseInt(row.querySelector('.stage-cfg-pts').value) || 1;
-    const skippable = row.querySelector('.stage-cfg-skippable').checked;
+    const threshold = row.querySelector('.stage-cfg-milestone').value || null;
     const skip = row.querySelector('.stage-cfg-skipped').checked;
     if (name) {
-      stages.push({ id: row.dataset.sid, name, points: pts, skippable });
+      stages.push({ id: row.dataset.sid, name, points: pts, threshold });
       if (skip) skipped.push(row.dataset.sid);
     }
   });

@@ -283,12 +283,19 @@ export function renderBurndown(canvasId, models, deadline) {
 function calcModelThreshold(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
-  const order = ['table_ready', 'painted', 'finished'];
-  for (let i = order.length - 1; i >= 0; i--) {
-    const thresh = order[i];
-    const threshIdx = stages.findIndex(s => s.threshold === thresh);
-    if (threshIdx === -1) continue;
-    const allDone = stages.slice(0, threshIdx + 1).every(s => {
+  const activeStages = stages.filter(s => !skipped.includes(s.id));
+
+  const hasThresholds = stages.some(s => s.threshold);
+  if (!hasThresholds) {
+    const allDone = activeStages.length > 0 &&
+      activeStages.every(s => (model.progress[s.id]?.done || 0) >= model.quantity);
+    return allDone ? 'finished' : null;
+  }
+
+  for (const thresh of ['finished', 'painted', 'table_ready']) {
+    const threshStageIdx = stages.findIndex(s => s.threshold === thresh);
+    if (threshStageIdx === -1) continue;
+    const allDone = stages.slice(0, threshStageIdx + 1).every(s => {
       if (skipped.includes(s.id)) return true;
       return (model.progress[s.id]?.done || 0) >= model.quantity;
     });

@@ -276,32 +276,29 @@ export function logProgress(modelId, stageId, done, date) {
 
 export function modelThreshold(model) {
   // Returns highest threshold reached: 'finished' | 'painted' | 'table_ready' | null
-  // A threshold is reached if all non-skipped stages up to and including it are done for all quantity
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
+  const activeStages = stages.filter(s => !skipped.includes(s.id));
 
-  const stagesDone = (upToThreshold) => {
-    // Find which stage ids count toward this threshold
-    const thresholdOrder = ['table_ready', 'painted', 'finished'];
-    const idx = thresholdOrder.indexOf(upToThreshold);
-    // All stages whose threshold is at or before this level must be complete
-    return stages.every(s => {
+  // Fallback for custom types with no threshold markers defined:
+  // if all non-skipped stages are fully done => treat as Finished
+  const hasThresholds = stages.some(s => s.threshold);
+  if (!hasThresholds) {
+    const allDone = activeStages.length > 0 &&
+      activeStages.every(s => (model.progress[s.id]?.done || 0) >= model.quantity);
+    return allDone ? 'finished' : null;
+  }
+
+  // Standard logic: check highest threshold first
+  for (const thresh of ['finished', 'painted', 'table_ready']) {
+    const threshStageIdx = stages.findIndex(s => s.threshold === thresh);
+    if (threshStageIdx === -1) continue;
+    const allDone = stages.slice(0, threshStageIdx + 1).every(s => {
       if (skipped.includes(s.id)) return true;
-      if (!s.threshold) {
-        // Intermediate painting stage — must be done if it comes before threshold stage
-        const threshStage = stages.find(ts => ts.threshold === upToThreshold);
-        const threshIdx = threshStage ? stages.indexOf(threshStage) : 999;
-        const sIdx = stages.indexOf(s);
-        if (sIdx > threshIdx) return true;
-      }
-      const prog = model.progress[s.id] || { done: 0 };
-      return prog.done >= model.quantity;
+      return (model.progress[s.id]?.done || 0) >= model.quantity;
     });
-  };
-
-  if (stagesDone('finished')) return 'finished';
-  if (stagesDone('painted')) return 'painted';
-  if (stagesDone('table_ready')) return 'table_ready';
+    if (allDone) return thresh;
+  }
   return null;
 }
 
