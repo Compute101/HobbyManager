@@ -2,7 +2,7 @@
 
 import {
   appData, createModel, updateModel, deleteModel,
-  logProgress, modelPoints, modelThreshold, uid, saveData,
+  logProgress, logSession, modelPoints, modelThreshold, uid, saveData,
   getAllModelTypes, saveCustomModelType, deleteCustomModelType
 } from './data.js';
 import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue } from './ui.js';
@@ -324,9 +324,15 @@ export function showLogProgress(modelId) {
   const content = document.createElement('div');
   content.innerHTML = `
     <div class="log-model-name">${model.name} <span class="log-qty">(${model.quantity} models)</span></div>
-    <div class="form-group">
-      <label>Date</label>
-      ${createDateInput('lpDate', today())}
+    <div class="form-row-two">
+      <div class="form-group">
+        <label>Date</label>
+        ${createDateInput('lpDate', today())}
+      </div>
+      <div class="form-group">
+        <label>Time spent (mins)</label>
+        <input id="lpDuration" type="number" class="form-input" min="0" placeholder="e.g. 90">
+      </div>
     </div>
     <div class="form-group">
       <label>Stages completed</label>
@@ -370,13 +376,26 @@ export function showLogProgress(modelId) {
 
   content.querySelector('#lpSave').addEventListener('click', () => {
     const date = getDateValue('lpDate');
+    const duration = parseInt(content.querySelector('#lpDuration').value) || null;
+
+    // Build model entries — only stages where the value has changed
+    const modelEntries = [];
     stages.forEach(s => {
       const input = content.querySelector(`#lp_${s.id}`);
       if (input) {
         const done = Math.min(parseInt(input.value) || 0, model.quantity);
+        const prev = model.progress[s.id]?.done || 0;
+        if (done !== prev) modelEntries.push({ modelId, stageId: s.id, qty: done });
+        // Always update progress directly too so the value is correct
         logProgress(modelId, s.id, done, date);
       }
     });
+
+    // Record session for activity log (even if no changes — user may just be reviewing)
+    if (modelEntries.length > 0) {
+      logSession({ date, duration, notes: '', modelEntries });
+    }
+
     toast('Progress saved!', 'success');
     closeModal();
     renderModelPool();

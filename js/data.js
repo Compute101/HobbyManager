@@ -417,13 +417,10 @@ export function removeModelFromList(listId, modelId) {
 
 export function logSession({ date, duration, notes, modelEntries }) {
   // modelEntries: [{modelId, stageId, qty}]
+  // Note: progress is applied separately by the caller via logProgress
   const id = uid();
   const session = { id, date, duration, notes, modelEntries };
   appData.sessions.push(session);
-  // Apply progress
-  modelEntries.forEach(({ modelId, stageId, qty }) => {
-    logProgress(modelId, stageId, qty, date);
-  });
   saveData();
   return id;
 }
