@@ -81,12 +81,6 @@ function createToastContainer() {
   return el;
 }
 
-// --- Confirm dialog ---
-
-export function confirm(message) {
-  return window.confirm(message);
-}
-
 // --- Progress bar ---
 
 export function progressBar(pct, colorVar = '--accent') {
