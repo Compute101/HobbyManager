@@ -322,8 +322,10 @@ export function showLogProgress(modelId) {
   const stages = (model.stages || appData.config.stages).filter(s => !(model.skippedStages || []).includes(s.id));
 
   const content = document.createElement('div');
+  const isSingle = model.quantity === 1;
+
   content.innerHTML = `
-    <div class="log-model-name">${model.name} <span class="log-qty">(${model.quantity} models)</span></div>
+    <div class="log-model-name">${model.name} <span class="log-qty">(${model.quantity} model${model.quantity > 1 ? 's' : ''})</span></div>
     <div class="form-row-two">
       <div class="form-group">
         <label>Date</label>
@@ -339,12 +341,22 @@ export function showLogProgress(modelId) {
       <div class="log-stages" id="lpStages">
         ${stages.map(s => {
           const prog = model.progress[s.id] || { done: 0 };
+          const isDone = prog.done >= model.quantity;
+          if (isSingle) {
+            return `
+              <label class="log-stage-check ${isDone ? 'is-done' : ''}">
+                <input type="checkbox" class="stage-checkbox" id="lp_${s.id}" data-sid="${s.id}" ${isDone ? 'checked' : ''}>
+                <span class="log-stage-name">${s.name}</span>
+                <span class="log-stage-pts">${s.points}pts</span>
+              </label>
+            `;
+          }
           return `
             <div class="log-stage-row">
               <div class="log-stage-name">${s.name} <span class="log-stage-pts">(${s.points}pts each)</span></div>
               <div class="log-stage-input">
                 <button class="btn btn-sm qty-dec" data-sid="${s.id}">−</button>
-                <input type="number" class="form-input qty-input" id="lp_${s.id}" 
+                <input type="number" class="form-input qty-input" id="lp_${s.id}"
                   data-sid="${s.id}" min="0" max="${model.quantity}" value="${prog.done}">
                 <button class="btn btn-sm qty-inc" data-sid="${s.id}" data-max="${model.quantity}">+</button>
                 <span class="qty-max">/ ${model.quantity}</span>
@@ -378,17 +390,19 @@ export function showLogProgress(modelId) {
     const date = getDateValue('lpDate');
     const duration = parseInt(content.querySelector('#lpDuration').value) || null;
 
-    // Build model entries — only stages where the value has changed
     const modelEntries = [];
     stages.forEach(s => {
-      const input = content.querySelector(`#lp_${s.id}`);
-      if (input) {
-        const done = Math.min(parseInt(input.value) || 0, model.quantity);
-        const prev = model.progress[s.id]?.done || 0;
-        if (done !== prev) modelEntries.push({ modelId, stageId: s.id, qty: done });
-        // Always update progress directly too so the value is correct
-        logProgress(modelId, s.id, done, date);
+      let done;
+      if (isSingle) {
+        const cb = content.querySelector(`#lp_${s.id}`);
+        done = cb?.checked ? 1 : 0;
+      } else {
+        const input = content.querySelector(`#lp_${s.id}`);
+        done = Math.min(parseInt(input?.value) || 0, model.quantity);
       }
+      const prev = model.progress[s.id]?.done || 0;
+      if (done !== prev) modelEntries.push({ modelId, stageId: s.id, qty: done });
+      logProgress(modelId, s.id, done, date);
     });
 
     // Record session for activity log (even if no changes — user may just be reviewing)
