@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=MedievalSharp&family=Rajdhani:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
- 
+
     /* ================================================================
        CSS CUSTOM PROPERTIES — Default Theme
     ================================================================ */
@@ -964,6 +964,37 @@
       font-size: 0.8em;
       color: var(--accent);
       white-space: nowrap;
+    }
+
+    .log-stage-check {
+      display: flex;
+      align-items: center;
+      gap: 0.75em;
+      padding: 0.6em 0.75em;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      user-select: none;
+    }
+
+    .log-stage-check:hover { border-color: var(--accent); }
+
+    .log-stage-check input[type=checkbox] {
+      width: 1.2em;
+      height: 1.2em;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .log-stage-check .log-stage-name { flex: 1; font-weight: 600; font-size: 0.9em; }
+    .log-stage-check .log-stage-pts { font-size: 0.78em; color: var(--text-muted); }
+
+    .log-stage-check.is-done {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 10%, var(--surface2));
     }
 
     .form-row-two {
