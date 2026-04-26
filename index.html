@@ -966,6 +966,16 @@
       white-space: nowrap;
     }
 
+    .form-row-two {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75em;
+    }
+
+    @media (max-width: 400px) {
+      .form-row-two { grid-template-columns: 1fr; }
+    }
+
     .share-text-area {
       font-family: monospace;
       font-size: 0.82em;
