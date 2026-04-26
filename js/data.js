@@ -25,14 +25,146 @@ export const GAME_SYSTEMS = {
 };
 
 export const DEFAULT_STAGES = [
-  { id: 's1', name: 'Assembly',   points: 2, phase: 'assembly',  skippable: false, threshold: 'table_ready' },
-  { id: 's2', name: 'Undercoat',  points: 1, phase: 'painting',  skippable: false, threshold: null },
-  { id: 's3', name: 'Basecoat',   points: 2, phase: 'painting',  skippable: false, threshold: null },
-  { id: 's4', name: 'Shade',      points: 1, phase: 'painting',  skippable: false, threshold: null },
-  { id: 's5', name: 'Layer',      points: 1, phase: 'painting',  skippable: true,  threshold: null },
-  { id: 's6', name: 'Highlight',  points: 2, phase: 'painting',  skippable: true,  threshold: 'painted' },
-  { id: 's7', name: 'Basing',     points: 1, phase: 'basing',    skippable: true,  threshold: 'finished' },
+  { id: 's1', name: 'Assembly',  points: 2, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+  { id: 's2', name: 'Prime',     points: 1, phase: 'painting', skippable: false, threshold: null },
+  { id: 's3', name: 'Basecoat',  points: 2, phase: 'painting', skippable: false, threshold: null },
+  { id: 's4', name: 'Shade',     points: 1, phase: 'painting', skippable: false, threshold: null },
+  { id: 's5', name: 'Layer',     points: 1, phase: 'painting', skippable: true,  threshold: null },
+  { id: 's6', name: 'Highlight', points: 2, phase: 'painting', skippable: true,  threshold: 'painted' },
+  { id: 's7', name: 'Basing',    points: 1, phase: 'basing',   skippable: true,  threshold: 'finished' },
 ];
+
+// Built-in model type presets
+export const BUILTIN_MODEL_TYPES = [
+  {
+    id: 'infantry',
+    name: 'Infantry',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 2, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 1, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 1, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 1, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 2, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 1, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'cavalry',
+    name: 'Cavalry',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 3, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'monster',
+    name: 'Monster / Large',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 3, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'behemoth',
+    name: 'Behemoth',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 6, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 6, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 4, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'character',
+    name: 'Character / Hero',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',     points: 2, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',        points: 1, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',        points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',        points: 3, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight',    points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Face Detail',  points: 3, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's8', name: 'Freehand',     points: 4, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's9', name: 'OSL',          points: 4, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's10', name: 'Basing',      points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'warmachine',
+    name: 'War Machine',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 1, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 1, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 1, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 2, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'vehicle',
+    name: 'Vehicle (40K)',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 5, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 1, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 3, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+];
+
+// Get all model types (built-in + custom)
+export function getAllModelTypes() {
+  const custom = appData.config.modelTypes || [];
+  return [...BUILTIN_MODEL_TYPES, ...custom];
+}
+
+export function getModelType(id) {
+  return getAllModelTypes().find(t => t.id === id) || null;
+}
+
+export function saveCustomModelType(typeObj) {
+  if (!appData.config.modelTypes) appData.config.modelTypes = [];
+  const idx = appData.config.modelTypes.findIndex(t => t.id === typeObj.id);
+  if (idx >= 0) {
+    appData.config.modelTypes[idx] = typeObj;
+  } else {
+    appData.config.modelTypes.push(typeObj);
+  }
+  saveData();
+}
+
+export function deleteCustomModelType(id) {
+  if (!appData.config.modelTypes) return;
+  appData.config.modelTypes = appData.config.modelTypes.filter(t => t.id !== id);
+  saveData();
+}
 
 // Thresholds: what milestone each model can reach
 export const THRESHOLDS = {
@@ -54,7 +186,8 @@ export let appData = {
   config: {
     stages: [...DEFAULT_STAGES],
     deadline: null,
-    activeTheme: 'theme-default'
+    activeTheme: 'theme-default',
+    modelTypes: []
   }
 };
 
@@ -72,7 +205,8 @@ export function loadData() {
         config: {
           stages: parsed.config?.stages || [...DEFAULT_STAGES],
           deadline: parsed.config?.deadline || null,
-          activeTheme: parsed.config?.activeTheme || 'theme-default'
+          activeTheme: parsed.config?.activeTheme || 'theme-default',
+          modelTypes: parsed.config?.modelTypes || []
         }
       };
     }

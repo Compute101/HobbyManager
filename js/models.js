@@ -2,7 +2,8 @@
 
 import {
   appData, createModel, updateModel, deleteModel,
-  logProgress, modelPoints, modelThreshold, uid, saveData
+  logProgress, modelPoints, modelThreshold, uid, saveData,
+  getAllModelTypes, saveCustomModelType, deleteCustomModelType
 } from './data.js';
 import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue } from './ui.js';
 import { getTerm } from './theme.js';
@@ -116,6 +117,7 @@ export function showModelForm(editId = null) {
   const model = editId ? appData.models[editId] : null;
   const stages = model?.stages || appData.config.stages.map(s => ({ ...s }));
   const skipped = model?.skippedStages || [];
+  const allTypes = getAllModelTypes();
 
   const content = document.createElement('div');
   content.innerHTML = `
@@ -132,21 +134,20 @@ export function showModelForm(editId = null) {
       <textarea id="mfNotes" class="form-input" rows="2">${model?.notes || ''}</textarea>
     </div>
     <div class="form-group">
-      <label>Hobby Stages</label>
+      <label>Model Type</label>
+      <div class="model-type-row">
+        <select id="mfTypeSelect" class="form-input">
+          <option value="">— Custom / Manual —</option>
+          ${allTypes.map(t => `<option value="${t.id}" ${model?.modelTypeId === t.id ? 'selected' : ''}>${t.name}${t.builtIn ? '' : ' ⭐'}</option>`).join('')}
+        </select>
+        <button class="btn btn-sm" id="mfSaveType" title="Save current stages as a custom type">💾 Save Type</button>
+      </div>
+      <div class="model-type-manage" id="mfTypeManage"></div>
+    </div>
+    <div class="form-group">
+      <label>Hobby Stages <span class="form-hint">(edit points or toggle skipped)</span></label>
       <div class="stages-config" id="mfStages">
-        ${stages.map(s => `
-          <div class="stage-config-row" data-sid="${s.id}">
-            <input type="text" class="form-input stage-cfg-name" value="${s.name}" placeholder="Stage name">
-            <input type="number" class="form-input stage-cfg-pts" value="${s.points || 1}" min="0" max="10" title="Points">
-            <label class="stage-cfg-skip" title="Skippable">
-              <input type="checkbox" class="stage-cfg-skippable" ${s.skippable ? 'checked' : ''}> Optional
-            </label>
-            <label class="stage-cfg-skip" title="Skip for this regiment">
-              <input type="checkbox" class="stage-cfg-skipped" ${skipped.includes(s.id) ? 'checked' : ''}> Skip
-            </label>
-            <button class="btn btn-sm btn-danger stage-cfg-del">✕</button>
-          </div>
-        `).join('')}
+        ${stages.map(s => stageConfigRow(s, skipped)).join('')}
       </div>
       <button class="btn btn-sm" id="mfAddStage">+ Stage</button>
     </div>
@@ -156,19 +157,45 @@ export function showModelForm(editId = null) {
     </div>
   `;
 
+  // Preset dropdown — populate stages when type selected
+  const typeSelect = content.querySelector('#mfTypeSelect');
+  typeSelect.addEventListener('change', () => {
+    const typeId = typeSelect.value;
+    if (!typeId) return;
+    const preset = allTypes.find(t => t.id === typeId);
+    if (!preset) return;
+    const stagesContainer = content.querySelector('#mfStages');
+    stagesContainer.innerHTML = preset.stages.map(s => stageConfigRow(s, [])).join('');
+    updateTypeManage(content, typeId, allTypes);
+  });
+
+  // Initial manage row
+  updateTypeManage(content, model?.modelTypeId || '', allTypes);
+
+  // Save as custom type
+  content.querySelector('#mfSaveType').addEventListener('click', () => {
+    const name = prompt('Name for this custom model type:');
+    if (!name?.trim()) return;
+    const newStages = collectStages(content);
+    if (!newStages.length) { toast('No stages to save', 'error'); return; }
+    const newType = { id: uid(), name: name.trim(), builtIn: false, stages: newStages };
+    saveCustomModelType(newType);
+    toast(`"${name.trim()}" saved as custom type!`, 'success');
+    // Refresh dropdown
+    const opt = document.createElement('option');
+    opt.value = newType.id;
+    opt.textContent = newType.name + ' ⭐';
+    opt.selected = true;
+    typeSelect.appendChild(opt);
+    updateTypeManage(content, newType.id, getAllModelTypes());
+  });
+
   // Add stage
   content.querySelector('#mfAddStage').addEventListener('click', () => {
+    const s = { id: uid(), name: '', points: 1, skippable: true };
     const row = document.createElement('div');
-    row.className = 'stage-config-row';
-    row.dataset.sid = uid();
-    row.innerHTML = `
-      <input type="text" class="form-input stage-cfg-name" placeholder="Stage name">
-      <input type="number" class="form-input stage-cfg-pts" value="1" min="0" max="10" title="Points">
-      <label class="stage-cfg-skip"><input type="checkbox" class="stage-cfg-skippable"> Optional</label>
-      <label class="stage-cfg-skip"><input type="checkbox" class="stage-cfg-skipped"> Skip</label>
-      <button class="btn btn-sm btn-danger stage-cfg-del">✕</button>
-    `;
-    content.querySelector('#mfStages').appendChild(row);
+    row.innerHTML = stageConfigRow(s, []);
+    content.querySelector('#mfStages').appendChild(row.firstElementChild);
   });
 
   // Delete stage rows
@@ -178,33 +205,22 @@ export function showModelForm(editId = null) {
     }
   });
 
-  // Save
+  // Save model
   content.querySelector('#mfSave').addEventListener('click', () => {
     const name = content.querySelector('#mfName').value.trim();
     const quantity = parseInt(content.querySelector('#mfQty').value) || 1;
     const notes = content.querySelector('#mfNotes').value.trim();
+    const modelTypeId = typeSelect.value || null;
 
     if (!name) { toast('Please enter a name', 'error'); return; }
 
-    const newStages = [];
-    const newSkipped = [];
-    content.querySelectorAll('.stage-config-row').forEach(row => {
-      const sName = row.querySelector('.stage-cfg-name').value.trim();
-      const pts = parseInt(row.querySelector('.stage-cfg-pts').value) || 1;
-      const skippable = row.querySelector('.stage-cfg-skippable').checked;
-      const skip = row.querySelector('.stage-cfg-skipped').checked;
-      const sid = row.dataset.sid;
-      if (sName) {
-        newStages.push({ id: sid, name: sName, points: pts, skippable });
-        if (skip) newSkipped.push(sid);
-      }
-    });
+    const { stages: newStages, skipped: newSkipped } = collectStagesAndSkipped(content);
 
     if (editId) {
-      updateModel(editId, { name, quantity, notes, stages: newStages, skippedStages: newSkipped });
+      updateModel(editId, { name, quantity, notes, modelTypeId, stages: newStages, skippedStages: newSkipped });
       toast('Updated!', 'success');
     } else {
-      createModel({ name, quantity, notes, stages: newStages, skippedStages: newSkipped });
+      createModel({ name, quantity, notes, modelTypeId, stages: newStages, skippedStages: newSkipped });
       toast(`${getTerm('model')} added!`, 'success');
     }
 
@@ -215,6 +231,69 @@ export function showModelForm(editId = null) {
   content.querySelector('#mfCancel').addEventListener('click', () => closeModal());
 
   showModal({ title: editId ? `Edit ${getTerm('model')}` : `New ${getTerm('model')}`, content, wide: true });
+}
+
+function stageConfigRow(s, skipped) {
+  return `
+    <div class="stage-config-row" data-sid="${s.id}">
+      <input type="text" class="form-input stage-cfg-name" value="${s.name}" placeholder="Stage name">
+      <input type="number" class="form-input stage-cfg-pts" value="${s.points || 1}" min="0" max="20" title="Points">
+      <label class="stage-cfg-skip" title="Skippable">
+        <input type="checkbox" class="stage-cfg-skippable" ${s.skippable ? 'checked' : ''}> Opt
+      </label>
+      <label class="stage-cfg-skip" title="Skip for this regiment">
+        <input type="checkbox" class="stage-cfg-skipped" ${skipped.includes(s.id) ? 'checked' : ''}> Skip
+      </label>
+      <button class="btn btn-xs btn-danger stage-cfg-del">✕</button>
+    </div>
+  `;
+}
+
+function collectStages(content) {
+  const stages = [];
+  content.querySelectorAll('.stage-config-row').forEach(row => {
+    const name = row.querySelector('.stage-cfg-name').value.trim();
+    const pts = parseInt(row.querySelector('.stage-cfg-pts').value) || 1;
+    const skippable = row.querySelector('.stage-cfg-skippable').checked;
+    if (name) stages.push({ id: row.dataset.sid, name, points: pts, skippable });
+  });
+  return stages;
+}
+
+function collectStagesAndSkipped(content) {
+  const stages = [];
+  const skipped = [];
+  content.querySelectorAll('.stage-config-row').forEach(row => {
+    const name = row.querySelector('.stage-cfg-name').value.trim();
+    const pts = parseInt(row.querySelector('.stage-cfg-pts').value) || 1;
+    const skippable = row.querySelector('.stage-cfg-skippable').checked;
+    const skip = row.querySelector('.stage-cfg-skipped').checked;
+    if (name) {
+      stages.push({ id: row.dataset.sid, name, points: pts, skippable });
+      if (skip) skipped.push(row.dataset.sid);
+    }
+  });
+  return { stages, skipped };
+}
+
+function updateTypeManage(content, typeId, allTypes) {
+  const manageEl = content.querySelector('#mfTypeManage');
+  if (!manageEl) return;
+  const type = allTypes.find(t => t.id === typeId);
+  if (!type || type.builtIn) { manageEl.innerHTML = ''; return; }
+  manageEl.innerHTML = `
+    <div class="type-manage-row">
+      <span class="type-manage-name">⭐ Custom: ${type.name}</span>
+      <button class="btn btn-xs btn-danger" id="mfDeleteType">Delete type</button>
+    </div>
+  `;
+  manageEl.querySelector('#mfDeleteType').addEventListener('click', () => {
+    if (!confirm(`Delete custom type "${type.name}"?`)) return;
+    deleteCustomModelType(type.id);
+    content.querySelector('#mfTypeSelect').value = '';
+    manageEl.innerHTML = '';
+    toast('Custom type deleted', 'info');
+  });
 }
 
 // --- Delete model ---
