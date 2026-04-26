@@ -1,105 +1,211 @@
-// charts.js — progress and burndown charts
+// charts.js — all Chart.js rendering
 
-import { appData, globalStats, listStats, modelPoints } from './data.js';
+import { appData, GAME_SYSTEMS } from './data.js';
 
-let pieChart = null;
-let burnChart = null;
+// Track chart instances so we can destroy before re-creating
+const _charts = {};
 
-export function renderDashboardCharts(listId = null) {
-  renderProgressChart(listId);
-  renderBurndownChart(listId);
+function destroyChart(key) {
+  if (_charts[key]) { _charts[key].destroy(); delete _charts[key]; }
 }
 
-// --- Stage breakdown bar chart ---
+function accent() {
+  return getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#4a9d6f';
+}
 
-function renderProgressChart(listId) {
-  const canvas = document.getElementById('progressChart');
+function gridColor() { return '#2a2a3a'; }
+function tickColor() { return '#888'; }
+
+// ----------------------------------------------------------------
+// PIE: Collection composition by game system
+// ----------------------------------------------------------------
+export function renderCompositionPie(canvasId) {
+  const canvas = document.getElementById(canvasId);
   if (!canvas) return;
+  destroyChart(canvasId);
 
-  const models = listId
-    ? (appData.lists[listId]?.modelIds || []).map(id => appData.models[id]).filter(Boolean)
-    : Object.values(appData.models);
+  const systemCounts = {};
+  let unassigned = 0;
 
-  const stages = appData.config.stages;
-  const labels = stages.map(s => s.name);
+  // Build map: modelId -> set of gameSystemIds it belongs to via lists
+  const modelSystems = {};
+  Object.values(appData.lists).forEach(list => {
+    const col = appData.collections[list.collectionId];
+    if (!col) return;
+    const sysId = col.gameSystemId;
+    (list.modelIds || []).forEach(mid => {
+      if (!modelSystems[mid]) modelSystems[mid] = new Set();
+      modelSystems[mid].add(sysId);
+    });
+  });
 
-  const doneData = stages.map(s =>
-    models.reduce((acc, m) => {
-      const skipped = m.skippedStages || [];
-      if (skipped.includes(s.id)) return acc;
-      const prog = m.progress[s.id] || { done: 0 };
-      const mStage = (m.stages || stages).find(ms => ms.id === s.id);
-      return acc + Math.min(prog.done, m.quantity) * (mStage?.points || s.points || 1);
-    }, 0)
-  );
+  // Count quantities per system (model counts in each system it belongs to)
+  Object.values(appData.models).forEach(m => {
+    const systems = modelSystems[m.id];
+    if (!systems || systems.size === 0) {
+      unassigned += m.quantity;
+    } else {
+      systems.forEach(sysId => {
+        systemCounts[sysId] = (systemCounts[sysId] || 0) + m.quantity;
+      });
+    }
+  });
 
-  const totalData = stages.map(s =>
-    models.reduce((acc, m) => {
-      const skipped = m.skippedStages || [];
-      if (skipped.includes(s.id)) return acc;
-      const mStage = (m.stages || stages).find(ms => ms.id === s.id);
-      return acc + m.quantity * (mStage?.points || s.points || 1);
-    }, 0)
-  );
+  const labels = [];
+  const data = [];
+  const colors = ['#c8962a', '#c0180c', '#4a9d6f', '#6a5acd', '#e67e22', '#2980b9', '#8e44ad'];
+  let colorIdx = 0;
+  const bgColors = [];
 
-  const remainData = totalData.map((t, i) => Math.max(0, t - doneData[i]));
+  Object.entries(systemCounts).forEach(([sysId, count]) => {
+    const sys = GAME_SYSTEMS[sysId];
+    labels.push(sys ? sys.shortLabel : sysId);
+    data.push(count);
+    bgColors.push(colors[colorIdx++ % colors.length]);
+  });
 
-  if (pieChart) pieChart.destroy();
+  if (unassigned > 0) {
+    labels.push('Unassigned');
+    data.push(unassigned);
+    bgColors.push('#444');
+  }
 
-  pieChart = new Chart(canvas.getContext('2d'), {
-    type: 'bar',
+  if (!data.length) {
+    canvas.parentElement.innerHTML = '<p class="empty-text">Add models to army lists to see composition.</p>';
+    return;
+  }
+
+  _charts[canvasId] = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
     data: {
       labels,
-      datasets: [
-        {
-          label: 'Complete',
-          data: doneData,
-          backgroundColor: getComputedStyle(document.body).getPropertyValue('--chart-done').trim() || '#4a9d6f',
-          borderRadius: 3
-        },
-        {
-          label: 'Remaining',
-          data: remainData,
-          backgroundColor: getComputedStyle(document.body).getPropertyValue('--chart-remain').trim() || '#3a3a4a',
-          borderRadius: 3
-        }
-      ]
+      datasets: [{ data, backgroundColor: bgColors, borderColor: '#1a1a2e', borderWidth: 2 }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { labels: { color: '#ccc' } }
-      },
-      scales: {
-        x: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' } },
-        y: { stacked: true, ticks: { color: '#aaa' }, grid: { color: '#333' }, title: { display: true, text: 'Points', color: '#aaa' } }
+        legend: { position: 'bottom', labels: { color: '#ccc', padding: 10, font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} models` } }
       }
     }
   });
 }
 
-// --- Burndown chart ---
-
-function renderBurndownChart(listId) {
-  const canvas = document.getElementById('burndownChart');
+// ----------------------------------------------------------------
+// PIE: Completion status across whole collection
+// ----------------------------------------------------------------
+export function renderCompletionPie(canvasId) {
+  const canvas = document.getElementById(canvasId);
   if (!canvas) return;
+  destroyChart(canvasId);
 
-  const models = listId
-    ? (appData.lists[listId]?.modelIds || []).map(id => appData.models[id]).filter(Boolean)
-    : Object.values(appData.models);
+  let finished = 0, painted = 0, tableReady = 0, inProgress = 0;
 
-  const deadline = appData.config.deadline;
-  const today = new Date().toISOString().split('T')[0];
+  Object.values(appData.models).forEach(m => {
+    const thresh = calcModelThreshold(m);
+    const qty = m.quantity;
+    if (thresh === 'finished')     finished   += qty;
+    else if (thresh === 'painted') painted    += qty;
+    else if (thresh === 'table_ready') tableReady += qty;
+    else                           inProgress += qty;
+  });
 
-  // Accumulate points by date
+  const total = finished + painted + tableReady + inProgress;
+  if (!total) {
+    canvas.parentElement.innerHTML = '<p class="empty-text">No models in your pool yet.</p>';
+    return;
+  }
+
+  _charts[canvasId] = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress'],
+      datasets: [{
+        data: [finished, painted, tableReady, inProgress],
+        backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#2a2a3a'],
+        borderColor: '#1a1a2e',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#ccc', padding: 10, font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/total*100)}%)` } }
+      }
+    }
+  });
+}
+
+// ----------------------------------------------------------------
+// BAR: Stage breakdown for a list (shown in burndown modal)
+// ----------------------------------------------------------------
+export function renderStageBar(canvasId, models) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  destroyChart(canvasId);
+
+  const stageMap = {};
+  models.forEach(m => {
+    (m.stages || appData.config.stages).forEach(s => {
+      if (!(m.skippedStages || []).includes(s.id) && !stageMap[s.id]) {
+        stageMap[s.id] = { name: s.name, done: 0, total: 0 };
+      }
+    });
+  });
+
+  models.forEach(m => {
+    (m.stages || appData.config.stages).forEach(s => {
+      if ((m.skippedStages || []).includes(s.id) || !stageMap[s.id]) return;
+      stageMap[s.id].total += (s.points || 1) * m.quantity;
+      const prog = m.progress[s.id] || { done: 0 };
+      stageMap[s.id].done += Math.min(prog.done, m.quantity) * (s.points || 1);
+    });
+  });
+
+  const labels = Object.values(stageMap).map(s => s.name);
+  const doneData = Object.values(stageMap).map(s => s.done);
+  const remainData = Object.values(stageMap).map(s => Math.max(0, s.total - s.done));
+
+  _charts[canvasId] = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        { label: 'Complete', data: doneData, backgroundColor: accent(), borderRadius: 3 },
+        { label: 'Remaining', data: remainData, backgroundColor: '#2a2a40', borderRadius: 3 }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#ccc' } } },
+      scales: {
+        x: { stacked: true, ticks: { color: tickColor() }, grid: { color: gridColor() } },
+        y: { stacked: true, ticks: { color: tickColor() }, grid: { color: gridColor() },
+             title: { display: true, text: 'Points', color: tickColor() } }
+      }
+    }
+  });
+}
+
+// ----------------------------------------------------------------
+// LINE: Burndown for a specific list (deadline optional)
+// ----------------------------------------------------------------
+export function renderBurndown(canvasId, models, deadline) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  destroyChart(canvasId);
+
+  const todayStr = new Date().toISOString().split('T')[0];
   const byDay = {};
   let totalPts = 0;
 
   models.forEach(m => {
     const stages = m.stages || appData.config.stages;
     const skipped = m.skippedStages || [];
-
     stages.forEach(s => {
       if (skipped.includes(s.id)) return;
       totalPts += m.quantity * (s.points || 1);
@@ -112,63 +218,46 @@ function renderBurndownChart(listId) {
   });
 
   const sortedDates = Object.keys(byDay).sort();
-  let cumulativeDates = [];
   let cum = 0;
+  const cumulativeDates = sortedDates.map(d => { cum += byDay[d]; return { d, cum }; });
 
-  sortedDates.forEach(d => {
-    cum += byDay[d];
-    cumulativeDates.push({ d, cum });
-  });
-
-  // Build date range for chart
-  const startDate = sortedDates[0] || today;
-  const endDate = deadline || today;
-  const allDates = new Set([...sortedDates, today]);
+  const allDates = new Set([...sortedDates, todayStr]);
   if (deadline) allDates.add(deadline);
-
   const dateRange = [...allDates].sort();
 
-  // Actual line
   let cumSoFar = 0;
   const actualData = dateRange.map(d => {
     const entry = cumulativeDates.find(e => e.d === d);
     if (entry) cumSoFar = entry.cum;
-    return d <= today ? cumSoFar : null;
+    return d <= todayStr ? cumSoFar : null;
   });
 
-  // Ideal line (from 0 to totalPts across date range)
-  const idealData = dateRange.map((d, i) =>
-    deadline ? Math.round((i / (dateRange.length - 1 || 1)) * totalPts) : null
-  );
+  const datasets = [{
+    label: 'Points Done',
+    data: actualData,
+    borderColor: accent(),
+    backgroundColor: accent() + '26',
+    pointRadius: 4,
+    tension: 0.3,
+    fill: true,
+    spanGaps: false
+  }];
 
-  if (burnChart) burnChart.destroy();
+  if (deadline) {
+    datasets.push({
+      label: 'Ideal',
+      data: dateRange.map((_, i) => Math.round((i / (dateRange.length - 1 || 1)) * totalPts)),
+      borderColor: '#666',
+      borderDash: [6, 4],
+      pointRadius: 0,
+      tension: 0,
+      fill: false
+    });
+  }
 
-  burnChart = new Chart(canvas.getContext('2d'), {
+  _charts[canvasId] = new Chart(canvas.getContext('2d'), {
     type: 'line',
-    data: {
-      labels: dateRange,
-      datasets: [
-        {
-          label: 'Points Done',
-          data: actualData,
-          borderColor: getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#4a9d6f',
-          backgroundColor: 'rgba(74,157,111,0.15)',
-          pointRadius: 4,
-          tension: 0.3,
-          fill: true,
-          spanGaps: false
-        },
-        {
-          label: 'Ideal',
-          data: idealData,
-          borderColor: '#888',
-          borderDash: [6, 4],
-          pointRadius: 0,
-          tension: 0,
-          fill: false
-        }
-      ]
-    },
+    data: { labels: dateRange, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -177,20 +266,37 @@ function renderBurndownChart(listId) {
         tooltip: { mode: 'index', intersect: false }
       },
       scales: {
-        x: { ticks: { color: '#aaa', maxTicksLimit: 8 }, grid: { color: '#333' } },
+        x: { ticks: { color: tickColor(), maxTicksLimit: 8 }, grid: { color: gridColor() } },
         y: {
-          ticks: { color: '#aaa' },
-          grid: { color: '#333' },
-          min: 0,
-          max: totalPts || 10,
-          title: { display: true, text: 'Points', color: '#aaa' }
+          min: 0, max: totalPts || 10,
+          ticks: { color: tickColor() }, grid: { color: gridColor() },
+          title: { display: true, text: 'Points', color: tickColor() }
         }
       }
     }
   });
 }
 
-export function destroyCharts() {
-  if (pieChart) { pieChart.destroy(); pieChart = null; }
-  if (burnChart) { burnChart.destroy(); burnChart = null; }
+// ----------------------------------------------------------------
+// Inline threshold helper (avoids circular import)
+// ----------------------------------------------------------------
+function calcModelThreshold(model) {
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+  const order = ['table_ready', 'painted', 'finished'];
+  for (let i = order.length - 1; i >= 0; i--) {
+    const thresh = order[i];
+    const threshIdx = stages.findIndex(s => s.threshold === thresh);
+    if (threshIdx === -1) continue;
+    const allDone = stages.slice(0, threshIdx + 1).every(s => {
+      if (skipped.includes(s.id)) return true;
+      return (model.progress[s.id]?.done || 0) >= model.quantity;
+    });
+    if (allDone) return thresh;
+  }
+  return null;
+}
+
+export function destroyAllCharts() {
+  Object.keys(_charts).forEach(k => { _charts[k].destroy(); delete _charts[k]; });
 }

@@ -3,11 +3,10 @@
 import {
   appData, createCollection, deleteCollection,
   createList, deleteList, addModelToList, removeModelFromList,
-  listStats, saveData, uid
+  listStats, saveData, uid, GAME_SYSTEMS
 } from './data.js';
-import { showModal, closeModal, toast, progressBar, thresholdBadge } from './ui.js';
+import { showModal, closeModal, toast, progressBar, thresholdBadge, createDateInput, getDateValue } from './ui.js';
 import { applyTheme, resetTheme, getTerm } from './theme.js';
-import { GAME_SYSTEMS } from './data.js';
 import { showLogProgress, showModelDetail } from './models.js';
 
 let activeCollectionId = null;
@@ -193,6 +192,11 @@ function selectList(listId) {
         <span class="thresh-item">🏆 ${stats.finished}/${stats.total} Finished</span>
       </div>
       <div class="pts-label">${stats.donePts} / ${stats.totalPts} pts (${stats.pct}%)</div>
+      <div class="list-deadline-row">
+        <label>🎯 Target date (optional)</label>
+        ${createDateInput('listDeadlineInput', list.deadline || '')}
+        ${list.deadline ? `<button class="btn btn-xs btn-danger" id="clearDeadlineBtn">✕</button>` : ''}
+      </div>
     </div>
     <div class="list-models-header">
       <h3>${getTerm('group')}s / ${getTerm('model')}s</h3>
@@ -205,6 +209,32 @@ function selectList(listId) {
 
   main.querySelector('#backToCol')?.addEventListener('click', () => selectCollection(list.collectionId));
   main.querySelector('#addModelToListBtn')?.addEventListener('click', () => showAddModelToList(listId));
+
+  // Deadline save — works for native input and dropdowns
+  const deadlineEl = document.getElementById('listDeadlineInput');
+  const saveListDeadline = () => {
+    const val = getDateValue('listDeadlineInput');
+    if (val !== (list.deadline || '')) {
+      list.deadline = val || null;
+      saveData();
+      toast(val ? 'Deadline saved' : 'Deadline cleared', 'success');
+      selectList(listId); // re-render to update clear button
+    }
+  };
+  if (deadlineEl) {
+    if (deadlineEl.tagName === 'INPUT') {
+      deadlineEl.addEventListener('change', saveListDeadline);
+    } else {
+      deadlineEl.querySelectorAll('select').forEach(s => s.addEventListener('change', saveListDeadline));
+    }
+  }
+
+  main.querySelector('#clearDeadlineBtn')?.addEventListener('click', () => {
+    list.deadline = null;
+    saveData();
+    toast('Deadline cleared', 'info');
+    selectList(listId);
+  });
 
   main.querySelectorAll('[data-model-view]').forEach(el => {
     el.addEventListener('click', () => showModelDetail(el.dataset.modelView));
@@ -324,7 +354,6 @@ function showAddModelToList(listId) {
 // --- Collection form ---
 
 function showCollectionForm(editId = null) {
-  editId = editId || null;
   const col = editId ? appData.collections[editId] : null;
 
   const content = document.createElement('div');
@@ -352,7 +381,7 @@ function showCollectionForm(editId = null) {
     const gameSystemId = content.querySelector('#cfSys').value;
     if (!name) { toast('Please enter a name', 'error'); return; }
 
-    if (editId && appData.collections[editId]) {
+    if (editId) {
       Object.assign(appData.collections[editId], { name, gameSystemId });
       saveData();
       toast('Updated!', 'success');
