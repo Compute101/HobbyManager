@@ -183,6 +183,7 @@ function selectList(listId) {
     <div class="main-header">
       <button class="btn btn-sm" id="backToCol">← ${col?.name || 'Back'}</button>
       <h2>${list.name}</h2>
+      <button class="btn btn-sm" id="shareListBtn" title="Share progress">📤 Share</button>
     </div>
     <div class="list-summary">
       ${progressBar(stats.pct)}
@@ -209,6 +210,7 @@ function selectList(listId) {
 
   main.querySelector('#backToCol')?.addEventListener('click', () => selectCollection(list.collectionId));
   main.querySelector('#addModelToListBtn')?.addEventListener('click', () => showAddModelToList(listId));
+  main.querySelector('#shareListBtn')?.addEventListener('click', () => shareList(listId));
 
   // Deadline save — works for native input and dropdowns
   const deadlineEl = document.getElementById('listDeadlineInput');
@@ -462,4 +464,105 @@ function confirmDeleteList(id) {
   toast('List deleted', 'info');
   renderCollections();
   if (colId) selectCollection(colId);
+}
+
+// --- Share list as text ---
+
+function shareList(listId) {
+  const list = appData.lists[listId];
+  if (!list) return;
+
+  const col = appData.collections[list.collectionId];
+  const sys = col ? GAME_SYSTEMS[col.gameSystemId] : null;
+  const stats = listStats(list);
+  const models = (list.modelIds || []).map(id => appData.models[id]).filter(Boolean);
+
+  const threshLabel = (thresh) => {
+    if (thresh === 'finished')    return '🏆 Finished';
+    if (thresh === 'painted')     return '🎨 Painted';
+    if (thresh === 'table_ready') return '⚔️ Table Ready';
+    return '🔧 In Progress';
+  };
+
+  const bar = (pct) => {
+    const filled = Math.round(pct / 10);
+    return '█'.repeat(filled) + '░'.repeat(10 - filled) + ` ${pct}%`;
+  };
+
+  // Regiment breakdown — one line each
+  const regimentLines = models.map(m => {
+    const thresh = calcModelThreshold(m);
+    const pts = calcModelPoints(m);
+    const label = threshLabel(thresh);
+    const extra = thresh === null ? ` (${pts.pct}%)` : '';
+    return `• ${m.name} ×${m.quantity} — ${label}${extra}`;
+  }).join('\n');
+
+  // Deadline line
+  let deadlineLine = '';
+  if (list.deadline) {
+    const days = Math.ceil((new Date(list.deadline) - new Date()) / 86400000);
+    const ptsLeft = stats.totalPts - stats.donePts;
+    const pace = days > 0 ? (ptsLeft / days).toFixed(1) : null;
+    const daysStr = days < 0
+      ? `${Math.abs(days)} days overdue`
+      : days === 0 ? 'due today'
+      : `${days} days to go`;
+    const paceStr = pace ? ` · ${pace} pts/day needed` : '';
+    const d = new Date(list.deadline + 'T12:00:00');
+    const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    deadlineLine = `\n📅 Target: ${dateStr} · ${daysStr}${paceStr}`;
+  }
+
+  const sysLine = sys ? ` (${sys.shortLabel})` : '';
+
+  const text = [
+    `⚔️ ${list.name}${sysLine}`,
+    `${'━'.repeat(Math.min(list.name.length + sysLine.length + 2, 32))}`,
+    ``,
+    `📊 Progress: ${bar(stats.pct)}`,
+    `   ${stats.donePts}/${stats.totalPts} hobby points`,
+    ``,
+    `⚔️ Table Ready: ${stats.tableReady}/${stats.total}`,
+    `🎨 Painted:     ${stats.painted}/${stats.total}`,
+    `🏆 Finished:    ${stats.finished}/${stats.total}`,
+    ``,
+    `📋 Regiments:`,
+    regimentLines || '  (none)',
+    deadlineLine,
+  ].filter(l => l !== undefined).join('\n').trim();
+
+  // Try native share sheet first (mobile), fall back to clipboard
+  if (navigator.share) {
+    navigator.share({ title: list.name, text })
+      .catch(() => {}); // user cancelled — no error needed
+  } else {
+    navigator.clipboard.writeText(text)
+      .then(() => toast('Copied to clipboard!', 'success'))
+      .catch(() => {
+        // Last resort — show in a modal they can copy manually
+        showShareFallback(text);
+      });
+  }
+}
+
+function showShareFallback(text) {
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <p style="font-size:0.85em;color:var(--text-muted);margin-bottom:0.75em">
+      Copy the text below and paste it into WhatsApp or any messenger:
+    </p>
+    <textarea class="form-input share-text-area" readonly rows="16">${text}</textarea>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="shareCopyBtn">📋 Copy</button>
+      <button class="btn" id="shareCloseBtn">Close</button>
+    </div>
+  `;
+  content.querySelector('#shareCopyBtn').addEventListener('click', () => {
+    content.querySelector('.share-text-area').select();
+    document.execCommand('copy');
+    toast('Copied!', 'success');
+  });
+  content.querySelector('#shareCloseBtn').addEventListener('click', () => closeModal());
+  showModal({ title: '📤 Share Progress', content, wide: true });
 }
