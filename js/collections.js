@@ -324,6 +324,7 @@ function showAddModelToList(listId) {
 // --- Collection form ---
 
 function showCollectionForm(editId = null) {
+  editId = editId || null;
   const col = editId ? appData.collections[editId] : null;
 
   const content = document.createElement('div');
