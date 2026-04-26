@@ -1,46 +1,303 @@
-// models.js: Model-related UI and logic
-import { data, saveData, shortid } from './data.js';
-import { renderGroups } from './groups.js';
-import { showModal, closeModal } from './ui.js';
+// models.js — global model pool UI
 
-export let selectedGroupId = null;
-window.selectedGroupId = selectedGroupId;
+import {
+  appData, createModel, updateModel, deleteModel,
+  logProgress, modelPoints, modelThreshold, uid, saveData
+} from './data.js';
+import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today } from './ui.js';
+import { getTerm } from './theme.js';
 
-export function renderModelsForGroup() {
-  const col = document.getElementById('modelsCol');
-  if (!window.selectedGroupId) {
-    col.innerHTML = '<em>Select a collection or subgroup.</em>';
+// --- Render the model pool section ---
+
+export function renderModelPool(containerId = 'modelPool', filterFn = null) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  const models = Object.values(appData.models).filter(filterFn || (() => true));
+
+  if (!models.length) {
+    container.innerHTML = `<div class="empty-state">
+      <p>No ${getTerm('model')}s in your collection yet.</p>
+      <button class="btn btn-primary" id="addFirstModel">+ Add ${getTerm('model')}</button>
+    </div>`;
+    document.getElementById('addFirstModel')?.addEventListener('click', () => showModelForm());
     return;
   }
-  const group = data.groups[window.selectedGroupId];
-  if (!group) {
-    col.innerHTML = '<em>Not found.</em>';
-    return;
-  }
-  col.innerHTML = `<h3>${group.name}</h3>`;
-  if (group.modelIds && group.modelIds.length) {
-    const ul = document.createElement('ul');
-    ul.className = 'model-list';
-    group.modelIds.forEach(mid => {
-      if (data.models[mid]) ul.appendChild(renderModelNode(data.models[mid]));
-    });
-    col.appendChild(ul);
-  } else {
-    col.innerHTML += `<div>No models. <button id="addModelBtn">Add Model/Regiment</button></div>`;
-  }
-  col.innerHTML += `<button id="addModelBtnBottom">+ Add Model / Regiment</button>`;
+
+  container.innerHTML = `<div class="model-grid">${models.map(modelCard).join('')}</div>`;
+
+  container.querySelectorAll('[data-model-view]').forEach(el => {
+    el.addEventListener('click', () => showModelDetail(el.dataset.modelView));
+  });
+  container.querySelectorAll('[data-model-edit]').forEach(el => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); showModelForm(el.dataset.modelEdit); });
+  });
+  container.querySelectorAll('[data-model-delete]').forEach(el => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); confirmDeleteModel(el.dataset.modelDelete); });
+  });
+  container.querySelectorAll('[data-model-log]').forEach(el => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); showLogProgress(el.dataset.modelLog); });
+  });
 }
 
-function renderModelNode(model) {
-  const li = document.createElement('li');
-  li.className = 'model';
-  li.innerHTML = `<span style="cursor:pointer;" data-model-view="${model.id}">${model.name} (<i>${model.quantity}</i>)</span>`;
-  let acts = document.createElement('span');
-  acts.className = 'model-actions';
-  acts.innerHTML = `
-    <button data-model-edit="${model.id}">✏️</button>
-    <button data-model-delete="${model.id}" class="danger">🗑️</button>
-    <button data-model-view="${model.id}">View</button>`;
-  li.appendChild(acts);
-  return li;
+function modelCard(model) {
+  const pts = modelPoints(model);
+  const thresh = modelThreshold(model);
+  const badge = thresholdBadge(thresh);
+
+  return `
+    <div class="model-card" data-model-view="${model.id}">
+      <div class="model-card-header">
+        <div>
+          <div class="model-card-name">${model.name}</div>
+          <div class="model-card-qty">Qty: ${model.quantity}</div>
+        </div>
+        ${badge}
+      </div>
+      ${progressBar(pts.pct)}
+      <div class="model-card-pts">${pts.done} / ${pts.total} pts (${pts.pct}%)</div>
+      <div class="model-card-actions">
+        <button class="btn btn-sm btn-primary" data-model-log="${model.id}">📝 Log</button>
+        <button class="btn btn-sm" data-model-edit="${model.id}">✏️</button>
+        <button class="btn btn-sm btn-danger" data-model-delete="${model.id}">🗑️</button>
+      </div>
+    </div>
+  `;
+}
+
+// --- Model detail modal ---
+
+export function showModelDetail(modelId) {
+  const model = appData.models[modelId];
+  if (!model) return;
+
+  const pts = modelPoints(model);
+  const thresh = modelThreshold(model);
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+
+  const stagesHtml = stages.map(s =>
+    stageRow(s, model.progress[s.id], model.quantity, skipped)
+  ).join('');
+
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <div class="detail-header">
+      <div>
+        <div class="detail-qty">Quantity: <b>${model.quantity}</b></div>
+        ${model.notes ? `<div class="detail-notes">${model.notes}</div>` : ''}
+      </div>
+      ${thresholdBadge(thresh)}
+    </div>
+    ${progressBar(pts.pct)}
+    <div class="detail-pts">${pts.done} / ${pts.total} pts (${pts.pct}%)</div>
+    <div class="stages-list">${stagesHtml}</div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="detailLogBtn">📝 Log Progress</button>
+      <button class="btn" id="detailEditBtn">✏️ Edit</button>
+    </div>
+  `;
+
+  content.querySelector('#detailLogBtn').addEventListener('click', () => {
+    closeModal();
+    showLogProgress(modelId);
+  });
+  content.querySelector('#detailEditBtn').addEventListener('click', () => {
+    closeModal();
+    showModelForm(modelId);
+  });
+
+  showModal({ title: model.name, content, wide: true });
+}
+
+// --- Model form (create / edit) ---
+
+export function showModelForm(editId = null) {
+  const model = editId ? appData.models[editId] : null;
+  const stages = model?.stages || appData.config.stages.map(s => ({ ...s }));
+  const skipped = model?.skippedStages || [];
+
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <div class="form-group">
+      <label>Name</label>
+      <input id="mfName" type="text" class="form-input" placeholder="${getTerm('model')} or regiment name" value="${model?.name || ''}">
+    </div>
+    <div class="form-group">
+      <label>Quantity</label>
+      <input id="mfQty" type="number" class="form-input" min="1" value="${model?.quantity || 1}">
+    </div>
+    <div class="form-group">
+      <label>Notes (optional)</label>
+      <textarea id="mfNotes" class="form-input" rows="2">${model?.notes || ''}</textarea>
+    </div>
+    <div class="form-group">
+      <label>Hobby Stages</label>
+      <div class="stages-config" id="mfStages">
+        ${stages.map(s => `
+          <div class="stage-config-row" data-sid="${s.id}">
+            <input type="text" class="form-input stage-cfg-name" value="${s.name}" placeholder="Stage name">
+            <input type="number" class="form-input stage-cfg-pts" value="${s.points || 1}" min="0" max="10" title="Points">
+            <label class="stage-cfg-skip" title="Skippable">
+              <input type="checkbox" class="stage-cfg-skippable" ${s.skippable ? 'checked' : ''}> Optional
+            </label>
+            <label class="stage-cfg-skip" title="Skip for this regiment">
+              <input type="checkbox" class="stage-cfg-skipped" ${skipped.includes(s.id) ? 'checked' : ''}> Skip
+            </label>
+            <button class="btn btn-sm btn-danger stage-cfg-del">✕</button>
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn btn-sm" id="mfAddStage">+ Stage</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="mfSave">${editId ? 'Update' : 'Add'} ${getTerm('model')}</button>
+      <button class="btn" id="mfCancel">Cancel</button>
+    </div>
+  `;
+
+  // Add stage
+  content.querySelector('#mfAddStage').addEventListener('click', () => {
+    const row = document.createElement('div');
+    row.className = 'stage-config-row';
+    row.dataset.sid = uid();
+    row.innerHTML = `
+      <input type="text" class="form-input stage-cfg-name" placeholder="Stage name">
+      <input type="number" class="form-input stage-cfg-pts" value="1" min="0" max="10" title="Points">
+      <label class="stage-cfg-skip"><input type="checkbox" class="stage-cfg-skippable"> Optional</label>
+      <label class="stage-cfg-skip"><input type="checkbox" class="stage-cfg-skipped"> Skip</label>
+      <button class="btn btn-sm btn-danger stage-cfg-del">✕</button>
+    `;
+    content.querySelector('#mfStages').appendChild(row);
+  });
+
+  // Delete stage rows
+  content.querySelector('#mfStages').addEventListener('click', e => {
+    if (e.target.classList.contains('stage-cfg-del')) {
+      e.target.closest('.stage-config-row').remove();
+    }
+  });
+
+  // Save
+  content.querySelector('#mfSave').addEventListener('click', () => {
+    const name = content.querySelector('#mfName').value.trim();
+    const quantity = parseInt(content.querySelector('#mfQty').value) || 1;
+    const notes = content.querySelector('#mfNotes').value.trim();
+
+    if (!name) { toast('Please enter a name', 'error'); return; }
+
+    const newStages = [];
+    const newSkipped = [];
+    content.querySelectorAll('.stage-config-row').forEach(row => {
+      const sName = row.querySelector('.stage-cfg-name').value.trim();
+      const pts = parseInt(row.querySelector('.stage-cfg-pts').value) || 1;
+      const skippable = row.querySelector('.stage-cfg-skippable').checked;
+      const skip = row.querySelector('.stage-cfg-skipped').checked;
+      const sid = row.dataset.sid;
+      if (sName) {
+        newStages.push({ id: sid, name: sName, points: pts, skippable });
+        if (skip) newSkipped.push(sid);
+      }
+    });
+
+    if (editId) {
+      updateModel(editId, { name, quantity, notes, stages: newStages, skippedStages: newSkipped });
+      toast('Updated!', 'success');
+    } else {
+      createModel({ name, quantity, notes, stages: newStages, skippedStages: newSkipped });
+      toast(`${getTerm('model')} added!`, 'success');
+    }
+
+    closeModal();
+    renderModelPool();
+  });
+
+  content.querySelector('#mfCancel').addEventListener('click', () => closeModal());
+
+  showModal({ title: editId ? `Edit ${getTerm('model')}` : `New ${getTerm('model')}`, content, wide: true });
+}
+
+// --- Delete model ---
+
+function confirmDeleteModel(modelId) {
+  const model = appData.models[modelId];
+  if (!model) return;
+  if (!window.confirm(`Delete "${model.name}"? This will also remove it from all army lists.`)) return;
+  deleteModel(modelId);
+  toast('Deleted', 'info');
+  renderModelPool();
+}
+
+// --- Log progress modal ---
+
+export function showLogProgress(modelId) {
+  const model = appData.models[modelId];
+  if (!model) return;
+
+  const stages = (model.stages || appData.config.stages).filter(s => !(model.skippedStages || []).includes(s.id));
+
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <div class="log-model-name">${model.name} <span class="log-qty">(${model.quantity} models)</span></div>
+    <div class="form-group">
+      <label>Date</label>
+      <input id="lpDate" type="date" class="form-input" value="${today()}">
+    </div>
+    <div class="form-group">
+      <label>Stages completed</label>
+      <div class="log-stages" id="lpStages">
+        ${stages.map(s => {
+          const prog = model.progress[s.id] || { done: 0 };
+          return `
+            <div class="log-stage-row">
+              <div class="log-stage-name">${s.name} <span class="log-stage-pts">(${s.points}pts each)</span></div>
+              <div class="log-stage-input">
+                <button class="btn btn-sm qty-dec" data-sid="${s.id}">−</button>
+                <input type="number" class="form-input qty-input" id="lp_${s.id}" 
+                  data-sid="${s.id}" min="0" max="${model.quantity}" value="${prog.done}">
+                <button class="btn btn-sm qty-inc" data-sid="${s.id}" data-max="${model.quantity}">+</button>
+                <span class="qty-max">/ ${model.quantity}</span>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="lpSave">Save Progress</button>
+      <button class="btn" id="lpCancel">Cancel</button>
+    </div>
+  `;
+
+  // +/- buttons
+  content.querySelector('#lpStages').addEventListener('click', e => {
+    const sid = e.target.dataset.sid;
+    if (!sid) return;
+    const input = content.querySelector(`#lp_${sid}`);
+    const max = parseInt(e.target.dataset.max || model.quantity);
+    if (e.target.classList.contains('qty-inc')) {
+      input.value = Math.min(max, parseInt(input.value || 0) + 1);
+    }
+    if (e.target.classList.contains('qty-dec')) {
+      input.value = Math.max(0, parseInt(input.value || 0) - 1);
+    }
+  });
+
+  content.querySelector('#lpSave').addEventListener('click', () => {
+    const date = content.querySelector('#lpDate').value;
+    stages.forEach(s => {
+      const input = content.querySelector(`#lp_${s.id}`);
+      if (input) {
+        const done = Math.min(parseInt(input.value) || 0, model.quantity);
+        logProgress(modelId, s.id, done, date);
+      }
+    });
+    toast('Progress saved!', 'success');
+    closeModal();
+    renderModelPool();
+  });
+
+  content.querySelector('#lpCancel').addEventListener('click', () => closeModal());
+
+  showModal({ title: `Log Progress — ${model.name}`, content });
 }
