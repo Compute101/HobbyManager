@@ -2,650 +2,1087 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Miniature Hobby Project Manager</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Hobby Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=MedievalSharp&family=Rajdhani:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: sans-serif; margin: 0; background: #222; color: #eee; }
-    header { background: #191970; color: #fff; padding: 1em; }
-    h1 { margin: 0; font-size: 2em; }
-    main { max-width: 900px; margin: auto; padding: 2em 1em; }
-    section { background: #29293a; border-radius: 7px; margin-bottom: 1.5em; padding: 1.2em; }
-    label { display: block; margin-bottom: 0.5em; }
-    input, select, textarea, button { font-size: 1em; border-radius: 4px; border: 1px solid #444; margin-bottom: 1em; }
-    input, select, textarea { padding: 5px; background-color: #232334; color: #eee; }
-    button { background: #191970; color: #fff; border: none; padding: 7px 14px; margin-right: 6px; cursor: pointer; }
-    button:hover { background: #0547b6;}
-    .row { display: flex; gap: 1.4em; margin-bottom: 1em; }
-    .col { flex: 1; }
-    .group, .model { margin-bottom: 1em; }
-    .model-list, .group-list { margin: 0; padding: 0; list-style: none;}
-    .model-actions { margin-left: 0.8em; }
-    .small { font-size: 0.9em; color: #aaf; }
-    .progress-bar { background: #333; border-radius: 4px; overflow: hidden; margin-bottom: 0.3em;}
-    .progress-fill { background: #3de295; height: 20px; transition: width 0.5s;}
-    .stages { display: flex; gap: 0.3em;}
-    .stage { border-radius: 4px; padding: 2px 6px; background: #333; margin-right: 2px; }
-    .stage.complete { background: #2a9d8f;}
-    .timeline-table { width: 100%; border-collapse: collapse;}
-    .timeline-table th, .timeline-table td { border: 1px solid #444; padding: 5px;}
-    .chart-container { background: #232334; border-radius:5px; padding:16px;}
-    .flex-center { display:flex; align-items:center; }
-    .danger { background: #932836; }
-    .warning { background: #eeba2b; color: #242; }
-    @media(max-width:700px){
-      main { padding: 0.4em;}
-      .row { flex-direction:column; gap:initial;}
+
+    /* ================================================================
+       CSS CUSTOM PROPERTIES — Default Theme
+    ================================================================ */
+    :root {
+      --bg:           #1a1a2e;
+      --bg2:          #16213e;
+      --bg3:          #0f3460;
+      --surface:      #1e2140;
+      --surface2:     #252847;
+      --border:       #2e3260;
+      --text:         #e0e0f0;
+      --text-muted:   #8888aa;
+      --accent:       #4a9d6f;
+      --accent2:      #c5a028;
+      --danger:       #c0392b;
+      --warning:      #e67e22;
+      --font-display: 'Cinzel', serif;
+      --font-body:    'Crimson Text', serif;
+      --font-ui:      system-ui, sans-serif;
+      --radius:       6px;
+      --chart-done:   #4a9d6f;
+      --chart-remain: #2a2a40;
+      --header-bg:    linear-gradient(135deg, #0f3460 0%, #16213e 100%);
+      --tab-active-bg:#1e2140;
     }
+
+    /* ================================================================
+       OLD WORLD THEME — Parchment, heraldry, gothic
+    ================================================================ */
+    .theme-old-world {
+      --bg:           #1c1509;
+      --bg2:          #231a0a;
+      --bg3:          #2e1f0d;
+      --surface:      #2a1e0f;
+      --surface2:     #352614;
+      --border:       #5c4020;
+      --text:         #f0e4c4;
+      --text-muted:   #a08060;
+      --accent:       #c8962a;
+      --accent2:      #8b2222;
+      --danger:       #8b1a1a;
+      --warning:      #b87820;
+      --font-display: 'Cinzel', serif;
+      --font-body:    'Crimson Text', serif;
+      --chart-done:   #c8962a;
+      --chart-remain: #2a1e0f;
+      --header-bg:    linear-gradient(135deg, #2e1f0d 0%, #1c1509 100%);
+      --tab-active-bg:#2a1e0f;
+    }
+
+    .theme-old-world header::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c8962a' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    .theme-old-world .app-title {
+      font-family: 'Cinzel', serif;
+      letter-spacing: 0.08em;
+    }
+
+    .theme-old-world .btn-primary {
+      background: linear-gradient(135deg, #c8962a, #a07020);
+      border: 1px solid #daa84a;
+      color: #1c1509;
+      font-weight: 700;
+    }
+
+    .theme-old-world .model-card,
+    .theme-old-world .list-card,
+    .theme-old-world .dash-card {
+      border: 1px solid #5c4020;
+      background: linear-gradient(160deg, #2a1e0f 0%, #231a0a 100%);
+    }
+
+    .theme-old-world .model-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #c8962a, transparent);
+    }
+
+    .theme-old-world .prog-fill { background: #c8962a; }
+    .theme-old-world .nav-tab.active { border-bottom-color: #c8962a; color: #c8962a; }
+
+    /* ================================================================
+       40K THEME — Grimdark steel, industrial, red accents
+    ================================================================ */
+    .theme-40k {
+      --bg:           #0d0d0f;
+      --bg2:          #111115;
+      --bg3:          #1a0808;
+      --surface:      #141418;
+      --surface2:     #1c1c22;
+      --border:       #2a1010;
+      --text:         #d0ccc0;
+      --text-muted:   #706860;
+      --accent:       #c0180c;
+      --accent2:      #8a6a28;
+      --danger:       #8a0808;
+      --warning:      #b86010;
+      --font-display: 'Rajdhani', sans-serif;
+      --font-body:    'Rajdhani', sans-serif;
+      --chart-done:   #c0180c;
+      --chart-remain: #1a1a1a;
+      --header-bg:    linear-gradient(135deg, #1a0808 0%, #0d0d0f 100%);
+      --tab-active-bg:#141418;
+    }
+
+    .theme-40k header {
+      border-bottom: 2px solid #c0180c;
+    }
+
+    .theme-40k .app-title {
+      font-family: 'Rajdhani', sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .theme-40k .btn-primary {
+      background: linear-gradient(135deg, #c0180c, #8a0808);
+      border: 1px solid #e02010;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .theme-40k .model-card,
+    .theme-40k .list-card,
+    .theme-40k .dash-card {
+      border: 1px solid #2a1010;
+      border-left: 3px solid #c0180c;
+    }
+
+    .theme-40k .prog-fill { background: #c0180c; }
+    .theme-40k .nav-tab.active { border-bottom-color: #c0180c; color: #c0180c; }
+
+    /* ================================================================
+       BASE STYLES
+    ================================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: var(--font-body);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.5;
+      transition: background 0.4s ease, color 0.4s ease;
+    }
+
+    /* ================================================================
+       LAYOUT
+    ================================================================ */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    header {
+      background: var(--header-bg);
+      padding: 0.8em 1em;
+      display: flex;
+      align-items: center;
+      gap: 0.75em;
+      position: relative;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.4s ease;
+    }
+
+    .app-title {
+      font-family: var(--font-display);
+      font-size: 1.15em;
+      font-weight: 600;
+      color: var(--text);
+      flex: 1;
+      letter-spacing: 0.04em;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 0.4em;
+      align-items: center;
+    }
+
+    .system-badge {
+      font-size: 0.7em;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      font-family: var(--font-ui);
+    }
+
+    .system-badge.theme-old-world { border-color: #c8962a; color: #c8962a; }
+    .system-badge.theme-40k { border-color: #c0180c; color: #c0180c; }
+
+    /* ================================================================
+       NAV TABS
+    ================================================================ */
+    .nav-tabs {
+      display: flex;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .nav-tab {
+      flex: 1;
+      padding: 0.75em 0.25em;
+      text-align: center;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      color: var(--text-muted);
+      font-family: var(--font-ui);
+      font-size: 0.78em;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .nav-tab .tab-icon { font-size: 1.3em; }
+    .nav-tab .tab-label { font-size: 0.8em; }
+
+    .nav-tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+      background: var(--tab-active-bg);
+    }
+
+    .nav-tab:hover:not(.active) { color: var(--text); }
+
+    /* ================================================================
+       MAIN CONTENT
+    ================================================================ */
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tab-panel {
+      display: none;
+      padding: 1em;
+      min-height: 100%;
+    }
+
+    .tab-panel.active { display: block; }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1em;
+      gap: 0.5em;
+    }
+
+    .panel-header h2 {
+      font-family: var(--font-display);
+      font-size: 1.1em;
+      font-weight: 600;
+    }
+
+    /* ================================================================
+       BUTTONS
+    ================================================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3em;
+      padding: 0.45em 0.9em;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 0.9em;
+      font-family: var(--font-ui);
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+      white-space: nowrap;
+    }
+
+    .btn:hover { opacity: 0.85; }
+    .btn:active { opacity: 0.7; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, black));
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+    .btn-sm { padding: 0.3em 0.6em; font-size: 0.82em; }
+    .btn-xs { padding: 0.2em 0.4em; font-size: 0.75em; }
+
+    /* ================================================================
+       FORMS
+    ================================================================ */
+    .form-group { margin-bottom: 1em; }
+    .form-group label { display: block; font-size: 0.85em; color: var(--text-muted); margin-bottom: 0.3em; font-family: var(--font-ui); }
+
+    .form-input {
+      width: 100%;
+      padding: 0.55em 0.75em;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 0.95em;
+      font-family: var(--font-ui);
+      transition: border-color 0.2s;
+    }
+
+    .form-input:focus { outline: none; border-color: var(--accent); }
+    textarea.form-input { resize: vertical; min-height: 60px; }
+
+    /* ================================================================
+       PROGRESS BAR
+    ================================================================ */
+    .prog-bar {
+      background: var(--surface2);
+      border-radius: 100px;
+      overflow: hidden;
+      height: 8px;
+      margin: 0.4em 0;
+    }
+
+    .prog-fill {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 100px;
+      transition: width 0.5s ease;
+    }
+
+    /* ================================================================
+       BADGES
+    ================================================================ */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25em;
+      padding: 2px 8px;
+      border-radius: 100px;
+      font-size: 0.75em;
+      font-family: var(--font-ui);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge-table  { background: #3a2a1a; color: #c8962a; border: 1px solid #c8962a44; }
+    .badge-painted { background: #1a2e20; color: #4a9d6f; border: 1px solid #4a9d6f44; }
+    .badge-finished { background: #2a2810; color: #c5a028; border: 1px solid #c5a02844; }
+    .badge-wip    { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+
+    /* ================================================================
+       MODEL GRID / CARDS
+    ================================================================ */
+    .model-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 0.75em;
+    }
+
+    .model-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.9em;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.1s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .model-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+
+    .model-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.5em;
+      gap: 0.5em;
+    }
+
+    .model-card-name {
+      font-family: var(--font-display);
+      font-size: 0.95em;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .model-card-qty { font-size: 0.8em; color: var(--text-muted); }
+    .model-card-pts { font-size: 0.8em; color: var(--text-muted); margin-top: 0.3em; }
+
+    .model-card-actions {
+      display: flex;
+      gap: 0.4em;
+      margin-top: 0.7em;
+      flex-wrap: wrap;
+    }
+
+    /* ================================================================
+       STAGE ROWS
+    ================================================================ */
+    .stages-list { margin: 0.75em 0; }
+
+    .stage-row {
+      padding: 0.4em 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stage-row:last-child { border-bottom: none; }
+    .stage-row.stage-skipped { opacity: 0.4; }
+
+    .stage-row-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      margin-bottom: 0.2em;
+    }
+
+    .stage-name { font-size: 0.9em; font-weight: 600; flex: 1; }
+    .stage-opt  { font-size: 0.72em; color: var(--text-muted); font-style: italic; }
+    .stage-count { font-size: 0.8em; color: var(--text-muted); }
+
+    /* Stage config form */
+    .stages-config { display: flex; flex-direction: column; gap: 0.4em; margin-bottom: 0.5em; }
+
+    .stage-config-row {
+      display: flex;
+      gap: 0.4em;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .stage-config-row .form-input { width: auto; flex: 1; min-width: 80px; }
+    .stage-cfg-pts { max-width: 60px !important; flex: 0 !important; }
+    .stage-cfg-skip { display: flex; align-items: center; gap: 0.3em; font-size: 0.8em; color: var(--text-muted); white-space: nowrap; }
+    .stage-cfg-skip input { width: auto; }
+
+    /* ================================================================
+       LOG PROGRESS
+    ================================================================ */
+    .log-model-name { font-family: var(--font-display); font-size: 1.05em; margin-bottom: 0.75em; }
+    .log-qty { font-size: 0.8em; color: var(--text-muted); }
+
+    .log-stages { display: flex; flex-direction: column; gap: 0.6em; }
+
+    .log-stage-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75em;
+      padding: 0.5em;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      flex-wrap: wrap;
+    }
+
+    .log-stage-name { font-weight: 600; font-size: 0.9em; }
+    .log-stage-pts { font-size: 0.75em; color: var(--text-muted); }
+
+    .log-stage-input {
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+    }
+
+    .qty-input { width: 55px !important; text-align: center; padding: 0.3em !important; }
+    .qty-max { font-size: 0.8em; color: var(--text-muted); }
+
+    /* ================================================================
+       COLLECTIONS / SIDEBAR
+    ================================================================ */
+    .collections-layout {
+      display: flex;
+      gap: 0.75em;
+      min-height: 100%;
+    }
+
+    .collections-sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: var(--bg2);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+    }
+
+    .sidebar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6em 0.75em;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      font-size: 0.8em;
+      font-family: var(--font-ui);
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .sidebar-list { padding: 0.4em 0; }
+
+    .sidebar-collection {
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-col-header {
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+      padding: 0.55em 0.75em;
+      cursor: pointer;
+    }
+
+    .sidebar-col-header:hover { background: var(--surface); }
+    .sidebar-collection.active > .sidebar-col-header { background: var(--surface); }
+
+    .sidebar-col-name { flex: 1; font-size: 0.88em; font-weight: 600; }
+
+    .sidebar-col-actions { display: flex; gap: 0.2em; opacity: 0; transition: opacity 0.2s; }
+    .sidebar-collection:hover .sidebar-col-actions,
+    .sidebar-list-item:hover .sidebar-col-actions { opacity: 1; }
+
+    .sidebar-lists { padding: 0.25em 0 0.4em 0.75em; }
+
+    .sidebar-list-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+      padding: 0.35em 0.5em;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.85em;
+    }
+
+    .sidebar-list-item span { flex: 1; }
+    .sidebar-list-item:hover { background: var(--surface); }
+    .sidebar-list-item.active { background: var(--surface); color: var(--accent); }
+    .sidebar-add-list { width: 100%; margin-top: 0.3em; font-size: 0.8em; }
+
+    .sys-tag {
+      font-size: 0.68em;
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: var(--surface2);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      font-family: var(--font-ui);
+    }
+
+    .sys-tag.theme-old-world { border-color: #c8962a44; color: #c8962a; }
+    .sys-tag.theme-40k { border-color: #c0180c44; color: #c0180c; }
+
+    .collections-main { flex: 1; min-width: 0; }
+
+    .main-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75em;
+      margin-bottom: 1em;
+      flex-wrap: wrap;
+    }
+
+    .main-header h2 {
+      font-family: var(--font-display);
+      font-size: 1.1em;
+      font-weight: 600;
+      flex: 1;
+    }
+
+    /* List grid */
+    .list-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 0.75em;
+    }
+
+    .list-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.9em;
+      cursor: pointer;
+      transition: border-color 0.2s, transform 0.1s;
+    }
+
+    .list-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+    .list-card-name { font-family: var(--font-display); font-size: 0.95em; font-weight: 600; margin-bottom: 0.5em; }
+    .list-card-stats { display: flex; gap: 0.75em; font-size: 0.78em; color: var(--text-muted); margin-top: 0.3em; }
+    .list-card-add { border-style: dashed; display: flex; align-items: center; justify-content: center; color: var(--text-muted); font-size: 0.9em; min-height: 80px; }
+    .list-card-add:hover { color: var(--accent); border-color: var(--accent); }
+
+    /* List detail */
+    .list-summary {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.9em;
+      margin-bottom: 1em;
+    }
+
+    .threshold-row { display: flex; gap: 1em; flex-wrap: wrap; margin-top: 0.4em; }
+    .thresh-item { font-size: 0.85em; color: var(--text-muted); }
+    .pts-label { font-size: 0.8em; color: var(--text-muted); margin-top: 0.3em; }
+    .list-models-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6em; }
+    .list-models-header h3 { font-family: var(--font-display); font-size: 0.95em; }
+
+    .list-model-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75em;
+      padding: 0.65em;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 0.5em;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      flex-wrap: wrap;
+    }
+
+    .list-model-row:hover { border-color: var(--accent); }
+    .list-model-info { display: flex; gap: 0.5em; align-items: baseline; flex: 1; }
+    .list-model-name { font-weight: 600; font-size: 0.9em; }
+    .list-model-qty { font-size: 0.78em; color: var(--text-muted); }
+    .list-model-prog { flex: 1; min-width: 120px; }
+    .list-model-actions { display: flex; gap: 0.3em; }
+
+    /* Pool picker */
+    .pool-picker { display: flex; flex-direction: column; gap: 0.4em; max-height: 50vh; overflow-y: auto; margin-bottom: 1em; }
+
+    .pool-pick-item {
+      display: flex;
+      align-items: center;
+      gap: 0.6em;
+      padding: 0.5em 0.75em;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: border-color 0.2s;
+    }
+
+    .pool-pick-item:hover { border-color: var(--accent); }
+    .pool-pick-item.already-in { opacity: 0.5; cursor: not-allowed; }
+    .pool-pick-name { flex: 1; font-size: 0.9em; }
+    .pool-pick-qty { font-size: 0.8em; color: var(--text-muted); }
+
+    /* ================================================================
+       DASHBOARD
+    ================================================================ */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75em;
+    }
+
+    .dash-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1em;
+    }
+
+    .dash-card h3 {
+      font-family: var(--font-display);
+      font-size: 0.9em;
+      font-weight: 600;
+      margin-bottom: 0.75em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .dash-summary, .dash-recent { grid-column: 1 / -1; }
+
+    .dash-pct { font-size: 2em; font-weight: 700; font-family: var(--font-display); color: var(--accent); }
+    .dash-pts { font-size: 0.85em; color: var(--text-muted); margin-bottom: 0.75em; }
+
+    .thresh-row { display: flex; gap: 1em; flex-wrap: wrap; margin: 0.75em 0; }
+
+    .thresh-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.2em;
+      flex: 1;
+      min-width: 60px;
+    }
+
+    .thresh-icon { font-size: 1.4em; }
+    .thresh-val { font-size: 1.2em; font-weight: 700; font-family: var(--font-display); }
+    .thresh-lbl { font-size: 0.72em; color: var(--text-muted); text-align: center; }
+    .thresh-total { font-size: 0.8em; color: var(--text-muted); text-align: center; }
+
+    .deadline-input-row { display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.75em; flex-wrap: wrap; }
+    .deadline-input-row label { font-size: 0.85em; color: var(--text-muted); white-space: nowrap; margin: 0; }
+    .deadline-input-row .form-input { width: auto; flex: 1; }
+    .deadline-info { font-size: 0.9em; margin-bottom: 0.5em; }
+    .deadline-info.danger .danger-text { color: var(--danger); }
+    .deadline-info.warning { color: var(--warning); }
+    .deadline-hint { font-size: 0.85em; color: var(--text-muted); font-style: italic; }
+    .pace-info { font-size: 0.9em; margin: 0.5em 0; }
+    .pace-label { font-size: 0.8em; color: var(--text-muted); }
+
+    .chart-wrap { height: 200px; position: relative; }
+    .dash-chart-card { overflow: hidden; }
+
+    .session-list { display: flex; flex-direction: column; gap: 0.5em; }
+    .session-item { padding: 0.5em; background: var(--surface2); border-radius: var(--radius); font-size: 0.85em; }
+    .session-date { font-weight: 700; color: var(--accent); }
+    .session-detail { color: var(--text-muted); font-size: 0.9em; margin: 0.2em 0; }
+    .session-tag { display: inline-block; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 0.8em; margin: 2px; }
+
+    /* ================================================================
+       DETAIL / MODAL
+    ================================================================ */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 100;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .modal-overlay.visible { opacity: 1; }
+
+    .modal-box {
+      background: var(--surface);
+      border-radius: var(--radius) var(--radius) 0 0;
+      width: 100%;
+      max-width: 520px;
+      max-height: 90dvh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      transform: translateY(20px);
+      transition: transform 0.25s ease;
+      border: 1px solid var(--border);
+      border-bottom: none;
+    }
+
+    .modal-overlay.visible .modal-box { transform: translateY(0); }
+    .modal-wide { max-width: 680px; }
+
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.9em 1em;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+      z-index: 1;
+    }
+
+    .modal-title {
+      font-family: var(--font-display);
+      font-size: 1em;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.1em;
+      cursor: pointer;
+      padding: 0.2em;
+    }
+
+    .modal-body { padding: 1em; }
+    .modal-actions { display: flex; gap: 0.5em; margin-top: 1.25em; flex-wrap: wrap; }
+
+    .detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5em; }
+    .detail-qty { font-size: 0.9em; margin-bottom: 0.25em; }
+    .detail-notes { font-size: 0.85em; color: var(--text-muted); font-style: italic; }
+    .detail-pts { font-size: 0.85em; color: var(--text-muted); margin-bottom: 0.75em; }
+
+    /* ================================================================
+       TOASTS
+    ================================================================ */
+    .toast-container {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4em;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 0.5em 1.2em;
+      border-radius: 100px;
+      font-size: 0.85em;
+      font-family: var(--font-ui);
+      opacity: 0;
+      transform: translateY(10px);
+      transition: opacity 0.25s, transform 0.25s;
+      white-space: nowrap;
+    }
+
+    .toast.visible { opacity: 1; transform: translateY(0); }
+    .toast-success { border-color: var(--accent); color: var(--accent); }
+    .toast-error   { border-color: var(--danger); color: var(--danger); }
+    .toast-info    { border-color: var(--border); }
+
+    /* ================================================================
+       EMPTY STATES
+    ================================================================ */
+    .empty-state {
+      text-align: center;
+      padding: 2.5em 1em;
+      color: var(--text-muted);
+    }
+
+    .empty-state p { margin-bottom: 1em; font-size: 0.95em; }
+    .empty-text { font-size: 0.85em; color: var(--text-muted); font-style: italic; }
+
+    /* ================================================================
+       SETTINGS PANEL
+    ================================================================ */
+    .settings-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1em;
+      margin-bottom: 0.75em;
+    }
+
+    .settings-section h3 {
+      font-family: var(--font-display);
+      font-size: 0.9em;
+      font-weight: 600;
+      margin-bottom: 0.75em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .settings-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1em;
+      padding: 0.4em 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .settings-row:last-child { border-bottom: none; }
+    .settings-row-label { font-size: 0.9em; }
+    .settings-row-desc { font-size: 0.78em; color: var(--text-muted); }
+
+    /* ================================================================
+       RESPONSIVE — Mobile first adjustments
+    ================================================================ */
+    @media (max-width: 600px) {
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .dash-summary, .dash-recent { grid-column: 1; }
+
+      .collections-layout { flex-direction: column; }
+      .collections-sidebar { width: 100%; }
+
+      .model-grid { grid-template-columns: 1fr; }
+
+      .modal-box { border-radius: var(--radius) var(--radius) 0 0; }
+    }
+
+    @media (min-width: 601px) {
+      .modal-overlay { align-items: center; }
+      .modal-box { border-radius: var(--radius); border: 1px solid var(--border); }
+    }
+
   </style>
 </head>
-<body>
-<header>
-  <h1>Miniature Project Manager <span class="small">(Warhammer & 40k)</span></h1>
-</header>
-<main>
-  <section id="export-import">
-    <button onclick="exportData()">Export Data</button>
-    <button onclick="importDataPrompt()">Import Data</button>
-    <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
-  </section>
-  <section>
-    <h2>Target Deadline & Summary</h2>
-    <label>
-      Deadline: <input type="date" id="deadlineInput">
-    </label>
-    <div id="summary"></div>
-  </section>
-  <section>
-    <div class="row">
-      <div class="col">
-        <h2>Collections / Armies</h2>
-        <ul id="groupList" class="group-list"></ul>
-        <button onclick="showGroupForm()">+ New Collection / Army</button>
+<body class="theme-default">
+<div id="app">
+
+  <header>
+    <div class="app-title">⚔️ Hobby Manager</div>
+    <span id="systemBadge" class="system-badge"></span>
+    <div class="header-actions">
+      <button class="btn btn-sm" id="exportBtn" title="Export">💾</button>
+      <button class="btn btn-sm" id="importBtn" title="Import">📂</button>
+      <input type="file" id="importFile" accept=".json" style="display:none">
+    </div>
+  </header>
+
+  <nav class="nav-tabs" role="tablist">
+    <button class="nav-tab active" data-tab="dashboard" role="tab">
+      <span class="tab-icon">📊</span>
+      <span class="tab-label">Dashboard</span>
+    </button>
+    <button class="nav-tab" data-tab="pool" role="tab">
+      <span class="tab-icon">🎨</span>
+      <span class="tab-label">Models</span>
+    </button>
+    <button class="nav-tab" data-tab="collections" role="tab">
+      <span class="tab-icon">🛡️</span>
+      <span class="tab-label">Armies</span>
+    </button>
+    <button class="nav-tab" data-tab="settings" role="tab">
+      <span class="tab-icon">⚙️</span>
+      <span class="tab-label">Settings</span>
+    </button>
+  </nav>
+
+  <main class="tab-content">
+
+    <!-- Dashboard -->
+    <div class="tab-panel active" id="tab-dashboard">
+      <div id="dashboardView"></div>
+    </div>
+
+    <!-- Model Pool -->
+    <div class="tab-panel" id="tab-pool">
+      <div class="panel-header">
+        <h2 id="poolTitle">Model Pool</h2>
+        <button class="btn btn-primary" id="addModelBtn">+ Add Model</button>
       </div>
-      <div class="col" id="modelsCol"></div>
+      <div id="modelPool"></div>
     </div>
-  </section>
-  <section>
-    <h2>Burndown & Progress Charts</h2>
-    <div class="row">
-      <div class="col chart-container">
-        <canvas id="progressPie"></canvas>
+
+    <!-- Collections -->
+    <div class="tab-panel" id="tab-collections">
+      <div class="panel-header">
+        <h2>Game Systems & Armies</h2>
       </div>
-      <div class="col chart-container">
-        <canvas id="burndown"></canvas>
-      </div>
+      <div id="collectionsView"></div>
     </div>
-  </section>
-  <section id="stageConfig">
-    <h2>Default Hobby Stages</h2>
-    <form id="stagesForm" onsubmit="saveDefaultStages(event)">
-      <div id="stagesList"></div>
-      <button type="button" onclick="addStageField()">+ Add Stage</button>
-      <button type="submit">Save Stages</button>
-    </form>
-  </section>
-</main>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-/** --- Data Model ---
-Collections/Groups: {id, name, parentId, type: 'collection'|'army'|'project'|'regiment', children:['groupId', ...], modelIds:[] }
-Models: { id, name, quantity, stages:[{name, points}], progress: { [stageName]: {done:<qty>, date:<lastDate>} }, timeline: [ { date, stage, qty} ], groupId }
-Config: { stages: [ {name, points} ], deadline }
-All stored in localStorage as 'minihobby_v1'
-**/
 
-const blankStages = [
-  { name: "Undercoat", points: 1 },
-  { name: "Basecoat",  points: 2 },
-  { name: "Shade",     points: 1 },
-  { name: "Layer",     points: 1 },
-  { name: "Highlight", points: 2 },
-  { name: "Base",      points: 1 }
-];
-let data = {
-  groups: {}, // id -> group
-  models: {}, // id -> model
-  config: { stages:[...blankStages], deadline:null }
-};
-let selectedGroupId = null;
-
-function loadData() {
-  try {
-    let d = localStorage.getItem("minihobby_v1");
-    if(d) {
-      data = JSON.parse(d);
-      // migration for old data 
-      if(!data.config) data.config={stages:[...blankStages]};
-      if(!data.groups) data.groups={};
-      if(!data.models) data.models={};
-      if(!data.config.stages) data.config.stages=[...blankStages];
-    }
-  } catch (e) { alert("Corrupt data in localStorage. Reset? " + e); }
-}
-function saveData() {
-  localStorage.setItem("minihobby_v1", JSON.stringify(data));
-}
-
-function shortid() { return Math.random().toString(36).substr(2,7); }
-function groupTypeIcon(type) {
-  switch(type) {
-    case "collection": return "📦";
-    case "army": return "🛡️";
-    case "project": return "🗂️";
-    case "regiment": return "⚔️";
-    default: return "📁";
-  }
-}
-function renderGroups() {
-  let el = document.getElementById("groupList");
-  el.innerHTML = "";
-  // show top-level groups
-  let roots = Object.values(data.groups).filter(g=>!g.parentId);
-  roots.forEach(g=>{
-    el.appendChild(renderGroupNode(g));
-  });
-}
-
-function renderGroupNode(group) {
-  let li = document.createElement("li");
-  li.className = "group";
-  li.style.marginLeft = (group.parentId? "1.5em":"0");
-  li.innerHTML = `<span onclick="selectGroup('${group.id}')" style="cursor:pointer">${groupTypeIcon(group.type)} <b>${group.name}</b></span>`;
-  let acts = document.createElement("span");
-  acts.className = "model-actions";
-  acts.innerHTML = `
-    <button onclick="editGroup('${group.id}')" title="Edit">✏️</button>
-    <button onclick="deleteGroup('${group.id}')" title="Delete" class="danger">🗑️</button>
-    <button onclick="showAddSubGroup('${group.id}')">+ Subgroup</button>
-    <button onclick="showAddModel('${group.id}')">+ Model</button>`;
-  li.appendChild(acts);
-  // children
-  let subs = Object.values(data.groups).filter(g=>g.parentId===group.id);
-  if (subs.length) {
-    let ul = document.createElement("ul");
-    ul.className = "group-list";
-    subs.forEach(sub=> ul.appendChild(renderGroupNode(sub)));
-    li.appendChild(ul);
-  }
-  // models in this group
-  if (group.modelIds && group.modelIds.length) {
-    let ul = document.createElement("ul");
-    ul.style.marginLeft="1.3em";
-    ul.className="model-list";
-    group.modelIds.forEach(mid=>{
-      if (data.models[mid]) ul.appendChild(renderModelNode(data.models[mid]));
-    });
-    li.appendChild(ul);
-  }
-  return li;
-}
-
-function renderModelNode(model) {
-  let li = document.createElement("li");
-  li.className = "model";
-  li.innerHTML = `<span style="cursor:pointer;" onclick="showModel('${model.id}')">${model.name} (<i>${model.quantity}</i>)</span>`;
-  let acts = document.createElement("span");
-  acts.className = "model-actions";
-  acts.innerHTML = `
-    <button onclick="editModel('${model.id}')">✏️</button>
-    <button onclick="deleteModel('${model.id}')" class="danger">🗑️</button>
-    <button onclick="showModel('${model.id}')">View</button>`;
-  li.appendChild(acts);
-  return li;
-}
-// --- Model/Regiment Display ---
-function selectGroup(gid) {
-  selectedGroupId = gid;
-  renderModelsForGroup();
-}
-function renderModelsForGroup() {
-  let col = document.getElementById("modelsCol");
-  if (!selectedGroupId) { col.innerHTML = "<em>Select a collection or subgroup.</em>"; return; }
-  let group = data.groups[selectedGroupId];
-  if (!group) { col.innerHTML = "<em>Not found.</em>"; return;}
-  col.innerHTML = `<h3>${group.name} (${groupTypeIcon(group.type)})</h3>`;
-  // show models
-  if (group.modelIds && group.modelIds.length) {
-    let ul = document.createElement("ul");
-    ul.className="model-list";
-    group.modelIds.forEach(mid=>{
-      if (data.models[mid]) ul.appendChild(renderModelNode(data.models[mid]));
-    });
-    col.appendChild(ul);
-  } else {
-    col.innerHTML += "<div>No models. <button onclick=\"showAddModel('"+group.id+"')\">Add Model/Regiment</button></div>";
-  }
-  // Add model/regiment button
-  col.innerHTML += `<button onclick="showAddModel('${group.id}')">+ Add Model / Regiment</button>`;
-}
-
-function showGroupForm(editId) {
-  let name="", type="collection", parentId=null;
-  if (editId && data.groups[editId]) {
-    name = data.groups[editId].name;
-    type = data.groups[editId].type;
-    parentId = data.groups[editId].parentId||"";
-  }
-  let parentOptions = `<option value="">(top-level)</option>`;
-  Object.values(data.groups)
-    .filter(g=>g.id!==editId)
-    .forEach(g=> parentOptions+=`<option value="${g.id}">${g.name}</option>`);
-  let html = `
-    <form onsubmit="saveGroup(event, '${editId||''}')">
-      <label>Name: <input name="name" required value="${name}"></label>
-      <label>Type: 
-        <select name="type">
-          <option value="collection" ${type==="collection"?"selected":""}>Collection</option>
-          <option value="army" ${type==="army"?"selected":""}>Army</option>
-          <option value="project" ${type==="project"?"selected":""}>Project</option>
-          <option value="regiment" ${type==="regiment"?"selected":""}>Regiment</option>
-        </select>
-      </label>
-      <label>Parent grouping:
-        <select name="parentId">${parentOptions}</select>
-      </label>
-      <button type="submit">${editId ? "Update":"Create"}</button>
-      <button type="button" onclick="closeModal()">Cancel</button>
-    </form>
-  `;
-  showModal("Group", html);
-}
-function saveGroup(e, editId) {
-  e.preventDefault();
-  let fd = new FormData(e.target);
-  let name=fd.get("name"), type=fd.get("type"), parentId=fd.get("parentId")||null;
-  if (editId && data.groups[editId]) {
-    let g = data.groups[editId];
-    g.name = name; g.type= type; g.parentId = parentId;
-  } else {
-    let nid = shortid();
-    data.groups[nid] = { id: nid, name, type, parentId, children:[], modelIds:[] };
-  }
-  saveData(); closeModal(); renderGroups(); renderModelsForGroup();
-}
-function deleteGroup(gid) {
-  if (!confirm("Delete group and all subgroups/models?")) return;
-  function del(gid) {
-    let g = data.groups[gid];
-    (g.modelIds||[]).forEach(mid=>delete data.models[mid]);
-    // recurse to subgroups
-    Object.values(data.groups).filter(sg=>sg.parentId===gid).forEach(sg=>del(sg.id));
-    delete data.groups[gid];
-  }
-  del(gid);
-  saveData(); renderGroups(); renderModelsForGroup();
-}
-function editGroup(id) { showGroupForm(id); }
-function showAddSubGroup(parentId) { showGroupForm(null, parentId); }
-
-function showAddModel(groupId) {
-  showModelForm({groupId});
-}
-function showModelForm({editId, groupId}) {
-  let m = editId ? data.models[editId] : null;
-  let name = m?.name || "";
-  let quantity = m?.quantity || 1;
-  let stages = m?.stages || data.config.stages.map(s=>({...s}));
-  let usedStages = stages.map(s=>s.name);
-  let stageHtml = stages.map((s,i)=>`
-    <div>
-      <input type="text" name="stage_name" value="${s.name}" required style="width:120px">
-      <input type="number" name="stage_points" value="${s.points||1}" min="0" style="width:55px">
-      <button type="button" onclick="removeStageField(this)">-</button>
+    <!-- Settings -->
+    <div class="tab-panel" id="tab-settings">
+      <div id="settingsView"></div>
     </div>
-  `).join('');
-  let html = `
-    <form onsubmit="saveModel(event, '${editId||''}', '${groupId||m?.groupId||''}')">
-      <label>Model/Regiment Name: <input name="name" required value="${name}"></label>
-      <label>Quantity: <input type="number" name="quantity" min="1" value="${quantity}"></label>
-      <label>Hobby Stages (custom per model/regiment): 
-        <div id="modelStages">
-          ${stageHtml}
-        </div>
-        <button type="button" onclick="addStageField(document.getElementById('modelStages'))">+ Add Stage</button>
-      </label>
-      <button type="submit">${editId ? "Update":"Add"}</button>
-      <button type="button" onclick="closeModal()">Cancel</button>
-    </form>
-  `;
-  showModal(editId?'Edit Model/Regiment':'Add Model/Regiment', html);
-}
-function addStageField(toEl) {
-  let el = typeof toEl==="object" && toEl ? toEl : document.getElementById('stagesList')||document.getElementById('modelStages');
-  let div = document.createElement("div");
-  div.innerHTML = `
-    <input type="text" name="stage_name" required style="width:120px" />
-    <input type="number" name="stage_points" required value="1" min="0" style="width:55px" />
-    <button type="button" onclick="removeStageField(this)">-</button>
-  `;
-  el.appendChild(div);
-}
-function removeStageField(btn) { btn.parentNode.remove(); }
-function saveModel(e, editId, groupId) {
-  e.preventDefault();
-  let fd = new FormData(e.target);
-  let name = fd.get("name");
-  let quantity = +fd.get("quantity");
-  let stages = [];
-  let sn = fd.getAll("stage_name"), sp = fd.getAll("stage_points");
-  for (let i=0; i<sn.length; ++i) {
-    if (sn[i] && !stages.find(s=>s.name===sn[i]))
-      stages.push({ name:sn[i], points:+sp[i] });
-  }
-  let id = editId || shortid();
-  let model = data.models[id] || { id, name, groupId, quantity, stages:[], progress:{}, timeline:[] };
-  model.name = name; model.quantity=quantity; model.stages=stages;
-  // init progress fields if new
-  stages.forEach(s=>{
-    if (!model.progress[s.name]) model.progress[s.name]={done:0, date:null};
-  });
-  // cleanup removed stages
-  Object.keys(model.progress).forEach(st=> { if (!stages.some(s=>s.name===st)) delete model.progress[st]; });
-  data.models[id] = model;
-  // add to group
-  let g = data.groups[groupId]||data.groups[model.groupId];
-  if (g && (!g.modelIds||!g.modelIds.includes(id))) (g.modelIds=g.modelIds||[]).push(id);
-  model.groupId = g.id;
-  saveData(); closeModal(); renderGroups(); renderModelsForGroup();
-}
-function deleteModel(id) {
-  if (!confirm("Delete this model/regiment?")) return;
-  let m = data.models[id];
-  if (m) {
-    let g = data.groups[m.groupId];
-    if (g && g.modelIds) g.modelIds = g.modelIds.filter(mid=>mid!==id);
-    delete data.models[id];
-    saveData(); renderGroups(); renderModelsForGroup();
-  }
-}
-function editModel(id) { showModelForm({editId:id}); }
-// -- Model View and Progress --
-function showModel(id) {
-  let m = data.models[id];
-  if (!m) return;
-  let html = `<h3>${m.name} (<i>${m.quantity}</i>)</h3>
-    <div class="stages">${m.stages.map(s=>{
-      let stat = m.progress[s.name]||{done:0};
-      return `<span class="stage ${stat.done>=m.quantity?'complete':''}" title="${stat.done}/${m.quantity}">${s.name}</span>`;
-      }).join('')}
-    </div>
-    <div>Progress by stage: <ul>${
-      m.stages.map(s=>{
-        let stat=m.progress[s.name]||{done:0}; 
-        return `<li>${s.name}: ${stat.done}/${m.quantity} [<b>${s.points||1}pts</b>] 
-          <button onclick="showStageUpdate('${m.id}','${s.name}')">Update</button>
-          </li>`;
-    }).join('')}</ul></div>
-    <h4>Timeline</h4>
-    ${renderTimelineTable(m)}
-    <button onclick="showModelForm({editId:'${m.id}'})">Edit Model</button>
-    <button onclick="closeModal()">Close</button>
-  `;
-  showModal("Model Detail", html, "wide");
-}
 
-function showStageUpdate(modelId, stageName) {
-  let m = data.models[modelId];
-  if (!m) return;
-  let stat = m.progress[stageName]||{done:0};
-  let html = `
-    <form onsubmit="saveStageUpdate(event,'${modelId}','${stageName}')">
-    <label>Mark quantity finished for <b>${stageName}</b>: 
-      <input type="number" name="done" min="0" max="${m.quantity}" value="${stat.done||0}">
-    </label>
-    <label>Date: <input type="date" name="date" value="${new Date().toISOString().split('T')[0]}" required></label>
-    <button type="submit">Update</button>
-    <button type="button" onclick="closeModal()">Cancel</button>
-    </form>
-  `;
-  showModal("Update Stage Progress", html);
-}
-function saveStageUpdate(e, modelId, stageName) {
-  e.preventDefault();
-  let m = data.models[modelId];
-  if (!m) return;
-  let fd = new FormData(e.target);
-  let done = +fd.get("done");
-  let date = fd.get("date");
-  m.progress[stageName]={done,date};
-  // append timeline entry
-  let tline = m.timeline||[];
-  tline.push({date, stage:stageName, qty:done});
-  m.timeline = tline;
-  saveData(); closeModal(); renderGroups(); renderModelsForGroup();
-}
-function renderTimelineTable(m) {
-  let tl = m.timeline||[];
-  if (!tl.length) return "<div><em>No timeline entries yet.</em></div>";
-  return `<table class="timeline-table">
-    <tr><th>Date</th><th>Stage</th><th>Qty</th></tr>
-    ${tl.sort((a,b)=>a.date.localeCompare(b.date)).map(t=>
-      `<tr><td>${t.date}</td><td>${t.stage}</td><td>${t.qty}</td></tr>`
-    ).join('')}
-  </table>`;
-}
+  </main>
 
-// --- Progress & Charts ---
-function getAllModels() { return Object.values(data.models); }
-function totalPoints(model) {
-  return (model.stages||[]).reduce((acc,s)=>acc+(s.points||1),0)*model.quantity;
-}
-function completedPoints(model) {
-  let v = 0;
-  (model.stages||[]).forEach(s=>{
-    let stat = model.progress[s.name]||{done:0};
-    v += Math.min(model.quantity, stat.done)*(s.points||1);
-  });
-  return v;
-}
-function getGlobalSummary() {
-  let ms = getAllModels();
-  let models = ms.filter(m=>m.quantity>0);
-  let total=0, done=0;
-  models.forEach(m=>{
-    total += totalPoints(m);
-    done += completedPoints(m);
-  });
-  return {total, done, percent: total? (done/total*100):0, models};
-}
-function renderSummary() {
-  let s = getGlobalSummary();
-  let html = `<div class="progress-bar">
-    <div class="progress-fill" style="width:${s.percent}%;"></div>
-  </div>
-  <div>${s.done}/${s.total} pts complete (${s.percent.toFixed(1)}%)</div>
-  <div>${s.models.length} models/regiments total.</div>`;
-  // Deadline projection
-  let deadline = data.config.deadline;
-  if(deadline){
-    let daysLeft = Math.floor((new Date(deadline)-Date.now())/86400000)+1;
-    let ptsLeft = s.total-s.done;
-    let pace = (ptsLeft/daysLeft).toFixed(2);
-    html += `<div>Target: <b>${deadline}</b> | <span class="warning">${daysLeft} days left</span><br> You need ~<b>${pace}</b> hobby points/day to finish on time.</div>`;
-  }
-  document.getElementById("summary").innerHTML = html;
-}
+</div>
 
-function updateDeadlineInput(){
-  let inp = document.getElementById('deadlineInput');
-  inp.value = data.config.deadline||"";
-  inp.onchange = e => {
-    data.config.deadline = inp.value;
-    saveData();
-    renderSummary();
-    buildBurndownChart();
-  };
-}
-function saveDefaultStages(e){
-  e.preventDefault();
-  let fd = new FormData(e.target);
-  let sn = fd.getAll("stage_name"), sp = fd.getAll("stage_points");
-  let stages=[];
-  for (let i=0; i<sn.length; ++i){
-    if(sn[i]) stages.push({name:sn[i], points:+sp[i]});
-  }
-  data.config.stages = stages;
-  saveData();
-  alert("Default stages updated. New models will get these as default.");
-}
-function renderStagesForm(){
-  let el = document.getElementById("stagesList");
-  el.innerHTML = "";
-  (data.config.stages||[]).forEach(s=>{
-    let div = document.createElement("div");
-    div.innerHTML = `
-      <input type="text" name="stage_name" value="${s.name}" required style="width:120px">
-      <input type="number" name="stage_points" value="${s.points||1}" min="0" style="width:55px">
-      <button type="button" onclick="removeStageField(this)">-</button>
-    `;
-    el.appendChild(div);
-  });
-}
-// --- Modal/Popup Helper ---
-function showModal(title, html, wide) {
-  closeModal();
-  let overlay = document.createElement("div");
-  overlay.id = "modalOverlay";
-  overlay.style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(22,21,44,0.85);z-index:99;display:flex;align-items:center;justify-content:center;";
-  let cont = document.createElement("div");
-  cont.style=`background:#232334;border-radius:8px;max-width:${wide?'700px':'410px'};min-width:350px;padding:2em;box-shadow:0 6px 16px #000c;`;
-  cont.innerHTML = `<h2>${title}</h2><div>${html}</div>`;
-  overlay.appendChild(cont);
-  overlay.onclick = (e) => { if (e.target===overlay) closeModal(); };
-  document.body.appendChild(overlay);
-}
-function closeModal(){
-  let el = document.getElementById("modalOverlay");
-  if(el) el.remove();
-}
-// ----- Export/Import -----
-function exportData(){
-  let blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
-  let url = URL.createObjectURL(blob);
-  let a = document.createElement("a");
-  a.href = url; a.download="minihobby_data.json"; document.body.appendChild(a);
-  a.click();  document.body.removeChild(a); URL.revokeObjectURL(url);
-}
-function importDataPrompt(){
-  document.getElementById("importFile").click();
-}
-function importData(evt){
-  let file = evt.target.files[0];
-  if(!file) return;
-  let r = new FileReader();
-  r.onload = function(ev){
-    try {
-      let parsed = JSON.parse(ev.target.result);
-      if(!parsed.groups || !parsed.models) throw "Invalid structure";
-      if(!confirm("Importing will replace ALL current data. Proceed?")) return;
-      data = parsed;
-      saveData();
-      alert("Import complete. Reloading...");
-      location.reload();
-    } catch(e) { alert("Import error: "+e);}
-  };
-  r.readAsText(file);
-}
-// ---- Charts -----
-let progressPieChart=null, burndownChart=null;
-function buildProgressPie(){
-  let {models}=getGlobalSummary();
-  let stages = data.config.stages.map(s=>s.name);
-  if(progressPieChart) progressPieChart.destroy();
-  let donePerStage = stages.map(name=>models.reduce((a,m)=>{
-    let s = m.stages.find(st=>st.name===name);
-    if(!s) return a;
-    let stat=m.progress[name]||{done:0};
-    return a + Math.min(stat.done, m.quantity)*(s.points);
-  },0));
-  let totalPerStage = stages.map(name=>models.reduce((a,m)=>{
-    let s = m.stages.find(st=>st.name===name);
-    if(!s) return a;
-    return a + m.quantity*(s.points);
-  },0));
-  let ctx = document.getElementById('progressPie').getContext('2d');
-  progressPieChart = new Chart(ctx,{
-    type:"bar",
-    data:{
-      labels: stages,
-      datasets:[
-        {label:"Complete", data:donePerStage, backgroundColor:"#3de295"},
-        {label:"Total", data:totalPerStage, backgroundColor:"#b1c6fa"}
-      ]
-    },
-    options:{ plugins:{legend:{display:true}}}
-  });
-}
-function buildBurndownChart(){
-  let {models,total,done}=getGlobalSummary();
-  let timelinePoints = [];
-  models.forEach(m=>{
-    (m.timeline||[]).forEach(e=>{
-      let pts = (m.stages.find(s=>s.name===e.stage)?.points||1) * Math.min(m.quantity,e.qty||0);
-      timelinePoints.push({date:e.date, pts});
-    });
-  });
-  // Compose cumulative done
-  timelinePoints = timelinePoints.filter(e=>!!e.date).sort((a,b)=>a.date.localeCompare(b.date));
-  let byDay = {};
-  timelinePoints.forEach(e=>{
-    byDay[e.date] = (byDay[e.date]||0) + e.pts;
-  });
-  let datesSorted = Object.keys(byDay).sort();
-  let cum=0, cumDoneDates=[];
-  datesSorted.forEach(d=>{
-    cum+=byDay[d];
-    cumDoneDates.push({d, cum});
-  });
-  // For projection: straight line from today to deadline for remaining pts
-  let deadline = data.config.deadline;
-  let today = new Date().toISOString().split('T')[0];
-  let days=[...datesSorted];
-  if(today && !days.includes(today)) days.push(today);
-  if(deadline && !days.includes(deadline)) days.push(deadline);
-  days=[...new Set(days)].sort();
-  // actual burndown line
-  let burn = 0, line = [];
-  days.forEach(day=>{
-    let e = cumDoneDates.find(x=>x.d===day);
-    if(e) burn = e.cum;
-    line.push(burn);
-  });
-  // ideal
-  let remaining = total;
-  let daily = remaining/days.length;
-  let ideal = days.map((day,i)=> Math.round(i*total/days.length));
-  if(burndownChart) burndownChart.destroy();
-  let ctx = document.getElementById('burndown').getContext('2d');
-  burndownChart = new Chart(ctx, {
-    type:"line",
-    data:{
-      labels: days,
-      datasets:[
-        { label:"Points Completed", data:line, borderColor:"#66f", backgroundColor:"#66f2", pointRadius:2, fill:false },
-        { label:"Ideal Progress", data:ideal, borderColor:"#44ebac", pointRadius:0, borderDash:[6,3], fill:false }
-      ]
-    },
-    options:{
-      scales:{y:{beginAtZero:true, max:total, title:{display:true,text:'Points'}}},
-      plugins:{legend:{display:true}}
-    }
-  });
-}
+<script type="module">
+  import { loadData, exportJSON, importJSON } from './js/data.js';
+  import { renderModelPool, showModelForm } from './js/models.js';
+  import { renderCollections } from './js/collections.js';
+  import { renderDashboard } from './js/dashboard.js';
+  import { applyTheme } from './js/theme.js';
 
-// --- Boot ---
-window.onload = function(){
+  // --- Boot ---
   loadData();
-  renderGroups();
-  renderModelsForGroup();
-  renderSummary();
-  renderStagesForm();
-  buildProgressPie();
-  buildBurndownChart();
-  updateDeadlineInput();
-};
-document.addEventListener("click",()=>{buildProgressPie(); buildBurndownChart(); renderSummary();}, true);
 
+  // --- Tab switching ---
+  const tabs = document.querySelectorAll('.nav-tab');
+  const panels = document.querySelectorAll('.tab-panel');
+
+  function switchTab(tabId) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.tab === tabId));
+    panels.forEach(p => p.classList.toggle('active', p.id === `tab-${tabId}`));
+
+    // Render panel content
+    if (tabId === 'dashboard') renderDashboard();
+    if (tabId === 'pool') renderModelPool();
+    if (tabId === 'collections') renderCollections();
+    if (tabId === 'settings') renderSettings();
+  }
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+
+  // --- Model pool add button ---
+  document.getElementById('addModelBtn').addEventListener('click', () => {
+    showModelForm();
+  });
+
+  // --- Export / Import ---
+  document.getElementById('exportBtn').addEventListener('click', exportJSON);
+  document.getElementById('importBtn').addEventListener('click', () => {
+    document.getElementById('importFile').click();
+  });
+  document.getElementById('importFile').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      await importJSON(file);
+      switchTab('dashboard');
+    } catch (err) {
+      alert('Import failed: ' + err.message);
+    }
+    e.target.value = '';
+  });
+
+  // --- Settings ---
+  function renderSettings() {
+    const container = document.getElementById('settingsView');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div class="settings-section">
+        <h3>Data Management</h3>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Export Data</div>
+            <div class="settings-row-desc">Download a backup JSON file</div>
+          </div>
+          <button class="btn btn-sm" id="settingsExport">💾 Export</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Import Data</div>
+            <div class="settings-row-desc">Restore from a backup JSON file</div>
+          </div>
+          <button class="btn btn-sm" id="settingsImport">📂 Import</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Clear All Data</div>
+            <div class="settings-row-desc">⚠️ This cannot be undone</div>
+          </div>
+          <button class="btn btn-sm btn-danger" id="settingsClear">🗑️ Clear</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>About</h3>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Hobby Manager</div>
+            <div class="settings-row-desc">Track your miniature painting progress. Data stored locally on this device.</div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    container.querySelector('#settingsExport').addEventListener('click', exportJSON);
+    container.querySelector('#settingsImport').addEventListener('click', () => document.getElementById('importFile').click());
+    container.querySelector('#settingsClear').addEventListener('click', () => {
+      if (!confirm('Delete ALL data permanently?')) return;
+      localStorage.removeItem('hobbymanager_v2');
+      location.reload();
+    });
+  }
+
+  // --- Initial render ---
+  renderDashboard();
 </script>
+
 </body>
 </html>
