@@ -385,20 +385,11 @@ function showCollectionForm(editId = null) {
 
   content.querySelector('#cfSave').addEventListener('click', () => {
     const name = content.querySelector('#cfName').value.trim();
-    const gameSystemId = content.querySelector('#cfSys').value;
     if (!name) { toast('Please enter a name', 'error'); return; }
-
-    if (editId) {
-      Object.assign(appData.collections[editId], { name, gameSystemId });
-      saveData();
-      toast('Updated!', 'success');
-    } else {
-      createCollection({ name, gameSystemId });
-      toast('Game system created!', 'success');
-    }
+    createCollection({ name, gameSystemId: 'old_world' });
     closeModal();
     renderCollections();
-  });
+});
 
   content.querySelector('#cfCancel').addEventListener('click', () => closeModal());
   showModal({ title: editId ? 'Edit Game System' : 'New Game System', content });
