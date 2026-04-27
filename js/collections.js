@@ -360,6 +360,7 @@ function showAddModelToList(listId) {
 // --- Collection form ---
 
 function showCollectionForm(editId = null) {
+console.log('editId:', editId);
   editId = editId || null;
   const col = editId ? appData.collections[editId] : null;
 
