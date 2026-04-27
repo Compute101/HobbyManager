@@ -358,7 +358,6 @@ function showAddModelToList(listId) {
 }
 
 // --- Collection form ---
-
 function showCollectionForm(editId = null) {
   editId = editId || null;
   const col = editId ? appData.collections[editId] : null;
@@ -387,7 +386,6 @@ function showCollectionForm(editId = null) {
     const name = content.querySelector('#cfName').value.trim();
     const gameSystemId = content.querySelector('#cfSys').value;
     if (!name) { toast('Please enter a name', 'error'); return; }
-
     if (editId) {
       Object.assign(appData.collections[editId], { name, gameSystemId });
       saveData();
