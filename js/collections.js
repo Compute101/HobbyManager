@@ -361,42 +361,20 @@ function showAddModelToList(listId) {
 
 function showCollectionForm(editId = null) {
   editId = editId || null;
-  const col = editId ? appData.collections[editId] : null;
-
   const content = document.createElement('div');
   content.innerHTML = `
     <div class="form-group">
       <label>Name</label>
-      <input id="cfName" class="form-input" type="text" placeholder="e.g. Warhammer Old World" value="${col?.name || ''}">
-    </div>
-    <div class="form-group">
-      <label>Game System</label>
-      <select id="cfSys" class="form-input">
-        ${Object.values(GAME_SYSTEMS).map(s =>
-          `<option value="${s.id}" ${col?.gameSystemId === s.id ? 'selected' : ''}>${s.label}</option>`
-        ).join('')}
-      </select>
+      <input id="cfName" class="form-input" type="text" placeholder="Name">
     </div>
     <div class="modal-actions">
-      <button class="btn btn-primary" id="cfSave">${editId ? 'Update' : 'Create'}</button>
-      <button class="btn" id="cfCancel">Cancel</button>
+      <button id="cfSave" class="btn btn-primary">Create</button>
     </div>
   `;
-
-  content.querySelector('#cfSave').addEventListener('click', () => {
-    try {
-      const name = content.querySelector('#cfName').value.trim();
-      if (!name) { toast('Please enter a name', 'error'); return; }
-      createCollection({ name, gameSystemId: 'old_world' });
-      closeModal();
-      renderCollections();
-    } catch(e) {
-      alert('Error: ' + e.message);
-    }
-});
-
-  content.querySelector('#cfCancel').addEventListener('click', () => closeModal());
-  showModal({ title: editId ? 'Edit Game System' : 'New Game System', content });
+  const btn = content.querySelector('#cfSave');
+  alert('Button found: ' + (btn !== null));
+  if (btn) btn.addEventListener('click', () => alert('clicked'));
+  showModal({ title: 'New Game System', content });
 }
 
 function confirmDeleteCollection(id) {
