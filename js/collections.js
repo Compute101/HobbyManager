@@ -397,7 +397,7 @@ function showCollectionForm(editId = null) {
       toast('Game system created!', 'success');
     }
     closeModal();
-    renderCollections();
+    setTimeout(() => renderCollections(), 50);
   });
 
   content.querySelector('#cfCancel').addEventListener('click', () => closeModal());
