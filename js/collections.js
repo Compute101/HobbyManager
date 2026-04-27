@@ -26,7 +26,7 @@ export function renderCollections() {
         <p>No game systems yet. Add one to get started.</p>
         <button class="btn btn-primary" id="addFirstCollection">+ Add Game System</button>
       </div>`;
-    document.getElementById('addFirstCollection')?.addEventListener('click', showCollectionForm);
+    document.getElementById('addFirstCollection')?.addEventListener('click', () => showCollectionForm());
     return;
   }
 
@@ -93,7 +93,7 @@ function renderCollectionsSidebar() {
     </div>
   `;
 
-  sidebar.querySelector('#addCollBtn')?.addEventListener('click', showCollectionForm);
+  sidebar.querySelector('#addCollBtn')?.addEventListener('click', () => showCollectionForm());
 
   sidebar.querySelectorAll('[data-col-id]').forEach(el => {
     el.querySelector('.sidebar-col-name')?.addEventListener('click', () => selectCollection(el.dataset.colId));
@@ -360,7 +360,6 @@ function showAddModelToList(listId) {
 // --- Collection form ---
 
 function showCollectionForm(editId = null) {
-console.log('editId:', editId);
   editId = editId || null;
   const col = editId ? appData.collections[editId] : null;
 
