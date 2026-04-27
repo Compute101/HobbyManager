@@ -371,10 +371,19 @@ function showCollectionForm(editId = null) {
       <button id="cfSave" class="btn btn-primary">Create</button>
     </div>
   `;
-  const btn = content.querySelector('#cfSave');
-  alert('Button found: ' + (btn !== null));
-  if (btn) btn.addEventListener('click', () => alert('clicked'));
-  showModal({ title: 'New Game System', content });
+  content.querySelector('#cfSave').addEventListener('click', () => {
+    alert('step 1');
+    const name = content.querySelector('#cfName').value.trim();
+    alert('step 2: ' + name);
+    if (!name) return;
+    alert('step 3 - about to createCollection');
+    createCollection({ name, gameSystemId: 'old_world' });
+    alert('step 4 - created');
+    closeModal();
+    alert('step 5 - closed');
+    renderCollections();
+    alert('step 6 - rendered');
+});
 }
 
 function confirmDeleteCollection(id) {
