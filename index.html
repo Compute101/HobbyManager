@@ -1240,7 +1240,7 @@
 </div>
 
 <script type="module">
-  import { loadData, exportJSON, importJSON } from './js/data.js';
+  import { loadData, exportJSON, importJSON, appData, getAllModelTypes, deleteCustomModelType } from './js/data.js';
   import { renderModelPool, showModelForm } from './js/models.js';
   import { renderCollections } from './js/collections.js';
   import { renderDashboard } from './js/dashboard.js';
@@ -1296,103 +1296,98 @@
     const container = document.getElementById('settingsView');
     if (!container) return;
 
-    const { getAllModelTypes, deleteCustomModelType } = window._dataHelpers || {};
+    const customTypes = getAllModelTypes().filter(t => !t.builtIn);
 
-    // We'll import these inline via dynamic access
-    import('./js/data.js').then(({ getAllModelTypes, deleteCustomModelType }) => {
-      const customTypes = getAllModelTypes().filter(t => !t.builtIn);
-
-      container.innerHTML = `
-        <div class="settings-section">
-          <h3>Appearance</h3>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Theme</div>
-              <div class="settings-row-desc">Choose your preferred visual style</div>
-            </div>
-            <select class="form-input settings-theme-select" id="themeSelect" style="width:auto">
-              <option value="theme-default" ${(appData.config.activeTheme || 'theme-default') === 'theme-default' ? 'selected' : ''}>Default</option>
-              <option value="theme-old-world" ${appData.config.activeTheme === 'theme-old-world' ? 'selected' : ''}>⚔️ Old World</option>
-              <option value="theme-40k" ${appData.config.activeTheme === 'theme-40k' ? 'selected' : ''}>💀 40K</option>
-              <option value="theme-heresy" ${appData.config.activeTheme === 'theme-heresy' ? 'selected' : ''}>🔱 Horus Heresy</option>
-              <option value="theme-aos" ${appData.config.activeTheme === 'theme-aos' ? 'selected' : ''}>✨ Age of Sigmar</option>
-            </select>
+    container.innerHTML = `
+      <div class="settings-section">
+        <h3>Appearance</h3>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Theme</div>
+            <div class="settings-row-desc">Choose your preferred visual style</div>
           </div>
+          <select class="form-input settings-theme-select" id="themeSelect" style="width:auto">
+            <option value="theme-default" ${(appData.config.activeTheme || 'theme-default') === 'theme-default' ? 'selected' : ''}>Default</option>
+            <option value="theme-old-world" ${appData.config.activeTheme === 'theme-old-world' ? 'selected' : ''}>⚔️ Old World</option>
+            <option value="theme-40k" ${appData.config.activeTheme === 'theme-40k' ? 'selected' : ''}>💀 40K</option>
+            <option value="theme-heresy" ${appData.config.activeTheme === 'theme-heresy' ? 'selected' : ''}>🔱 Horus Heresy</option>
+            <option value="theme-aos" ${appData.config.activeTheme === 'theme-aos' ? 'selected' : ''}>✨ Age of Sigmar</option>
+          </select>
         </div>
-        <div class="settings-section">
-          <h3>Custom Model Types</h3>
-          ${customTypes.length ? `
-            <div class="custom-types-list">
-              ${customTypes.map(t => `
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-row-label">⭐ ${t.name}</div>
-                    <div class="settings-row-desc">${t.stages.length} stages · ${t.stages.reduce((a,s) => a + s.points, 0)} total pts</div>
-                  </div>
-                  <button class="btn btn-sm btn-danger" data-delete-type="${t.id}">🗑️ Delete</button>
+      </div>
+      <div class="settings-section">
+        <h3>Custom Model Types</h3>
+        ${customTypes.length ? `
+          <div class="custom-types-list">
+            ${customTypes.map(t => `
+              <div class="settings-row">
+                <div>
+                  <div class="settings-row-label">⭐ ${t.name}</div>
+                  <div class="settings-row-desc">${t.stages.length} stages · ${t.stages.reduce((a,s) => a + s.points, 0)} total pts</div>
                 </div>
-              `).join('')}
-            </div>
-          ` : '<p class="empty-text" style="padding:0.5em 0">No custom types yet. Save one from the Add Model form.</p>'}
+                <button class="btn btn-sm btn-danger" data-delete-type="${t.id}">🗑️ Delete</button>
+              </div>
+            `).join('')}
+          </div>
+        ` : '<p class="empty-text" style="padding:0.5em 0">No custom types yet. Save one from the Add Model form.</p>'}
+      </div>
+      <div class="settings-section">
+        <h3>Data Management</h3>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Export Data</div>
+            <div class="settings-row-desc">Download a backup JSON file</div>
+          </div>
+          <button class="btn btn-sm" id="settingsExport">💾 Export</button>
         </div>
-        <div class="settings-section">
-          <h3>Data Management</h3>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Export Data</div>
-              <div class="settings-row-desc">Download a backup JSON file</div>
-            </div>
-            <button class="btn btn-sm" id="settingsExport">💾 Export</button>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Import Data</div>
+            <div class="settings-row-desc">Restore from a backup JSON file</div>
           </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Import Data</div>
-              <div class="settings-row-desc">Restore from a backup JSON file</div>
-            </div>
-            <button class="btn btn-sm" id="settingsImport">📂 Import</button>
+          <button class="btn btn-sm" id="settingsImport">📂 Import</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Clear All Data</div>
+            <div class="settings-row-desc">⚠️ This cannot be undone</div>
           </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Clear All Data</div>
-              <div class="settings-row-desc">⚠️ This cannot be undone</div>
-            </div>
-            <button class="btn btn-sm btn-danger" id="settingsClear">🗑️ Clear</button>
+          <button class="btn btn-sm btn-danger" id="settingsClear">🗑️ Clear</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>About</h3>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Hobby Manager</div>
+            <div class="settings-row-desc">Track your miniature painting progress. Data stored locally on this device.</div>
           </div>
         </div>
-        <div class="settings-section">
-          <h3>About</h3>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Hobby Manager</div>
-              <div class="settings-row-desc">Track your miniature painting progress. Data stored locally on this device.</div>
-            </div>
-          </div>
-        </div>
-      `;
+      </div>
+    `;
 
-      container.querySelector('#themeSelect')?.addEventListener('change', e => {
-        applyTheme(e.target.value);
-        toast('Theme saved!', 'success');
-      });
+    container.querySelector('#themeSelect')?.addEventListener('change', e => {
+      applyTheme(e.target.value);
+      toast('Theme saved!', 'success');
+    });
 
-      container.querySelectorAll('[data-delete-type]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const t = getAllModelTypes().find(t => t.id === btn.dataset.deleteType);
-          if (!t) return;
-          if (!confirm(`Delete custom type "${t.name}"?`)) return;
-          deleteCustomModelType(t.id);
-          toast('Custom type deleted', 'info');
-          renderSettings();
-        });
+    container.querySelectorAll('[data-delete-type]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = getAllModelTypes().find(t => t.id === btn.dataset.deleteType);
+        if (!t) return;
+        if (!confirm(`Delete custom type "${t.name}"?`)) return;
+        deleteCustomModelType(t.id);
+        toast('Custom type deleted', 'info');
+        renderSettings();
       });
+    });
 
-      container.querySelector('#settingsExport').addEventListener('click', exportJSON);
-      container.querySelector('#settingsImport').addEventListener('click', () => document.getElementById('importFile').click());
-      container.querySelector('#settingsClear').addEventListener('click', () => {
-        if (!confirm('Delete ALL data permanently?')) return;
-        localStorage.removeItem('hobbymanager_v2');
-        location.reload();
-      });
+    container.querySelector('#settingsExport').addEventListener('click', exportJSON);
+    container.querySelector('#settingsImport').addEventListener('click', () => document.getElementById('importFile').click());
+    container.querySelector('#settingsClear').addEventListener('click', () => {
+      if (!confirm('Delete ALL data permanently?')) return;
+      localStorage.removeItem('hobbymanager_v2');
+      location.reload();
     });
   }
 
