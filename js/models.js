@@ -338,6 +338,10 @@ export function showLogProgress(modelId) {
     </div>
     <div class="form-group">
       <label>Stages completed</label>
+      <div class="log-quick-btns">
+        <button class="btn btn-sm btn-primary" id="lpAllDone">✓ All Done</button>
+        <button class="btn btn-sm" id="lpReset">✕ Reset All</button>
+      </div>
       <div class="log-stages" id="lpStages">
         ${stages.map(s => {
           const prog = model.progress[s.id] || { done: 0 };
@@ -383,6 +387,34 @@ export function showLogProgress(modelId) {
     }
     if (e.target.classList.contains('qty-dec')) {
       input.value = Math.max(0, parseInt(input.value || 0) - 1);
+    }
+  });
+
+  // All Done — set every stage to full quantity / tick all checkboxes
+  content.querySelector('#lpAllDone').addEventListener('click', () => {
+    if (isSingle) {
+      content.querySelectorAll('.stage-checkbox').forEach(cb => {
+        cb.checked = true;
+        cb.closest('.log-stage-check').classList.add('is-done');
+      });
+    } else {
+      content.querySelectorAll('.qty-input').forEach(input => {
+        input.value = model.quantity;
+      });
+    }
+  });
+
+  // Reset All — zero everything out
+  content.querySelector('#lpReset').addEventListener('click', () => {
+    if (isSingle) {
+      content.querySelectorAll('.stage-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.closest('.log-stage-check').classList.remove('is-done');
+      });
+    } else {
+      content.querySelectorAll('.qty-input').forEach(input => {
+        input.value = 0;
+      });
     }
   });
 
