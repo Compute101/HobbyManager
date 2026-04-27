@@ -26,7 +26,7 @@ export function renderCollections() {
         <p>No game systems yet. Add one to get started.</p>
         <button class="btn btn-primary" id="addFirstCollection">+ Add Game System</button>
       </div>`;
-    document.getElementById('addFirstCollection')?.addEventListener('click', showCollectionForm);
+    document.getElementById('addFirstCollection')?.addEventListener('click', () => showCollectionForm());
     return;
   }
 
@@ -93,7 +93,7 @@ function renderCollectionsSidebar() {
     </div>
   `;
 
-  sidebar.querySelector('#addCollBtn')?.addEventListener('click', showCollectionForm);
+  sidebar.querySelector('#addCollBtn')?.addEventListener('click', () => showCollectionForm());
 
   sidebar.querySelectorAll('[data-col-id]').forEach(el => {
     el.querySelector('.sidebar-col-name')?.addEventListener('click', () => selectCollection(el.dataset.colId));
@@ -419,6 +419,7 @@ function confirmDeleteCollection(id) {
 // --- List form ---
 
 function showListForm(collectionId = null, editId = null) {
+  editId = editId || null;
   const list = editId ? appData.lists[editId] : null;
   const colId = collectionId || list?.collectionId;
 
@@ -447,7 +448,7 @@ function showListForm(collectionId = null, editId = null) {
       toast('List created!', 'success');
     }
     closeModal();
-    setTimeout(() => renderCollections(), 50);
+    renderCollections();
     if (activeCollectionId) selectCollection(activeCollectionId);
   });
 
@@ -475,6 +476,7 @@ function shareList(listId) {
 
   const col = appData.collections[list.collectionId];
   const sys = col ? GAME_SYSTEMS[col.gameSystemId] : null;
+  const groupTerm = sys ? sys.terms.group : 'Regiment';
   const stats = listStats(list);
   const models = (list.modelIds || []).map(id => appData.models[id]).filter(Boolean);
 
@@ -528,7 +530,7 @@ function shareList(listId) {
     `🎨 Painted:     ${stats.painted}/${stats.total}`,
     `🏆 Finished:    ${stats.finished}/${stats.total}`,
     ``,
-    `📋 Regiments:`,
+    `📋 ${groupTerm}s:`,
     regimentLines || '  (none)',
     deadlineLine,
   ].filter(l => l !== undefined).join('\n').trim();
