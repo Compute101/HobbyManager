@@ -6,20 +6,16 @@ import {
   listStats, saveData, uid, GAME_SYSTEMS
 } from './data.js';
 import { showModal, closeModal, toast, progressBar, thresholdBadge, createDateInput, getDateValue } from './ui.js';
-import { applyTheme, resetTheme, getTerm } from './theme.js';
+import { applyTheme, resetTheme, setCurrentSystem, resetCurrentSystem, getTerm } from './theme.js';
 import { showLogProgress, showModelDetail } from './models.js';
 
 let activeCollectionId = null;
 let activeListId = null;
 
-// --- Main collections view ---
-
 export function renderCollections() {
   const container = document.getElementById('collectionsView');
   if (!container) return;
-
   const collections = Object.values(appData.collections);
-
   if (!collections.length) {
     container.innerHTML = `
       <div class="empty-state">
@@ -29,7 +25,6 @@ export function renderCollections() {
     document.getElementById('addFirstCollection')?.addEventListener('click', () => showCollectionForm());
     return;
   }
-
   container.innerHTML = `
     <div class="collections-layout">
       <div class="collections-sidebar" id="collectionsSidebar"></div>
@@ -38,9 +33,7 @@ export function renderCollections() {
       </div>
     </div>
   `;
-
   renderCollectionsSidebar();
-
   if (activeCollectionId) {
     selectCollection(activeCollectionId);
     if (activeListId) selectList(activeListId);
@@ -50,9 +43,7 @@ export function renderCollections() {
 function renderCollectionsSidebar() {
   const sidebar = document.getElementById('collectionsSidebar');
   if (!sidebar) return;
-
   const collections = Object.values(appData.collections);
-
   sidebar.innerHTML = `
     <div class="sidebar-header">
       <span>Game Systems</span>
@@ -84,7 +75,7 @@ function renderCollectionsSidebar() {
                     </div>
                   </div>
                 `).join('')}
-                <button class="btn btn-sm sidebar-add-list" data-col-add-list="${col.id}">+ Army List</button>
+                <button class="btn btn-sm sidebar-add-list" data-col-add-list="${col.id}">+ ${sys ? sys.terms.army : 'Army'} List</button>
               </div>
             ` : ''}
           </div>
@@ -92,9 +83,7 @@ function renderCollectionsSidebar() {
       }).join('')}
     </div>
   `;
-
   sidebar.querySelector('#addCollBtn')?.addEventListener('click', () => showCollectionForm());
-
   sidebar.querySelectorAll('[data-col-id]').forEach(el => {
     el.querySelector('.sidebar-col-name')?.addEventListener('click', () => selectCollection(el.dataset.colId));
   });
@@ -123,16 +112,12 @@ function selectCollection(colId) {
   activeListId = null;
   const col = appData.collections[colId];
   if (!col) return;
-
-  applyTheme(col.gameSystemId);
+  setCurrentSystem(col.gameSystemId); // update terminology context
   renderCollectionsSidebar();
-
   const main = document.getElementById('collectionsMain');
   if (!main) return;
-
   const lists = (col.listIds || []).map(lid => appData.lists[lid]).filter(Boolean);
   const sys = GAME_SYSTEMS[col.gameSystemId];
-
   main.innerHTML = `
     <div class="main-header">
       <h2>${col.name}</h2>
@@ -158,7 +143,6 @@ function selectCollection(colId) {
       </div>
     </div>
   `;
-
   main.querySelectorAll('[data-list-select]').forEach(el => {
     el.addEventListener('click', () => selectList(el.dataset.listSelect));
   });
@@ -169,16 +153,12 @@ function selectList(listId) {
   activeListId = listId;
   const list = appData.lists[listId];
   if (!list) return;
-
   renderCollectionsSidebar();
-
   const main = document.getElementById('collectionsMain');
   if (!main) return;
-
   const col = appData.collections[list.collectionId];
   const stats = listStats(list);
   const models = (list.modelIds || []).map(id => appData.models[id]).filter(Boolean);
-
   main.innerHTML = `
     <div class="main-header">
       <button class="btn btn-sm" id="backToCol">← ${col?.name || 'Back'}</button>
@@ -207,12 +187,9 @@ function selectList(listId) {
       ${models.length ? models.map(m => listModelRow(m, listId)).join('') : `<div class="empty-state"><p>No models in this list yet.</p></div>`}
     </div>
   `;
-
   main.querySelector('#backToCol')?.addEventListener('click', () => selectCollection(list.collectionId));
   main.querySelector('#addModelToListBtn')?.addEventListener('click', () => showAddModelToList(listId));
   main.querySelector('#shareListBtn')?.addEventListener('click', () => shareList(listId));
-
-  // Deadline save — works for native input and dropdowns
   const deadlineEl = document.getElementById('listDeadlineInput');
   const saveListDeadline = () => {
     const val = getDateValue('listDeadlineInput');
@@ -220,7 +197,7 @@ function selectList(listId) {
       list.deadline = val || null;
       saveData();
       toast(val ? 'Deadline saved' : 'Deadline cleared', 'success');
-      selectList(listId); // re-render to update clear button
+      selectList(listId);
     }
   };
   if (deadlineEl) {
@@ -230,14 +207,12 @@ function selectList(listId) {
       deadlineEl.querySelectorAll('select').forEach(s => s.addEventListener('change', saveListDeadline));
     }
   }
-
   main.querySelector('#clearDeadlineBtn')?.addEventListener('click', () => {
     list.deadline = null;
     saveData();
     toast('Deadline cleared', 'info');
     selectList(listId);
   });
-
   main.querySelectorAll('[data-model-view]').forEach(el => {
     el.addEventListener('click', () => showModelDetail(el.dataset.modelView));
   });
@@ -255,11 +230,8 @@ function selectList(listId) {
 }
 
 function listModelRow(model, listId) {
-  const { modelPoints, modelThreshold } = window._dataHelpers || {};
-  // Import inline since we need it here
   const pts = calcModelPoints(model);
   const thresh = calcModelThreshold(model);
-
   return `
     <div class="list-model-row" data-model-view="${model.id}">
       <div class="list-model-info">
@@ -278,7 +250,6 @@ function listModelRow(model, listId) {
   `;
 }
 
-// Inline helpers to avoid circular imports in some environments
 function calcModelPoints(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
@@ -296,14 +267,12 @@ function calcModelThreshold(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
   const activeStages = stages.filter(s => !skipped.includes(s.id));
-
   const hasThresholds = stages.some(s => s.threshold);
   if (!hasThresholds) {
     const allDone = activeStages.length > 0 &&
       activeStages.every(s => (model.progress[s.id]?.done || 0) >= model.quantity);
     return allDone ? 'finished' : null;
   }
-
   for (const thresh of ['finished', 'painted', 'table_ready']) {
     const threshStageIdx = stages.findIndex(s => s.threshold === thresh);
     if (threshStageIdx === -1) continue;
@@ -316,15 +285,11 @@ function calcModelThreshold(model) {
   return null;
 }
 
-// --- Add models from pool to list ---
-
 function showAddModelToList(listId) {
   const list = appData.lists[listId];
   if (!list) return;
-
   const allModels = Object.values(appData.models);
   const already = list.modelIds || [];
-
   const content = document.createElement('div');
   content.innerHTML = `
     <p>Select models from your pool to add to this list:</p>
@@ -342,7 +307,6 @@ function showAddModelToList(listId) {
       <button class="btn" id="poolPickCancel">Cancel</button>
     </div>
   `;
-
   content.querySelector('#poolPickSave')?.addEventListener('click', () => {
     content.querySelectorAll('#poolPicker input:checked:not(:disabled)').forEach(cb => {
       addModelToList(listId, cb.value);
@@ -351,18 +315,13 @@ function showAddModelToList(listId) {
     closeModal();
     selectList(listId);
   });
-
   content.querySelector('#poolPickCancel')?.addEventListener('click', () => closeModal());
-
   showModal({ title: `Add ${getTerm('model')}s to List`, content, wide: true });
 }
-
-// --- Collection form ---
 
 function showCollectionForm(editId = null) {
   editId = editId || null;
   const col = editId ? appData.collections[editId] : null;
-
   const content = document.createElement('div');
   content.innerHTML = `
     <div class="form-group">
@@ -382,12 +341,10 @@ function showCollectionForm(editId = null) {
       <button class="btn" id="cfCancel">Cancel</button>
     </div>
   `;
-
   content.querySelector('#cfSave').addEventListener('click', () => {
     const name = content.querySelector('#cfName').value.trim();
     const gameSystemId = content.querySelector('#cfSys').value;
     if (!name) { toast('Please enter a name', 'error'); return; }
-
     if (editId) {
       Object.assign(appData.collections[editId], { name, gameSystemId });
       saveData();
@@ -397,9 +354,8 @@ function showCollectionForm(editId = null) {
       toast('Game system created!', 'success');
     }
     closeModal();
-    setTimeout(() => renderCollections(), 50);
+    renderCollections();
   });
-
   content.querySelector('#cfCancel').addEventListener('click', () => closeModal());
   showModal({ title: editId ? 'Edit Game System' : 'New Game System', content });
 }
@@ -411,18 +367,15 @@ function confirmDeleteCollection(id) {
   deleteCollection(id);
   activeCollectionId = null;
   activeListId = null;
-  resetTheme();
+  resetCurrentSystem();
   toast('Deleted', 'info');
   renderCollections();
 }
-
-// --- List form ---
 
 function showListForm(collectionId = null, editId = null) {
   editId = editId || null;
   const list = editId ? appData.lists[editId] : null;
   const colId = collectionId || list?.collectionId;
-
   const content = document.createElement('div');
   content.innerHTML = `
     <div class="form-group">
@@ -434,11 +387,9 @@ function showListForm(collectionId = null, editId = null) {
       <button class="btn" id="lfCancel">Cancel</button>
     </div>
   `;
-
   content.querySelector('#lfSave').addEventListener('click', () => {
     const name = content.querySelector('#lfName').value.trim();
     if (!name) { toast('Please enter a name', 'error'); return; }
-
     if (editId) {
       Object.assign(appData.lists[editId], { name });
       saveData();
@@ -451,7 +402,6 @@ function showListForm(collectionId = null, editId = null) {
     renderCollections();
     if (activeCollectionId) selectCollection(activeCollectionId);
   });
-
   content.querySelector('#lfCancel').addEventListener('click', () => closeModal());
   showModal({ title: editId ? `Edit ${getTerm('army')} List` : `New ${getTerm('army')} List`, content });
 }
@@ -468,22 +418,19 @@ function confirmDeleteList(id) {
   if (colId) selectCollection(colId);
 }
 
-// --- Share list as text ---
-
 function shareList(listId) {
   const list = appData.lists[listId];
   if (!list) return;
-
   const col = appData.collections[list.collectionId];
   const sys = col ? GAME_SYSTEMS[col.gameSystemId] : null;
-  const groupTerm = sys ? sys.terms.group : 'Regiment';
   const stats = listStats(list);
   const models = (list.modelIds || []).map(id => appData.models[id]).filter(Boolean);
+  const groupTerm = sys ? sys.terms.group : 'Regiment';
 
   const threshLabel = (thresh) => {
-    if (thresh === 'finished')    return '🏆 Finished';
-    if (thresh === 'painted')     return '🎨 Painted';
-    if (thresh === 'table_ready') return '⚔️ Table Ready';
+    if (thresh === 'finished')     return '🏆 Finished';
+    if (thresh === 'painted')      return '🎨 Painted';
+    if (thresh === 'table_ready')  return '⚔️ Table Ready';
     return '🔧 In Progress';
   };
 
@@ -492,7 +439,6 @@ function shareList(listId) {
     return '█'.repeat(filled) + '░'.repeat(10 - filled) + ` ${pct}%`;
   };
 
-  // Regiment breakdown — one line each
   const regimentLines = models.map(m => {
     const thresh = calcModelThreshold(m);
     const pts = calcModelPoints(m);
@@ -501,16 +447,12 @@ function shareList(listId) {
     return `• ${m.name} ×${m.quantity} — ${label}${extra}`;
   }).join('\n');
 
-  // Deadline line
   let deadlineLine = '';
   if (list.deadline) {
     const days = Math.ceil((new Date(list.deadline) - new Date()) / 86400000);
     const ptsLeft = stats.totalPts - stats.donePts;
     const pace = days > 0 ? (ptsLeft / days).toFixed(1) : null;
-    const daysStr = days < 0
-      ? `${Math.abs(days)} days overdue`
-      : days === 0 ? 'due today'
-      : `${days} days to go`;
+    const daysStr = days < 0 ? `${Math.abs(days)} days overdue` : days === 0 ? 'due today' : `${days} days to go`;
     const paceStr = pace ? ` · ${pace} pts/day needed` : '';
     const d = new Date(list.deadline + 'T12:00:00');
     const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -518,7 +460,6 @@ function shareList(listId) {
   }
 
   const sysLine = sys ? ` (${sys.shortLabel})` : '';
-
   const text = [
     `⚔️ ${list.name}${sysLine}`,
     `${'━'.repeat(Math.min(list.name.length + sysLine.length + 2, 32))}`,
@@ -535,17 +476,12 @@ function shareList(listId) {
     deadlineLine,
   ].filter(l => l !== undefined).join('\n').trim();
 
-  // Try native share sheet first (mobile), fall back to clipboard
   if (navigator.share) {
-    navigator.share({ title: list.name, text })
-      .catch(() => {}); // user cancelled — no error needed
+    navigator.share({ title: list.name, text }).catch(() => {});
   } else {
     navigator.clipboard.writeText(text)
       .then(() => toast('Copied to clipboard!', 'success'))
-      .catch(() => {
-        // Last resort — show in a modal they can copy manually
-        showShareFallback(text);
-      });
+      .catch(() => showShareFallback(text));
   }
 }
 

@@ -15,6 +15,20 @@ export const GAME_SYSTEMS = {
     terms: { army: 'Force', group: 'Squad', model: 'Operative', session: 'Mission' },
     theme: 'theme-40k'
   },
+  horus_heresy: {
+    id: 'horus_heresy',
+    label: 'Horus Heresy',
+    shortLabel: 'Heresy',
+    terms: { army: 'Legion', group: 'Squad', model: 'Legionary', session: 'Campaign' },
+    theme: 'theme-heresy'
+  },
+  age_of_sigmar: {
+    id: 'age_of_sigmar',
+    label: 'Age of Sigmar',
+    shortLabel: 'AoS',
+    terms: { army: 'Warhost', group: 'Warband', model: 'Warrior', session: 'Battle' },
+    theme: 'theme-aos'
+  },
   custom: {
     id: 'custom',
     label: 'Custom',

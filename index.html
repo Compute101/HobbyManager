@@ -154,6 +154,117 @@
     .theme-40k .nav-tab.active { border-bottom-color: #c0180c; color: #c0180c; }
 
     /* ================================================================
+       HORUS HERESY THEME — Palatine gold, iron grey, gothic grandeur
+    ================================================================ */
+    .theme-heresy {
+      --bg:           #0e0e10;
+      --bg2:          #131318;
+      --bg3:          #1a1408;
+      --surface:      #161618;
+      --surface2:     #1e1e22;
+      --border:       #2a2010;
+      --text:         #d8d0c0;
+      --text-muted:   #706858;
+      --accent:       #b8922a;
+      --accent2:      #6a6a7a;
+      --danger:       #8a1010;
+      --warning:      #a06010;
+      --font-display: 'Cinzel', serif;
+      --font-body:    'Crimson Text', serif;
+      --chart-done:   #b8922a;
+      --chart-remain: #1a1a1a;
+      --header-bg:    linear-gradient(135deg, #1a1408 0%, #0e0e10 100%);
+      --tab-active-bg:#161618;
+    }
+
+    .theme-heresy header {
+      border-bottom: 2px solid #b8922a;
+    }
+
+    .theme-heresy .app-title {
+      font-family: 'Cinzel', serif;
+      letter-spacing: 0.08em;
+    }
+
+    .theme-heresy .btn-primary {
+      background: linear-gradient(135deg, #b8922a, #8a6a18);
+      border: 1px solid #d4aa40;
+      color: #0e0e10;
+      font-weight: 700;
+    }
+
+    .theme-heresy .model-card,
+    .theme-heresy .list-card,
+    .theme-heresy .dash-card {
+      border: 1px solid #2a2010;
+      border-left: 3px solid #b8922a;
+    }
+
+    .theme-heresy .prog-fill { background: #b8922a; }
+    .theme-heresy .nav-tab.active { border-bottom-color: #b8922a; color: #b8922a; }
+
+    /* ================================================================
+       AGE OF SIGMAR THEME — Arcane purple, celestial gold, magical
+    ================================================================ */
+    .theme-aos {
+      --bg:           #0d0b14;
+      --bg2:          #110f1a;
+      --bg3:          #1a1228;
+      --surface:      #151020;
+      --surface2:     #1c1630;
+      --border:       #2e2050;
+      --text:         #e0d8f0;
+      --text-muted:   #8070a0;
+      --accent:       #9060d0;
+      --accent2:      #c8a030;
+      --danger:       #8a1040;
+      --warning:      #a06020;
+      --font-display: 'Cinzel', serif;
+      --font-body:    'Crimson Text', serif;
+      --chart-done:   #9060d0;
+      --chart-remain: #1a1228;
+      --header-bg:    linear-gradient(135deg, #1a1228 0%, #0d0b14 100%);
+      --tab-active-bg:#151020;
+    }
+
+    .theme-aos header {
+      border-bottom: 2px solid #9060d0;
+    }
+
+    .theme-aos .app-title {
+      font-family: 'Cinzel', serif;
+      letter-spacing: 0.06em;
+    }
+
+    .theme-aos .btn-primary {
+      background: linear-gradient(135deg, #9060d0, #6040a0);
+      border: 1px solid #a870e0;
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .theme-aos .model-card,
+    .theme-aos .list-card,
+    .theme-aos .dash-card {
+      border: 1px solid #2e2050;
+      background: linear-gradient(160deg, #151020 0%, #110f1a 100%);
+    }
+
+    .theme-aos .model-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #9060d0, transparent);
+    }
+
+    .theme-aos .prog-fill { background: #9060d0; }
+    .theme-aos .nav-tab.active { border-bottom-color: #9060d0; color: #9060d0; }
+
+    .theme-aos .sys-tag.theme-aos { border-color: #9060d044; color: #9060d0; }
+    .theme-heresy .sys-tag.theme-heresy { border-color: #b8922a44; color: #b8922a; }
+
+    /* ================================================================
        BASE STYLES
     ================================================================ */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -218,6 +329,8 @@
 
     .system-badge.theme-old-world { border-color: #c8962a; color: #c8962a; }
     .system-badge.theme-40k { border-color: #c0180c; color: #c0180c; }
+    .system-badge.theme-heresy { border-color: #b8922a; color: #b8922a; }
+    .system-badge.theme-aos { border-color: #9060d0; color: #9060d0; }
 
     /* ================================================================
        NAV TABS
@@ -582,6 +695,8 @@
 
     .sys-tag.theme-old-world { border-color: #c8962a44; color: #c8962a; }
     .sys-tag.theme-40k { border-color: #c0180c44; color: #c0180c; }
+    .sys-tag.theme-heresy { border-color: #b8922a44; color: #b8922a; }
+    .sys-tag.theme-aos { border-color: #9060d044; color: #9060d0; }
 
     .collections-main { flex: 1; min-width: 0; }
 
@@ -1065,7 +1180,6 @@
 
   <header>
     <div class="app-title">⚔️ Hobby Manager</div>
-    <span id="systemBadge" class="system-badge"></span>
     <div class="header-actions">
       <button class="btn btn-sm" id="exportBtn" title="Export">💾</button>
       <button class="btn btn-sm" id="importBtn" title="Import">📂</button>
@@ -1126,15 +1240,16 @@
 </div>
 
 <script type="module">
-  import { loadData, exportJSON, importJSON } from './js/data.js';
+  import { loadData, exportJSON, importJSON, appData, getAllModelTypes, deleteCustomModelType } from './js/data.js';
   import { renderModelPool, showModelForm } from './js/models.js';
   import { renderCollections } from './js/collections.js';
   import { renderDashboard } from './js/dashboard.js';
-  import { applyTheme } from './js/theme.js';
+  import { loadSavedTheme, applyTheme } from './js/theme.js';
   import { toast } from './js/ui.js';
 
   // --- Boot ---
   loadData();
+  loadSavedTheme();
 
   // --- Tab switching ---
   const tabs = document.querySelectorAll('.nav-tab');
@@ -1181,82 +1296,98 @@
     const container = document.getElementById('settingsView');
     if (!container) return;
 
-    const { getAllModelTypes, deleteCustomModelType } = window._dataHelpers || {};
+    const customTypes = getAllModelTypes().filter(t => !t.builtIn);
 
-    // We'll import these inline via dynamic access
-    import('./js/data.js').then(({ getAllModelTypes, deleteCustomModelType }) => {
-      const customTypes = getAllModelTypes().filter(t => !t.builtIn);
-
-      container.innerHTML = `
-        <div class="settings-section">
-          <h3>Custom Model Types</h3>
-          ${customTypes.length ? `
-            <div class="custom-types-list">
-              ${customTypes.map(t => `
-                <div class="settings-row">
-                  <div>
-                    <div class="settings-row-label">⭐ ${t.name}</div>
-                    <div class="settings-row-desc">${t.stages.length} stages · ${t.stages.reduce((a,s) => a + s.points, 0)} total pts</div>
-                  </div>
-                  <button class="btn btn-sm btn-danger" data-delete-type="${t.id}">🗑️ Delete</button>
+    container.innerHTML = `
+      <div class="settings-section">
+        <h3>Appearance</h3>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Theme</div>
+            <div class="settings-row-desc">Choose your preferred visual style</div>
+          </div>
+          <select class="form-input settings-theme-select" id="themeSelect" style="width:auto">
+            <option value="theme-default" ${(appData.config.activeTheme || 'theme-default') === 'theme-default' ? 'selected' : ''}>Default</option>
+            <option value="theme-old-world" ${appData.config.activeTheme === 'theme-old-world' ? 'selected' : ''}>⚔️ Old World</option>
+            <option value="theme-40k" ${appData.config.activeTheme === 'theme-40k' ? 'selected' : ''}>💀 40K</option>
+            <option value="theme-heresy" ${appData.config.activeTheme === 'theme-heresy' ? 'selected' : ''}>🔱 Horus Heresy</option>
+            <option value="theme-aos" ${appData.config.activeTheme === 'theme-aos' ? 'selected' : ''}>✨ Age of Sigmar</option>
+          </select>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>Custom Model Types</h3>
+        ${customTypes.length ? `
+          <div class="custom-types-list">
+            ${customTypes.map(t => `
+              <div class="settings-row">
+                <div>
+                  <div class="settings-row-label">⭐ ${t.name}</div>
+                  <div class="settings-row-desc">${t.stages.length} stages · ${t.stages.reduce((a,s) => a + s.points, 0)} total pts</div>
                 </div>
-              `).join('')}
-            </div>
-          ` : '<p class="empty-text" style="padding:0.5em 0">No custom types yet. Save one from the Add Model form.</p>'}
+                <button class="btn btn-sm btn-danger" data-delete-type="${t.id}">🗑️ Delete</button>
+              </div>
+            `).join('')}
+          </div>
+        ` : '<p class="empty-text" style="padding:0.5em 0">No custom types yet. Save one from the Add Model form.</p>'}
+      </div>
+      <div class="settings-section">
+        <h3>Data Management</h3>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Export Data</div>
+            <div class="settings-row-desc">Download a backup JSON file</div>
+          </div>
+          <button class="btn btn-sm" id="settingsExport">💾 Export</button>
         </div>
-        <div class="settings-section">
-          <h3>Data Management</h3>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Export Data</div>
-              <div class="settings-row-desc">Download a backup JSON file</div>
-            </div>
-            <button class="btn btn-sm" id="settingsExport">💾 Export</button>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Import Data</div>
+            <div class="settings-row-desc">Restore from a backup JSON file</div>
           </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Import Data</div>
-              <div class="settings-row-desc">Restore from a backup JSON file</div>
-            </div>
-            <button class="btn btn-sm" id="settingsImport">📂 Import</button>
+          <button class="btn btn-sm" id="settingsImport">📂 Import</button>
+        </div>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Clear All Data</div>
+            <div class="settings-row-desc">⚠️ This cannot be undone</div>
           </div>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Clear All Data</div>
-              <div class="settings-row-desc">⚠️ This cannot be undone</div>
-            </div>
-            <button class="btn btn-sm btn-danger" id="settingsClear">🗑️ Clear</button>
+          <button class="btn btn-sm btn-danger" id="settingsClear">🗑️ Clear</button>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>About</h3>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Hobby Manager</div>
+            <div class="settings-row-desc">Track your miniature painting progress. Data stored locally on this device.</div>
           </div>
         </div>
-        <div class="settings-section">
-          <h3>About</h3>
-          <div class="settings-row">
-            <div>
-              <div class="settings-row-label">Hobby Manager</div>
-              <div class="settings-row-desc">Track your miniature painting progress. Data stored locally on this device.</div>
-            </div>
-          </div>
-        </div>
-      `;
+      </div>
+    `;
 
-      container.querySelectorAll('[data-delete-type]').forEach(btn => {
-        btn.addEventListener('click', () => {
-          const t = getAllModelTypes().find(t => t.id === btn.dataset.deleteType);
-          if (!t) return;
-          if (!confirm(`Delete custom type "${t.name}"?`)) return;
-          deleteCustomModelType(t.id);
-          toast('Custom type deleted', 'info');
-          renderSettings();
-        });
-      });
+    container.querySelector('#themeSelect')?.addEventListener('change', e => {
+      applyTheme(e.target.value);
+      toast('Theme saved!', 'success');
+    });
 
-      container.querySelector('#settingsExport').addEventListener('click', exportJSON);
-      container.querySelector('#settingsImport').addEventListener('click', () => document.getElementById('importFile').click());
-      container.querySelector('#settingsClear').addEventListener('click', () => {
-        if (!confirm('Delete ALL data permanently?')) return;
-        localStorage.removeItem('hobbymanager_v2');
-        location.reload();
+    container.querySelectorAll('[data-delete-type]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = getAllModelTypes().find(t => t.id === btn.dataset.deleteType);
+        if (!t) return;
+        if (!confirm(`Delete custom type "${t.name}"?`)) return;
+        deleteCustomModelType(t.id);
+        toast('Custom type deleted', 'info');
+        renderSettings();
       });
+    });
+
+    container.querySelector('#settingsExport').addEventListener('click', exportJSON);
+    container.querySelector('#settingsImport').addEventListener('click', () => document.getElementById('importFile').click());
+    container.querySelector('#settingsClear').addEventListener('click', () => {
+      if (!confirm('Delete ALL data permanently?')) return;
+      localStorage.removeItem('hobbymanager_v2');
+      location.reload();
     });
   }
 
