@@ -476,6 +476,7 @@ function shareList(listId) {
 
   const col = appData.collections[list.collectionId];
   const sys = col ? GAME_SYSTEMS[col.gameSystemId] : null;
+  const groupTerm = sys ? sys.terms.group : 'Regiment';
   const stats = listStats(list);
   const models = (list.modelIds || []).map(id => appData.models[id]).filter(Boolean);
 
@@ -529,7 +530,7 @@ function shareList(listId) {
     `🎨 Painted:     ${stats.painted}/${stats.total}`,
     `🏆 Finished:    ${stats.finished}/${stats.total}`,
     ``,
-    `📋 Regiments:`,
+    `📋 ${groupTerm}s:`,
     regimentLines || '  (none)',
     deadlineLine,
   ].filter(l => l !== undefined).join('\n').trim();
