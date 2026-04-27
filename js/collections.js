@@ -384,11 +384,15 @@ function showCollectionForm(editId = null) {
   `;
 
   content.querySelector('#cfSave').addEventListener('click', () => {
-    const name = content.querySelector('#cfName').value.trim();
-    if (!name) { toast('Please enter a name', 'error'); return; }
-    createCollection({ name, gameSystemId: 'old_world' });
-    closeModal();
-    renderCollections();
+    try {
+      const name = content.querySelector('#cfName').value.trim();
+      if (!name) { toast('Please enter a name', 'error'); return; }
+      createCollection({ name, gameSystemId: 'old_world' });
+      closeModal();
+      renderCollections();
+    } catch(e) {
+      alert('Error: ' + e.message);
+    }
 });
 
   content.querySelector('#cfCancel').addEventListener('click', () => closeModal());
