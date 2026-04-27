@@ -447,7 +447,7 @@ function showListForm(collectionId = null, editId = null) {
       toast('List created!', 'success');
     }
     closeModal();
-    renderCollections();
+    setTimeout(() => renderCollections(), 50);
     if (activeCollectionId) selectCollection(activeCollectionId);
   });
 
