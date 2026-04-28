@@ -19,6 +19,12 @@ export function renderDashboard() {
   container.innerHTML = `
     <div class="dashboard-grid">
 
+      <!-- Weekly summary -->
+      <div class="dash-card dash-weekly">
+        <h3>This Week</h3>
+        ${renderWeeklySummary()}
+      </div>
+
       <!-- Overall summary -->
       <div class="dash-card dash-summary">
         <h3>Overall Progress</h3>
@@ -89,11 +95,126 @@ export function renderDashboard() {
     btn.addEventListener('click', () => showListBurndown(btn.dataset.burndownList));
   });
 
+  // Weekly goal button
+  document.getElementById('setWeeklyGoalBtn')?.addEventListener('click', () => {
+    const current = appData.config.weeklyGoal || '';
+    const val = prompt('Set weekly hobby point goal (0 to disable):', current);
+    if (val !== null) {
+      appData.config.weeklyGoal = Math.max(0, parseInt(val) || 0);
+      saveData();
+      renderDashboard();
+    }
+  });
+
   // Render pie charts
   requestAnimationFrame(() => {
     renderCompletionPie('completionPie');
     renderCompositionPie('compositionPie');
   });
+}
+
+function getWeekBounds() {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon...
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((day + 6) % 7)); // roll back to Monday
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return {
+    start: monday.toISOString().split('T')[0],
+    end: sunday.toISOString().split('T')[0]
+  };
+}
+
+function renderWeeklySummary() {
+  const { start, end } = getWeekBounds();
+  const sessions = (appData.sessions || []).filter(s => s.date >= start && s.date <= end);
+  const goal = appData.config.weeklyGoal || 0;
+
+  // Points this week
+  const weekPts = sessions.reduce((acc, s) => {
+    return acc + (s.modelEntries || []).reduce((a, e) => {
+      const model = appData.models[e.modelId];
+      const stage = (model?.stages || appData.config.stages).find(st => st.id === e.stageId);
+      return a + (stage?.points || 1);
+    }, 0);
+  }, 0);
+
+  // Days painted
+  const daysPainted = new Set(sessions.map(s => s.date)).size;
+
+  // Time spent
+  const totalMins = sessions.reduce((a, s) => a + (s.duration || 0), 0);
+  const timeStr = totalMins === 0 ? '—' : totalMins >= 60
+    ? `${Math.floor(totalMins/60)}h ${totalMins%60}m`
+    : `${totalMins}m`;
+
+  // Models worked on
+  const modelsWorked = new Set(
+    sessions.flatMap(s => (s.modelEntries || []).map(e => e.modelId))
+  ).size;
+
+  // Goal progress
+  const goalPct = goal > 0 ? Math.min(100, Math.round(weekPts / goal * 100)) : null;
+  const urgencyClass = goalPct === null ? '' : goalPct >= 100 ? 'goal-done' : goalPct >= 60 ? 'goal-close' : '';
+
+  // Encouraging message
+  const today = new Date();
+  const dayOfWeek = (today.getDay() + 6) % 7; // 0=Mon, 6=Sun
+  const daysLeft = 6 - dayOfWeek;
+
+  let message = '';
+  if (goal > 0) {
+    if (goalPct >= 100) message = '🎉 Weekly goal smashed!';
+    else if (weekPts === 0 && daysLeft <= 1) message = '⚠️ Last chance to paint this week!';
+    else if (weekPts === 0) message = '🖌️ Time to get the brushes out!';
+    else if (goalPct >= 60) message = '💪 Almost there — keep going!';
+    else if (daysLeft <= 2 && goalPct < 50) message = '⏰ Weekend crunch time!';
+    else message = '🎨 Good progress — keep it up!';
+  } else {
+    if (weekPts === 0) message = '🖌️ No painting yet this week.';
+    else message = `🎨 ${daysPainted} day${daysPainted !== 1 ? 's' : ''} painted this week!`;
+  }
+
+  // Day dots — Mon to Sun
+  const dayNames = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+  const sessionDates = new Set(sessions.map(s => s.date));
+  const dayDots = dayNames.map((d, i) => {
+    const date = new Date(start);
+    date.setDate(date.getDate() + i);
+    const dateStr = date.toISOString().split('T')[0];
+    const painted = sessionDates.has(dateStr);
+    const isToday = dateStr === today.toISOString().split('T')[0];
+    return `<div class="week-dot ${painted ? 'painted' : ''} ${isToday ? 'today' : ''}">
+      <div class="week-dot-circle"></div>
+      <div class="week-dot-label">${d}</div>
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="weekly-day-dots">${dayDots}</div>
+    <div class="weekly-stats">
+      <div class="weekly-stat"><span class="weekly-stat-val">${weekPts}</span><span class="weekly-stat-lbl">pts</span></div>
+      <div class="weekly-stat"><span class="weekly-stat-val">${daysPainted}</span><span class="weekly-stat-lbl">days</span></div>
+      <div class="weekly-stat"><span class="weekly-stat-val">${timeStr}</span><span class="weekly-stat-lbl">time</span></div>
+      <div class="weekly-stat"><span class="weekly-stat-val">${modelsWorked}</span><span class="weekly-stat-lbl">models</span></div>
+    </div>
+    ${goal > 0 ? `
+      <div class="weekly-goal-row">
+        <div class="weekly-goal-label">Weekly goal: ${weekPts} / ${goal} pts</div>
+        <div class="prog-bar weekly-goal-bar">
+          <div class="prog-fill ${urgencyClass}" style="width:${goalPct}%"></div>
+        </div>
+      </div>
+    ` : `
+      <div class="weekly-goal-set">
+        <button class="btn btn-sm" id="setWeeklyGoalBtn">🎯 Set weekly goal</button>
+      </div>
+    `}
+    <div class="weekly-message">${message}</div>
+  `;
 }
 
 function renderHobbyStats() {
