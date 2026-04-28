@@ -1091,6 +1091,185 @@
     }
 
     /* ================================================================
+       HOBBY STATS
+    ================================================================ */
+    .dash-hobby-stats { grid-column: 1 / -1; }
+
+    .hobby-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75em;
+    }
+
+    @media (max-width: 600px) {
+      .hobby-stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .hobby-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25em;
+      padding: 0.75em 0.5em;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      text-align: center;
+    }
+
+    .hobby-stat-icon { font-size: 1.5em; }
+    .hobby-stat-val { font-size: 1em; font-weight: 700; font-family: var(--font-display); color: var(--accent); word-break: break-word; }
+    .hobby-stat-lbl { font-size: 0.72em; color: var(--text-muted); }
+
+    /* ================================================================
+       ACTIVITY CALENDAR
+    ================================================================ */
+    .activity-layout {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75em;
+    }
+
+    .activity-calendar-card h3,
+    .activity-history-card h3 {
+      font-family: var(--font-display);
+      font-size: 0.9em;
+      font-weight: 600;
+      margin-bottom: 0.75em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .activity-calendar-card,
+    .activity-history-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1em;
+    }
+
+    .cal-summary {
+      display: flex;
+      gap: 0.5em;
+      font-size: 0.82em;
+      color: var(--text-muted);
+      margin-bottom: 0.75em;
+      flex-wrap: wrap;
+    }
+
+    .cal-wrap {
+      display: flex;
+      gap: 0.4em;
+      overflow-x: auto;
+      padding-bottom: 0.25em;
+    }
+
+    .cal-day-labels {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding-top: 1.4em;
+      flex-shrink: 0;
+    }
+
+    .cal-day-label {
+      height: 12px;
+      font-size: 0.6em;
+      color: var(--text-muted);
+      line-height: 12px;
+      width: 2em;
+      text-align: right;
+    }
+
+    .cal-grid-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+
+    .cal-month-labels {
+      display: grid;
+      grid-template-columns: repeat(53, 14px);
+      height: 1.2em;
+      position: relative;
+    }
+
+    .cal-month-label {
+      font-size: 0.65em;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    .cal-grid {
+      display: flex;
+      gap: 2px;
+    }
+
+    .cal-week {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .cal-day {
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: opacity 0.15s;
+    }
+
+    .cal-day:hover { opacity: 0.75; }
+
+    .cal-intensity-0 { background: var(--surface2); }
+    .cal-intensity-1 { background: color-mix(in srgb, var(--accent) 30%, var(--surface2)); }
+    .cal-intensity-2 { background: color-mix(in srgb, var(--accent) 55%, var(--surface2)); }
+    .cal-intensity-3 { background: color-mix(in srgb, var(--accent) 75%, var(--surface2)); }
+    .cal-intensity-4 { background: var(--accent); }
+
+    .cal-legend {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 0.6em;
+      font-size: 0.72em;
+      color: var(--text-muted);
+    }
+
+    .cal-legend .cal-day { cursor: default; }
+
+    /* Session history */
+    .history-month { margin-bottom: 1em; }
+
+    .history-month-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.4em;
+      padding-bottom: 0.3em;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 0.5em;
+    }
+
+    .history-month-label { font-weight: 700; font-family: var(--font-display); font-size: 0.95em; }
+    .history-month-stats { font-size: 0.78em; color: var(--text-muted); }
+
+    .session-item {
+      padding: 0.5em 0.6em;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      margin-bottom: 0.4em;
+      font-size: 0.85em;
+    }
+
+    .session-item-header { display: flex; justify-content: space-between; margin-bottom: 0.2em; }
+    .session-dur { font-size: 0.85em; color: var(--text-muted); }
+    .session-notes { font-size: 0.82em; color: var(--text-muted); font-style: italic; margin-top: 0.2em; }
+
+    /* ================================================================
        QUEUES
     ================================================================ */
     .queue-layout { display: flex; flex-direction: column; gap: 0; }
@@ -1380,6 +1559,7 @@
     <div class="header-actions">
       <button class="btn btn-sm" id="exportBtn" title="Export">💾</button>
       <button class="btn btn-sm" id="importBtn" title="Import">📂</button>
+      <button class="btn btn-sm" id="settingsBtn" title="Settings">⚙️</button>
       <input type="file" id="importFile" accept=".json" style="display:none">
     </div>
   </header>
@@ -1401,9 +1581,9 @@
       <span class="tab-icon">📋</span>
       <span class="tab-label">Queue</span>
     </button>
-    <button class="nav-tab" data-tab="settings" role="tab">
-      <span class="tab-icon">⚙️</span>
-      <span class="tab-label">Settings</span>
+    <button class="nav-tab" data-tab="activity" role="tab">
+      <span class="tab-icon">📅</span>
+      <span class="tab-label">Activity</span>
     </button>
   </nav>
 
@@ -1437,10 +1617,13 @@
       <div id="queuesView"></div>
     </div>
 
-    <!-- Settings -->
-    <div class="tab-panel" id="tab-settings">
-      <div id="settingsView"></div>
+    <!-- Activity -->
+    <div class="tab-panel" id="tab-activity">
+      <div id="activityView"></div>
     </div>
+
+    <!-- Settings (modal, not a tab) -->
+    <div id="settingsModal" style="display:none"></div>
 
   </main>
 
@@ -1452,8 +1635,9 @@
   import { renderCollections } from './js/collections.js';
   import { renderDashboard } from './js/dashboard.js';
   import { renderQueues } from './js/queue.js';
+  import { renderActivity } from './js/activity.js';
   import { loadSavedTheme, applyTheme } from './js/theme.js';
-  import { toast } from './js/ui.js';
+  import { toast, showModal, closeModal } from './js/ui.js';
 
   // --- Boot ---
   loadData();
@@ -1472,14 +1656,20 @@
     if (tabId === 'pool') renderModelPool();
     if (tabId === 'collections') renderCollections();
     if (tabId === 'queues') renderQueues();
-    if (tabId === 'settings') renderSettings();
+    if (tabId === 'activity') renderActivity();
   }
 
   tabs.forEach(tab => {
     tab.addEventListener('click', () => switchTab(tab.dataset.tab));
   });
 
-  // --- Model pool buttons ---
+  // --- Settings button (now in header as modal) ---
+  document.getElementById('settingsBtn').addEventListener('click', () => {
+    const content = document.createElement('div');
+    content.id = 'settingsView';
+    showModal({ title: '⚙️ Settings', content, wide: false });
+    renderSettings(content);
+  });
   document.getElementById('addModelBtn').addEventListener('click', () => showModelForm());
   document.getElementById('addFolderBtn').addEventListener('click', () => {
     const name = prompt('Folder name:');
@@ -1506,8 +1696,8 @@
     e.target.value = '';
   });
 
-  function renderSettings() {
-    const container = document.getElementById('settingsView');
+  function renderSettings(container) {
+    container = container || document.getElementById('settingsView');
     if (!container) return;
 
     const customTypes = getAllModelTypes().filter(t => !t.builtIn);
