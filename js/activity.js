@@ -142,6 +142,9 @@ function renderCalendar(sessions) {
     const calWrap = container.querySelector('.cal-wrap');
     if (calWrap) calWrap.scrollLeft = calWrap.scrollWidth;
   });
+
+  // Tooltip on hover/tap
+  container.querySelectorAll('[data-date]').forEach(el => {
     el.addEventListener('click', () => {
       const date = el.dataset.date;
       const pts = el.dataset.pts;
