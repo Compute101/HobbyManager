@@ -45,6 +45,12 @@ export function renderDashboard() {
         <div class="thresh-total">of ${stats.total} total models</div>
       </div>
 
+      <!-- Hobby stats -->
+      <div class="dash-card dash-hobby-stats">
+        <h3>Hobby Stats</h3>
+        ${renderHobbyStats()}
+      </div>
+
       <!-- Completion status pie -->
       <div class="dash-card dash-chart-card">
         <h3>Completion Status</h3>
@@ -88,6 +94,74 @@ export function renderDashboard() {
     renderCompletionPie('completionPie');
     renderCompositionPie('compositionPie');
   });
+}
+
+function renderHobbyStats() {
+  const sessions = appData.sessions || [];
+  if (!sessions.length) return '<p class="empty-text">No sessions logged yet.</p>';
+
+  // Total time
+  const totalMins = sessions.reduce((a, s) => a + (s.duration || 0), 0);
+  const hours = Math.floor(totalMins / 60);
+  const mins = totalMins % 60;
+  const timeStr = totalMins === 0 ? 'Not recorded'
+    : hours > 0 ? `${hours}h ${mins}m`
+    : `${mins}m`;
+
+  // Average session length (only sessions with duration)
+  const timed = sessions.filter(s => s.duration);
+  const avgMins = timed.length ? Math.round(timed.reduce((a, s) => a + s.duration, 0) / timed.length) : null;
+  const avgStr = avgMins ? `${avgMins} mins` : 'Not recorded';
+
+  // Most worked on model
+  const modelCounts = {};
+  sessions.forEach(s => {
+    (s.modelEntries || []).forEach(e => {
+      modelCounts[e.modelId] = (modelCounts[e.modelId] || 0) + 1;
+    });
+  });
+  const topModelId = Object.entries(modelCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const topModel = topModelId ? appData.models[topModelId] : null;
+
+  // Current streak — consecutive days with sessions
+  const sessionDates = new Set(sessions.map(s => s.date).filter(Boolean));
+  let streak = 0;
+  const today = new Date();
+  const check = new Date(today);
+  while (true) {
+    const dateStr = check.toISOString().split('T')[0];
+    if (sessionDates.has(dateStr)) {
+      streak++;
+      check.setDate(check.getDate() - 1);
+    } else {
+      break;
+    }
+  }
+
+  return `
+    <div class="hobby-stats-grid">
+      <div class="hobby-stat">
+        <div class="hobby-stat-icon">⏱️</div>
+        <div class="hobby-stat-val">${timeStr}</div>
+        <div class="hobby-stat-lbl">Total time painted</div>
+      </div>
+      <div class="hobby-stat">
+        <div class="hobby-stat-icon">📊</div>
+        <div class="hobby-stat-val">${avgStr}</div>
+        <div class="hobby-stat-lbl">Avg session length</div>
+      </div>
+      <div class="hobby-stat">
+        <div class="hobby-stat-icon">🔥</div>
+        <div class="hobby-stat-val">${streak > 0 ? streak + (streak === 1 ? ' day' : ' days') : '—'}</div>
+        <div class="hobby-stat-lbl">Current streak</div>
+      </div>
+      <div class="hobby-stat">
+        <div class="hobby-stat-icon">🏅</div>
+        <div class="hobby-stat-val">${topModel ? topModel.name : '—'}</div>
+        <div class="hobby-stat-lbl">Most worked on</div>
+      </div>
+    </div>
+  `;
 }
 
 function deadlineCard(list) {
