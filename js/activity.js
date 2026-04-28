@@ -105,9 +105,6 @@ function renderCalendar(sessions) {
       <span>${activeDays} active days</span>
     </div>
     <div class="cal-wrap">
-      <div class="cal-day-labels">
-        ${dayLabels.map(l => `<div class="cal-day-label">${l}</div>`).join('')}
-      </div>
       <div class="cal-grid-wrap">
         <div class="cal-month-labels">
           ${months.map(m => `<div class="cal-month-label" style="grid-column:${m.weekIdx + 1}">${m.label}</div>`).join('')}
@@ -124,6 +121,9 @@ function renderCalendar(sessions) {
             </div>
           `).join('')}
         </div>
+      </div>
+      <div class="cal-day-labels">
+        ${dayLabels.map(l => `<div class="cal-day-label">${l}</div>`).join('')}
       </div>
     </div>
     <div class="cal-legend">
