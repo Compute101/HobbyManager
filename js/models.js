@@ -3,41 +3,151 @@
 import {
   appData, createModel, updateModel, deleteModel,
   logProgress, logSession, modelPoints, modelThreshold, uid, saveData,
-  getAllModelTypes, saveCustomModelType, deleteCustomModelType
+  getAllModelTypes, saveCustomModelType, deleteCustomModelType,
+  createFolder, updateFolder, deleteFolder, getAllFolders
 } from './data.js';
 import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue } from './ui.js';
 import { getTerm } from './theme.js';
 
-// --- Render the model pool section ---
+// --- Render the model pool section with folders ---
 
-export function renderModelPool(containerId = 'modelPool', filterFn = null) {
+export function renderModelPool(containerId = 'modelPool') {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  const models = Object.values(appData.models).filter(filterFn || (() => true));
+  const allModels = Object.values(appData.models);
+  const folders = getAllFolders();
 
-  if (!models.length) {
+  if (!allModels.length && !folders.length) {
     container.innerHTML = `<div class="empty-state">
       <p>No ${getTerm('model')}s in your collection yet.</p>
-      <button class="btn btn-primary" id="addFirstModel">+ Add ${getTerm('model')}</button>
+      <p style="font-size:0.85em;color:var(--text-muted)">Use the + button to add your first model.</p>
     </div>`;
-    document.getElementById('addFirstModel')?.addEventListener('click', () => showModelForm());
     return;
   }
 
-  container.innerHTML = `<div class="model-grid">${models.map(modelCard).join('')}</div>`;
+  // Group models by folder
+  const byFolder = {};
+  const unfiled = [];
+  allModels.forEach(m => {
+    if (m.folderId && appData.folders[m.folderId]) {
+      if (!byFolder[m.folderId]) byFolder[m.folderId] = [];
+      byFolder[m.folderId].push(m);
+    } else {
+      unfiled.push(m);
+    }
+  });
 
+  let html = '';
+
+  // Render each folder
+  folders.forEach(folder => {
+    const models = byFolder[folder.id] || [];
+    const collapsed = folder.collapsed;
+    html += `
+      <div class="folder-section" data-folder-id="${folder.id}">
+        <div class="folder-header">
+          <button class="folder-toggle" data-toggle-folder="${folder.id}">
+            <span class="folder-chevron">${collapsed ? '▶' : '▼'}</span>
+            <span class="folder-icon">📁</span>
+            <span class="folder-name">${folder.name}</span>
+            <span class="folder-count">${models.length}</span>
+          </button>
+          <div class="folder-actions">
+            <button class="btn btn-xs btn-primary" data-add-in-folder="${folder.id}">+</button>
+            <button class="btn btn-xs" data-rename-folder="${folder.id}">✏️</button>
+            <button class="btn btn-xs btn-danger" data-delete-folder="${folder.id}">🗑️</button>
+          </div>
+        </div>
+        ${collapsed ? '' : `
+          <div class="folder-models">
+            ${models.length ? `<div class="model-grid">${models.map(modelCard).join('')}</div>` : `<p class="folder-empty">No models in this folder.</p>`}
+          </div>
+        `}
+      </div>
+    `;
+  });
+
+  // Unfiled models
+  if (unfiled.length > 0) {
+    html += `
+      <div class="folder-section folder-unfiled">
+        <div class="folder-header">
+          <div class="folder-toggle">
+            <span class="folder-icon">📂</span>
+            <span class="folder-name">Unfiled</span>
+            <span class="folder-count">${unfiled.length}</span>
+          </div>
+        </div>
+        <div class="folder-models">
+          <div class="model-grid">${unfiled.map(modelCard).join('')}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (!html) {
+    html = `<div class="empty-state"><p>No models yet. Use the + button to add one.</p></div>`;
+  }
+
+  container.innerHTML = html;
+
+  // Folder toggle collapse
+  container.querySelectorAll('[data-toggle-folder]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fid = btn.dataset.toggleFolder;
+      updateFolder(fid, { collapsed: !appData.folders[fid].collapsed });
+      renderModelPool(containerId);
+    });
+  });
+
+  // Add model inside folder
+  container.querySelectorAll('[data-add-in-folder]').forEach(btn => {
+    btn.addEventListener('click', () => showModelForm(null, btn.dataset.addInFolder));
+  });
+
+  // Rename folder
+  container.querySelectorAll('[data-rename-folder]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fid = btn.dataset.renameFolder;
+      const folder = appData.folders[fid];
+      const name = prompt('Rename folder:', folder.name);
+      if (name?.trim()) {
+        updateFolder(fid, { name: name.trim() });
+        toast('Folder renamed', 'success');
+        renderModelPool(containerId);
+      }
+    });
+  });
+
+  // Delete folder
+  container.querySelectorAll('[data-delete-folder]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const fid = btn.dataset.deleteFolder;
+      const folder = appData.folders[fid];
+      const modelCount = Object.values(appData.models).filter(m => m.folderId === fid).length;
+      const msg = modelCount > 0
+        ? `Delete folder "${folder.name}"? ${modelCount} model(s) will move to Unfiled.`
+        : `Delete folder "${folder.name}"?`;
+      if (!confirm(msg)) return;
+      deleteFolder(fid);
+      toast('Folder deleted', 'info');
+      renderModelPool(containerId);
+    });
+  });
+
+  // Model card interactions
   container.querySelectorAll('[data-model-view]').forEach(el => {
     el.addEventListener('click', () => showModelDetail(el.dataset.modelView));
   });
   container.querySelectorAll('[data-model-edit]').forEach(el => {
-    el.addEventListener('click', (e) => { e.stopPropagation(); showModelForm(el.dataset.modelEdit); });
+    el.addEventListener('click', e => { e.stopPropagation(); showModelForm(el.dataset.modelEdit); });
   });
   container.querySelectorAll('[data-model-delete]').forEach(el => {
-    el.addEventListener('click', (e) => { e.stopPropagation(); confirmDeleteModel(el.dataset.modelDelete); });
+    el.addEventListener('click', e => { e.stopPropagation(); confirmDeleteModel(el.dataset.modelDelete); });
   });
   container.querySelectorAll('[data-model-log]').forEach(el => {
-    el.addEventListener('click', (e) => { e.stopPropagation(); showLogProgress(el.dataset.modelLog); });
+    el.addEventListener('click', e => { e.stopPropagation(); showLogProgress(el.dataset.modelLog); });
   });
 }
 
@@ -113,11 +223,14 @@ export function showModelDetail(modelId) {
 
 // --- Model form (create / edit) ---
 
-export function showModelForm(editId = null) {
+export function showModelForm(editId = null, defaultFolderId = null) {
+  editId = editId || null;
   const model = editId ? appData.models[editId] : null;
   const stages = model?.stages || appData.config.stages.map(s => ({ ...s }));
   const skipped = model?.skippedStages || [];
   const allTypes = getAllModelTypes();
+  const folders = getAllFolders();
+  const currentFolderId = model?.folderId || defaultFolderId || '';
 
   const content = document.createElement('div');
   content.innerHTML = `
@@ -125,9 +238,19 @@ export function showModelForm(editId = null) {
       <label>Name</label>
       <input id="mfName" type="text" class="form-input" placeholder="${getTerm('model')} or regiment name" value="${model?.name || ''}">
     </div>
-    <div class="form-group">
-      <label>Quantity</label>
-      <input id="mfQty" type="number" class="form-input" min="1" value="${model?.quantity || 1}">
+    <div class="form-row-two">
+      <div class="form-group">
+        <label>Quantity</label>
+        <input id="mfQty" type="number" class="form-input" min="1" value="${model?.quantity || 1}">
+      </div>
+      <div class="form-group">
+        <label>Folder</label>
+        <select id="mfFolder" class="form-input">
+          <option value="">— Unfiled —</option>
+          ${folders.map(f => `<option value="${f.id}" ${currentFolderId === f.id ? 'selected' : ''}>${f.name}</option>`).join('')}
+          <option value="__new__">+ New folder...</option>
+        </select>
+      </div>
     </div>
     <div class="form-group">
       <label>Notes (optional)</label>
@@ -157,22 +280,39 @@ export function showModelForm(editId = null) {
     </div>
   `;
 
-  // Preset dropdown — populate stages when type selected
+  // New folder inline creation
+  content.querySelector('#mfFolder').addEventListener('change', async e => {
+    if (e.target.value === '__new__') {
+      const name = prompt('New folder name:');
+      if (name?.trim()) {
+        const fid = createFolder(name.trim());
+        const opt = document.createElement('option');
+        opt.value = fid;
+        opt.textContent = name.trim();
+        opt.selected = true;
+        // Insert before the __new__ option
+        const newOpt = e.target.querySelector('[value="__new__"]');
+        e.target.insertBefore(opt, newOpt);
+        e.target.value = fid;
+      } else {
+        e.target.value = currentFolderId || '';
+      }
+    }
+  });
+
+  // Preset dropdown
   const typeSelect = content.querySelector('#mfTypeSelect');
   typeSelect.addEventListener('change', () => {
     const typeId = typeSelect.value;
     if (!typeId) return;
     const preset = allTypes.find(t => t.id === typeId);
     if (!preset) return;
-    const stagesContainer = content.querySelector('#mfStages');
-    stagesContainer.innerHTML = preset.stages.map(s => stageConfigRow(s, [])).join('');
+    content.querySelector('#mfStages').innerHTML = preset.stages.map(s => stageConfigRow(s, [])).join('');
     updateTypeManage(content, typeId, allTypes);
   });
 
-  // Initial manage row
   updateTypeManage(content, model?.modelTypeId || '', allTypes);
 
-  // Save as custom type
   content.querySelector('#mfSaveType').addEventListener('click', () => {
     const name = prompt('Name for this custom model type:');
     if (!name?.trim()) return;
@@ -181,7 +321,6 @@ export function showModelForm(editId = null) {
     const newType = { id: uid(), name: name.trim(), builtIn: false, stages: newStages };
     saveCustomModelType(newType);
     toast(`"${name.trim()}" saved as custom type!`, 'success');
-    // Refresh dropdown
     const opt = document.createElement('option');
     opt.value = newType.id;
     opt.textContent = newType.name + ' ⭐';
@@ -190,7 +329,6 @@ export function showModelForm(editId = null) {
     updateTypeManage(content, newType.id, getAllModelTypes());
   });
 
-  // Add stage
   content.querySelector('#mfAddStage').addEventListener('click', () => {
     const s = { id: uid(), name: '', points: 1, skippable: true };
     const row = document.createElement('div');
@@ -198,29 +336,29 @@ export function showModelForm(editId = null) {
     content.querySelector('#mfStages').appendChild(row.firstElementChild);
   });
 
-  // Delete stage rows
   content.querySelector('#mfStages').addEventListener('click', e => {
     if (e.target.classList.contains('stage-cfg-del')) {
       e.target.closest('.stage-config-row').remove();
     }
   });
 
-  // Save model
   content.querySelector('#mfSave').addEventListener('click', () => {
     const name = content.querySelector('#mfName').value.trim();
     const quantity = parseInt(content.querySelector('#mfQty').value) || 1;
     const notes = content.querySelector('#mfNotes').value.trim();
     const modelTypeId = typeSelect.value || null;
+    let folderId = content.querySelector('#mfFolder').value || null;
+    if (folderId === '__new__') folderId = null;
 
     if (!name) { toast('Please enter a name', 'error'); return; }
 
     const { stages: newStages, skipped: newSkipped } = collectStagesAndSkipped(content);
 
     if (editId) {
-      updateModel(editId, { name, quantity, notes, modelTypeId, stages: newStages, skippedStages: newSkipped });
+      updateModel(editId, { name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped });
       toast('Updated!', 'success');
     } else {
-      createModel({ name, quantity, notes, modelTypeId, stages: newStages, skippedStages: newSkipped });
+      createModel({ name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped });
       toast(`${getTerm('model')} added!`, 'success');
     }
 
@@ -229,10 +367,8 @@ export function showModelForm(editId = null) {
   });
 
   content.querySelector('#mfCancel').addEventListener('click', () => closeModal());
-
   showModal({ title: editId ? `Edit ${getTerm('model')}` : `New ${getTerm('model')}`, content, wide: true });
 }
-
 function stageConfigRow(s, skipped) {
   const milestoneOptions = [
     { value: '', label: 'None' },

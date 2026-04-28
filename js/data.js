@@ -202,7 +202,8 @@ export let appData = {
     deadline: null,
     activeTheme: 'theme-default',
     modelTypes: []
-  }
+  },
+  folders: {} // id -> { id, name, collapsed }
 };
 
 export function loadData() {
@@ -216,6 +217,7 @@ export function loadData() {
         collections: parsed.collections || {},
         lists: parsed.lists || {},
         sessions: parsed.sessions || [],
+        folders: parsed.folders || {},
         config: {
           stages: parsed.config?.stages || [...DEFAULT_STAGES],
           deadline: parsed.config?.deadline || null,
@@ -248,15 +250,15 @@ export function getModel(id) { return appData.models[id]; }
 
 export function getAllModels() { return Object.values(appData.models); }
 
-export function createModel({ name, quantity = 1, notes = '', gameSystemId = null, stages = null, skippedStages = [] }) {
+export function createModel({ name, quantity = 1, notes = '', gameSystemId = null, stages = null, skippedStages = [], folderId = null }) {
   const id = uid();
   const modelStages = stages || appData.config.stages.map(s => ({ ...s }));
   appData.models[id] = {
-    id, name, quantity, notes, gameSystemId,
+    id, name, quantity, notes, gameSystemId, folderId,
     stages: modelStages,
-    skippedStages, // array of stage ids that are skipped for this regiment
-    progress: {}, // stageId -> { done: number, lastDate: string }
-    sessions: []  // session ids
+    skippedStages,
+    progress: {},
+    sessions: []
   };
   saveData();
   return id;
@@ -437,6 +439,34 @@ export function logSession({ date, duration, notes, modelEntries }) {
   appData.sessions.push(session);
   saveData();
   return id;
+}
+
+// --- Folder helpers ---
+
+export function createFolder(name) {
+  const id = uid();
+  appData.folders[id] = { id, name, collapsed: false };
+  saveData();
+  return id;
+}
+
+export function updateFolder(id, fields) {
+  if (!appData.folders[id]) return;
+  Object.assign(appData.folders[id], fields);
+  saveData();
+}
+
+export function deleteFolder(id) {
+  // Unassign any models in this folder
+  Object.values(appData.models).forEach(m => {
+    if (m.folderId === id) m.folderId = null;
+  });
+  delete appData.folders[id];
+  saveData();
+}
+
+export function getAllFolders() {
+  return Object.values(appData.folders).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 // --- Export / Import ---

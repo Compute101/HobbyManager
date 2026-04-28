@@ -290,23 +290,52 @@ function showAddModelToList(listId) {
   if (!list) return;
   const allModels = Object.values(appData.models);
   const already = list.modelIds || [];
+  const folders = Object.values(appData.folders).sort((a,b) => a.name.localeCompare(b.name));
+
   const content = document.createElement('div');
+
+  const renderPicker = (filter = '', folderId = '') => {
+    const filtered = allModels.filter(m => {
+      const matchName = m.name.toLowerCase().includes(filter.toLowerCase());
+      const matchFolder = !folderId || m.folderId === folderId;
+      return matchName && matchFolder;
+    });
+    return filtered.map(m => `
+      <label class="pool-pick-item ${already.includes(m.id) ? 'already-in' : ''}">
+        <input type="checkbox" value="${m.id}" ${already.includes(m.id) ? 'checked disabled' : ''}>
+        <span class="pool-pick-name">${m.name}</span>
+        <span class="pool-pick-qty">×${m.quantity}</span>
+        ${m.folderId && appData.folders[m.folderId] ? `<span class="pool-pick-folder">📁 ${appData.folders[m.folderId].name}</span>` : ''}
+      </label>
+    `).join('') || '<p style="color:var(--text-muted);font-size:0.85em;padding:0.5em 0">No models match.</p>';
+  };
+
   content.innerHTML = `
-    <p>Select models from your pool to add to this list:</p>
+    <div class="pool-filter-row">
+      <input id="poolSearch" class="form-input" type="text" placeholder="Search models...">
+      <select id="poolFolderFilter" class="form-input" style="width:auto;flex:0 1 140px">
+        <option value="">All folders</option>
+        ${folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
+      </select>
+    </div>
     <div class="pool-picker" id="poolPicker">
-      ${allModels.map(m => `
-        <label class="pool-pick-item ${already.includes(m.id) ? 'already-in' : ''}">
-          <input type="checkbox" value="${m.id}" ${already.includes(m.id) ? 'checked disabled' : ''}>
-          <span class="pool-pick-name">${m.name}</span>
-          <span class="pool-pick-qty">×${m.quantity}</span>
-        </label>
-      `).join('') || '<p>No models in pool yet.</p>'}
+      ${renderPicker()}
     </div>
     <div class="modal-actions">
       <button class="btn btn-primary" id="poolPickSave">Add Selected</button>
       <button class="btn" id="poolPickCancel">Cancel</button>
     </div>
   `;
+
+  const updatePicker = () => {
+    const filter = content.querySelector('#poolSearch').value;
+    const folderId = content.querySelector('#poolFolderFilter').value;
+    content.querySelector('#poolPicker').innerHTML = renderPicker(filter, folderId);
+  };
+
+  content.querySelector('#poolSearch').addEventListener('input', updatePicker);
+  content.querySelector('#poolFolderFilter').addEventListener('change', updatePicker);
+
   content.querySelector('#poolPickSave')?.addEventListener('click', () => {
     content.querySelectorAll('#poolPicker input:checked:not(:disabled)').forEach(cb => {
       addModelToList(listId, cb.value);
@@ -315,6 +344,7 @@ function showAddModelToList(listId) {
     closeModal();
     selectList(listId);
   });
+
   content.querySelector('#poolPickCancel')?.addEventListener('click', () => closeModal());
   showModal({ title: `Add ${getTerm('model')}s to List`, content, wide: true });
 }
