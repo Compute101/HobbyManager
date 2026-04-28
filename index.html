@@ -1091,6 +1091,84 @@
     }
 
     /* ================================================================
+       WEEKLY SUMMARY
+    ================================================================ */
+    .dash-weekly { grid-column: 1 / -1; }
+
+    .weekly-day-dots {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.85em;
+    }
+
+    .week-dot {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25em;
+      flex: 1;
+    }
+
+    .week-dot-circle {
+      width: 1.8em;
+      height: 1.8em;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      transition: all 0.2s;
+    }
+
+    .week-dot.painted .week-dot-circle {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .week-dot.today .week-dot-circle {
+      border-color: var(--accent2);
+    }
+
+    .week-dot.today.painted .week-dot-circle {
+      box-shadow: 0 0 0 2px var(--accent2);
+    }
+
+    .week-dot-label {
+      font-size: 0.65em;
+      color: var(--text-muted);
+      font-family: var(--font-ui);
+    }
+
+    .week-dot.today .week-dot-label { color: var(--accent2); font-weight: 700; }
+
+    .weekly-stats {
+      display: flex;
+      gap: 0.5em;
+      margin-bottom: 0.75em;
+    }
+
+    .weekly-stat {
+      flex: 1;
+      background: var(--surface2);
+      border-radius: var(--radius);
+      padding: 0.5em 0.25em;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 0.1em;
+    }
+
+    .weekly-stat-val { font-size: 1.1em; font-weight: 700; font-family: var(--font-display); color: var(--accent); }
+    .weekly-stat-lbl { font-size: 0.65em; color: var(--text-muted); }
+
+    .weekly-goal-row { margin-bottom: 0.5em; }
+    .weekly-goal-label { font-size: 0.82em; color: var(--text-muted); margin-bottom: 0.3em; }
+    .weekly-goal-bar { height: 10px; }
+    .prog-fill.goal-done { background: #4a9d6f; }
+    .prog-fill.goal-close { background: var(--accent2); }
+
+    .weekly-goal-set { margin-bottom: 0.5em; }
+    .weekly-message { font-size: 0.85em; color: var(--text-muted); font-style: italic; margin-top: 0.4em; }
+
+    /* ================================================================
        HOBBY STATS
     ================================================================ */
     .dash-hobby-stats { grid-column: 1 / -1; }
@@ -1711,6 +1789,17 @@
 
     container.innerHTML = `
       <div class="settings-section">
+        <h3>Weekly Goal</h3>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Hobby points target per week</div>
+            <div class="settings-row-desc">Set to 0 to disable</div>
+          </div>
+          <input type="number" id="weeklyGoalInput" class="form-input" min="0" 
+            style="width:80px" value="${appData.config.weeklyGoal || 0}">
+        </div>
+      </div>
+      <div class="settings-section">
         <h3>Appearance</h3>
         <div class="settings-row">
           <div>
@@ -1776,6 +1865,12 @@
         </div>
       </div>
     `;
+
+    container.querySelector('#weeklyGoalInput')?.addEventListener('change', e => {
+      appData.config.weeklyGoal = Math.max(0, parseInt(e.target.value) || 0);
+      saveData();
+      toast('Weekly goal saved!', 'success');
+    });
 
     container.querySelector('#themeSelect')?.addEventListener('change', e => {
       applyTheme(e.target.value);

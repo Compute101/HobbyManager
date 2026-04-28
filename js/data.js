@@ -201,7 +201,8 @@ export let appData = {
     stages: [...DEFAULT_STAGES],
     deadline: null,
     activeTheme: 'theme-default',
-    modelTypes: []
+    modelTypes: [],
+    weeklyGoal: 0
   },
   folders: {}, // id -> { id, name, collapsed }
   queues: {}   // id -> { id, name, entries: [{id, modelId, note}] }
@@ -224,7 +225,8 @@ export function loadData() {
           stages: parsed.config?.stages || [...DEFAULT_STAGES],
           deadline: parsed.config?.deadline || null,
           activeTheme: parsed.config?.activeTheme || 'theme-default',
-          modelTypes: parsed.config?.modelTypes || []
+          modelTypes: parsed.config?.modelTypes || [],
+          weeklyGoal: parsed.config?.weeklyGoal || 0
         }
       };
     }
