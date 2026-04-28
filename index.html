@@ -1091,6 +1091,113 @@
     }
 
     /* ================================================================
+       QUEUES
+    ================================================================ */
+    .queue-layout { display: flex; flex-direction: column; gap: 0; }
+
+    .queue-tabs-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      margin-bottom: 1em;
+      flex-wrap: wrap;
+    }
+
+    .queue-tab-list {
+      display: flex;
+      gap: 0.4em;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+
+    .queue-tab-btn {
+      padding: 0.35em 0.85em;
+      border-radius: 100px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-size: 0.85em;
+      cursor: pointer;
+      font-family: var(--font-ui);
+      transition: all 0.15s;
+    }
+
+    .queue-tab-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .queue-tab-btn:hover:not(.active) { color: var(--text); border-color: var(--text-muted); }
+
+    .queue-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1em;
+      gap: 0.5em;
+      flex-wrap: wrap;
+    }
+
+    .queue-name {
+      font-family: var(--font-display);
+      font-size: 1.1em;
+      font-weight: 600;
+    }
+
+    .queue-header-actions { display: flex; gap: 0.4em; }
+
+    .queue-entries { display: flex; flex-direction: column; gap: 0.6em; }
+
+    .queue-entry {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.75em;
+      transition: border-color 0.2s;
+    }
+
+    .queue-entry-next {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+    }
+
+    .queue-up-next-label {
+      font-size: 0.75em;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 0.4em;
+      font-family: var(--font-ui);
+    }
+
+    .queue-entry-main { display: flex; flex-direction: column; gap: 0.4em; }
+
+    .queue-entry-info {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      flex-wrap: wrap;
+    }
+
+    .queue-entry-name { font-weight: 600; font-family: var(--font-display); flex: 1; }
+    .queue-entry-qty { font-size: 0.8em; color: var(--text-muted); }
+    .queue-entry-note { font-size: 0.82em; color: var(--text-muted); font-style: italic; }
+
+    .queue-entry-actions {
+      display: flex;
+      gap: 0.4em;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 0.2em;
+    }
+
+    .queue-move-btns { display: flex; gap: 0.2em; }
+    .queue-move-btns .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* ================================================================
        FOLDERS
     ================================================================ */
     .folder-section {
@@ -1290,6 +1397,10 @@
       <span class="tab-icon">🛡️</span>
       <span class="tab-label">Armies</span>
     </button>
+    <button class="nav-tab" data-tab="queues" role="tab">
+      <span class="tab-icon">📋</span>
+      <span class="tab-label">Queue</span>
+    </button>
     <button class="nav-tab" data-tab="settings" role="tab">
       <span class="tab-icon">⚙️</span>
       <span class="tab-label">Settings</span>
@@ -1321,6 +1432,11 @@
       <div id="collectionsView"></div>
     </div>
 
+    <!-- Queues -->
+    <div class="tab-panel" id="tab-queues">
+      <div id="queuesView"></div>
+    </div>
+
     <!-- Settings -->
     <div class="tab-panel" id="tab-settings">
       <div id="settingsView"></div>
@@ -1335,6 +1451,7 @@
   import { renderModelPool, showModelForm } from './js/models.js';
   import { renderCollections } from './js/collections.js';
   import { renderDashboard } from './js/dashboard.js';
+  import { renderQueues } from './js/queue.js';
   import { loadSavedTheme, applyTheme } from './js/theme.js';
   import { toast } from './js/ui.js';
 
@@ -1354,6 +1471,7 @@
     if (tabId === 'dashboard') renderDashboard();
     if (tabId === 'pool') renderModelPool();
     if (tabId === 'collections') renderCollections();
+    if (tabId === 'queues') renderQueues();
     if (tabId === 'settings') renderSettings();
   }
 

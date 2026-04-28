@@ -9,6 +9,14 @@ import {
 import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue } from './ui.js';
 import { getTerm } from './theme.js';
 
+// Lazy import to avoid circular dependency
+async function pruneQueues() {
+  try {
+    const { pruneFinishedFromQueues } = await import('./queue.js');
+    pruneFinishedFromQueues();
+  } catch(e) { /* queue module not loaded yet */ }
+}
+
 // --- Render the model pool section with folders ---
 
 export function renderModelPool(containerId = 'modelPool') {
@@ -579,6 +587,7 @@ export function showLogProgress(modelId) {
     }
 
     toast('Progress saved!', 'success');
+    pruneQueues();
     closeModal();
     renderModelPool();
   });
