@@ -1157,11 +1157,17 @@
       flex-wrap: wrap;
     }
 
-    .cal-wrap {
+    .cal-outer {
       display: flex;
+      align-items: flex-start;
       gap: 0.4em;
+    }
+
+    .cal-wrap {
       overflow-x: auto;
       padding-bottom: 0.25em;
+      flex: 1;
+      min-width: 0;
     }
 
     .cal-day-labels {
