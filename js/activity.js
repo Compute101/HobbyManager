@@ -137,8 +137,11 @@ function renderCalendar(sessions) {
     </div>
   `;
 
-  // Tooltip on hover/tap
-  container.querySelectorAll('[data-date]').forEach(el => {
+  // Auto-scroll to show most recent activity (right side)
+  requestAnimationFrame(() => {
+    const calWrap = container.querySelector('.cal-wrap');
+    if (calWrap) calWrap.scrollLeft = calWrap.scrollWidth;
+  });
     el.addEventListener('click', () => {
       const date = el.dataset.date;
       const pts = el.dataset.pts;
