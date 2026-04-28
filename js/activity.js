@@ -104,22 +104,24 @@ function renderCalendar(sessions) {
       <span>·</span>
       <span>${activeDays} active days</span>
     </div>
-    <div class="cal-wrap">
-      <div class="cal-grid-wrap">
-        <div class="cal-month-labels">
-          ${months.map(m => `<div class="cal-month-label" style="grid-column:${m.weekIdx + 1}">${m.label}</div>`).join('')}
-        </div>
-        <div class="cal-grid">
-          ${weeks.map(week => `
-            <div class="cal-week">
-              ${week.map(day => `
-                <div class="cal-day cal-intensity-${day.intensity}"
-                  title="${day.date}${day.pts ? ': ' + day.pts + ' pts' : ''}"
-                  data-date="${day.date}" data-pts="${day.pts}">
-                </div>
-              `).join('')}
-            </div>
-          `).join('')}
+    <div class="cal-outer">
+      <div class="cal-wrap">
+        <div class="cal-grid-wrap">
+          <div class="cal-month-labels">
+            ${months.map(m => `<div class="cal-month-label" style="grid-column:${m.weekIdx + 1}">${m.label}</div>`).join('')}
+          </div>
+          <div class="cal-grid">
+            ${weeks.map(week => `
+              <div class="cal-week">
+                ${week.map(day => `
+                  <div class="cal-day cal-intensity-${day.intensity}"
+                    title="${day.date}${day.pts ? ': ' + day.pts + ' pts' : ''}"
+                    data-date="${day.date}" data-pts="${day.pts}">
+                  </div>
+                `).join('')}
+              </div>
+            `).join('')}
+          </div>
         </div>
       </div>
       <div class="cal-day-labels">
