@@ -203,7 +203,8 @@ export let appData = {
     activeTheme: 'theme-default',
     modelTypes: []
   },
-  folders: {} // id -> { id, name, collapsed }
+  folders: {}, // id -> { id, name, collapsed }
+  queues: {}   // id -> { id, name, entries: [{id, modelId, note}] }
 };
 
 export function loadData() {
@@ -218,6 +219,7 @@ export function loadData() {
         lists: parsed.lists || {},
         sessions: parsed.sessions || [],
         folders: parsed.folders || {},
+        queues: parsed.queues || {},
         config: {
           stages: parsed.config?.stages || [...DEFAULT_STAGES],
           deadline: parsed.config?.deadline || null,
