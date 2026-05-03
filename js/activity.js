@@ -40,7 +40,7 @@ function renderCalendar(sessions) {
       const model = appData.models[e.modelId];
       if (!model) return acc;
       const stage = (model.stages || appData.config.stages).find(st => st.id === e.stageId);
-      return acc + (stage?.points || 1);
+      return acc + (stage?.points || 1) * (e.qty || 0);
     }, 0);
     byDate[s.date] = (byDate[s.date] || 0) + pts;
   });
@@ -201,7 +201,7 @@ function renderSessionHistory(sessions) {
       return acc + (s.modelEntries || []).reduce((a, e) => {
         const model = appData.models[e.modelId];
         const stage = (model?.stages || appData.config.stages).find(st => st.id === e.stageId);
-        return a + (stage?.points || 1);
+        return a + (stage?.points || 1) * (e.qty || 0);
       }, 0);
     }, 0);
 
