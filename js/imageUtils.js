@@ -1,5 +1,11 @@
 // imageUtils.js — browser-side image compression to Base64 thumbnail
 
+export const IMAGE_SIZE_PRESETS = {
+  small:  { maxDim: 128, quality: 0.65, label: 'Small  (~3 KB)' },
+  medium: { maxDim: 384, quality: 0.75, label: 'Medium (~9 KB)' },
+  large:  { maxDim: 640, quality: 0.80, label: 'Large  (~30 KB)' },
+};
+
 export function compressImageToBase64(file, maxDim = 128, quality = 0.65) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
