@@ -208,6 +208,27 @@ export let appData = {
   queues: {}   // id -> { id, name, entries: [{id, modelId, note}] }
 };
 
+// Convert a UTC date string (YYYY-MM-DD) to the equivalent local date string.
+// UTC midnight is shifted to local time; for UTC+1 (BST) this stays the same date.
+function utcToLocal(utcDateStr) {
+  if (!utcDateStr) return utcDateStr;
+  const [y, m, d] = utcDateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const ly = date.getFullYear();
+  const lm = String(date.getMonth() + 1).padStart(2, '0');
+  const ld = String(date.getDate()).padStart(2, '0');
+  return `${ly}-${lm}-${ld}`;
+}
+
+// Convert a local date string back to UTC by treating the local date as local noon
+// (noon local always maps to the same UTC date as UTC midnight for that date,
+// covering all standard timezones from UTC-11 to UTC+12).
+function localToUtc(localDateStr) {
+  if (!localDateStr) return localDateStr;
+  const [y, m, d] = localDateStr.split('-').map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0).toISOString().split('T')[0];
+}
+
 export function loadData() {
   try {
     const raw = localStorage.getItem('hobbymanager_v2');
@@ -218,7 +239,8 @@ export function loadData() {
         models: parsed.models || {},
         collections: parsed.collections || {},
         lists: parsed.lists || {},
-        sessions: parsed.sessions || [],
+        // Convert stored UTC session dates to local on load
+        sessions: (parsed.sessions || []).map(s => s.date ? { ...s, date: utcToLocal(s.date) } : s),
         folders: parsed.folders || {},
         queues: parsed.queues || {},
         config: {
@@ -237,7 +259,12 @@ export function loadData() {
 
 export function saveData() {
   try {
-    localStorage.setItem('hobbymanager_v2', JSON.stringify(appData));
+    // Convert in-memory local session dates back to UTC before persisting
+    const dataToSave = {
+      ...appData,
+      sessions: appData.sessions.map(s => s.date ? { ...s, date: localToUtc(s.date) } : s)
+    };
+    localStorage.setItem('hobbymanager_v2', JSON.stringify(dataToSave));
   } catch (e) {
     console.error('Failed to save data:', e);
     alert('Could not save data — storage may be full.');

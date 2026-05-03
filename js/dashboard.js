@@ -1,7 +1,7 @@
 // dashboard.js — dashboard with pie charts and deadline cards
 
 import { appData, globalStats, listStats, saveData, GAME_SYSTEMS } from './data.js';
-import { progressBar, toast, daysUntil, formatDate } from './ui.js';
+import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
 import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
 
@@ -122,14 +122,15 @@ export function renderDashboard() {
 
 function getWeekBounds() {
   const now = new Date();
-  const day = now.getUTCDay(); // 0=Sun, 1=Mon...
-  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-  monday.setUTCDate(monday.getUTCDate() - ((day + 6) % 7)); // roll back to Monday
+  const day = now.getDay(); // 0=Sun, 1=Mon...
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((day + 6) % 7)); // roll back to Monday
+  monday.setHours(0, 0, 0, 0);
   const sunday = new Date(monday);
-  sunday.setUTCDate(monday.getUTCDate() + 6);
+  sunday.setDate(monday.getDate() + 6);
   return {
-    start: monday.toISOString().split('T')[0],
-    end: sunday.toISOString().split('T')[0]
+    start: localDateStr(monday),
+    end: localDateStr(sunday)
   };
 }
 
@@ -187,11 +188,12 @@ function renderWeeklySummary() {
   const dayNames = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   const sessionDates = new Set(sessions.map(s => s.date));
   const dayDots = dayNames.map((d, i) => {
-    const date = new Date(start + 'T00:00:00Z');
-    date.setUTCDate(date.getUTCDate() + i);
-    const dateStr = date.toISOString().split('T')[0];
+    const [sy, sm, sd] = start.split('-').map(Number);
+    const date = new Date(sy, sm - 1, sd);
+    date.setDate(date.getDate() + i);
+    const dateStr = localDateStr(date);
     const painted = sessionDates.has(dateStr);
-    const isToday = dateStr === new Date().toISOString().split('T')[0];
+    const isToday = dateStr === localDateStr(new Date());
     return `<div class="week-dot ${painted ? 'painted' : ''} ${isToday ? 'today' : ''}">
       <div class="week-dot-circle"></div>
       <div class="week-dot-label">${d}</div>
@@ -252,13 +254,13 @@ function renderHobbyStats() {
   // Current streak — consecutive days with sessions
   const sessionDates = new Set(sessions.map(s => s.date).filter(Boolean));
   let streak = 0;
-  const now = new Date();
-  const check = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const check = new Date();
+  check.setHours(0, 0, 0, 0);
   while (true) {
-    const dateStr = check.toISOString().split('T')[0];
+    const dateStr = localDateStr(check);
     if (sessionDates.has(dateStr)) {
       streak++;
-      check.setUTCDate(check.getUTCDate() - 1);
+      check.setDate(check.getDate() - 1);
     } else {
       break;
     }

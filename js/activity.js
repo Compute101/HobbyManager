@@ -1,7 +1,7 @@
 // activity.js — painting activity calendar and session history
 
 import { appData } from './data.js';
-import { formatDate } from './ui.js';
+import { formatDate, localDateStr } from './ui.js';
 
 export function renderActivity() {
   const container = document.getElementById('activityView');
@@ -46,21 +46,21 @@ function renderCalendar(sessions) {
     byDate[s.date] = (byDate[s.date] || 0) + pts;
   });
 
-  // Build 52 weeks of dates ending today (all UTC, matching stored session dates)
-  const now = new Date();
-  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  // Build 52 weeks of dates ending today (local dates, matching in-memory session dates)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
 
   // Start from the Sunday 52 weeks ago
   const start = new Date(today);
-  start.setUTCDate(start.getUTCDate() - (52 * 7) + 1);
+  start.setDate(start.getDate() - (52 * 7) + 1);
   // Rewind to previous Sunday
-  start.setUTCDate(start.getUTCDate() - start.getUTCDay());
+  start.setDate(start.getDate() - start.getDay());
 
   const days = [];
   const d = new Date(start);
   while (d <= today) {
-    days.push(d.toISOString().split('T')[0]);
-    d.setUTCDate(d.getUTCDate() + 1);
+    days.push(localDateStr(d));
+    d.setDate(d.getDate() + 1);
   }
 
   // Max points in a day for intensity scaling
