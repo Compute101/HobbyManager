@@ -577,7 +577,7 @@ export function showLogProgress(modelId) {
         done = Math.min(parseInt(input?.value) || 0, model.quantity);
       }
       const prev = model.progress[s.id]?.done || 0;
-      if (done !== prev) modelEntries.push({ modelId, stageId: s.id, qty: done });
+      if (done !== prev) modelEntries.push({ modelId, stageId: s.id, qty: done - prev });
       logProgress(modelId, s.id, done, date);
     });
 
