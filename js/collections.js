@@ -5,7 +5,7 @@ import {
   createList, deleteList, addModelToList, removeModelFromList,
   listStats, saveData, uid, GAME_SYSTEMS
 } from './data.js';
-import { showModal, closeModal, toast, progressBar, thresholdBadge, createDateInput, getDateValue } from './ui.js';
+import { showModal, closeModal, toast, progressBar, thresholdBadge, createDateInput, getDateValue, formatDate } from './ui.js';
 import { applyTheme, resetTheme, setCurrentSystem, resetCurrentSystem, getTerm } from './theme.js';
 import { showLogProgress, showModelDetail } from './models.js';
 
@@ -484,8 +484,7 @@ function shareList(listId) {
     const pace = days > 0 ? (ptsLeft / days).toFixed(1) : null;
     const daysStr = days < 0 ? `${Math.abs(days)} days overdue` : days === 0 ? 'due today' : `${days} days to go`;
     const paceStr = pace ? ` · ${pace} pts/day needed` : '';
-    const d = new Date(list.deadline + 'T12:00:00');
-    const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    const dateStr = formatDate(list.deadline, { day: 'numeric', month: 'short', year: 'numeric' });
     deadlineLine = `\n📅 Target: ${dateStr} · ${daysStr}${paceStr}`;
   }
 

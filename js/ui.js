@@ -112,8 +112,17 @@ export function phaseLabel(phase) {
 }
 
 // --- Date helpers ---
+const _userLocale = navigator.language;
+const _userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
 export function today() {
   return new Date().toISOString().split('T')[0];
+}
+
+export function formatDate(utcDateStr, options) {
+  if (!utcDateStr) return '';
+  const date = new Date(utcDateStr + 'T12:00:00Z');
+  return date.toLocaleDateString(_userLocale, { timeZone: _userTz, ...options });
 }
 
 export function daysUntil(dateStr) {

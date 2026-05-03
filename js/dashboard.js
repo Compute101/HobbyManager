@@ -1,7 +1,7 @@
 // dashboard.js — dashboard with pie charts and deadline cards
 
 import { appData, globalStats, listStats, saveData, GAME_SYSTEMS } from './data.js';
-import { progressBar, toast, daysUntil } from './ui.js';
+import { progressBar, toast, daysUntil, formatDate } from './ui.js';
 import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
 
@@ -317,7 +317,7 @@ function deadlineCard(list) {
         <div class="deadline-card-name">${list.name}</div>
         ${sys ? `<span class="sys-tag ${sys.theme}">${sys.shortLabel}</span>` : ''}
       </div>
-      <div class="deadline-card-date">📅 ${formatDate(list.deadline)} · <span class="deadline-days">${daysLabel}</span></div>
+      <div class="deadline-card-date">📅 ${fmtDateShort(list.deadline)} · <span class="deadline-days">${daysLabel}</span></div>
       ${progressBar(stats.pct)}
       <div class="deadline-card-stats">
         <span>${stats.donePts}/${stats.totalPts} pts (${stats.pct}%)</span>
@@ -328,10 +328,8 @@ function deadlineCard(list) {
   `;
 }
 
-function formatDate(dateStr) {
-  if (!dateStr) return '';
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+function fmtDateShort(dateStr) {
+  return formatDate(dateStr, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 function renderRecentSessions() {
@@ -375,7 +373,7 @@ function showListBurndown(listId) {
       ${progressBar(stats.pct)}
       <div class="burndown-stats">
         <span>${stats.donePts}/${stats.totalPts} pts · ${stats.pct}%</span>
-        ${list.deadline ? `<span>📅 ${formatDate(list.deadline)}${days !== null ? ` · ${days >= 0 ? days + ' days left' : Math.abs(days) + ' days overdue'}` : ''}</span>` : ''}
+        ${list.deadline ? `<span>📅 ${fmtDateShort(list.deadline)}${days !== null ? ` · ${days >= 0 ? days + ' days left' : Math.abs(days) + ' days overdue'}` : ''}</span>` : ''}
         ${pace ? `<span class="pace-badge">${pace} pts/day needed</span>` : ''}
       </div>
     </div>
