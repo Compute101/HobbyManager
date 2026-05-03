@@ -1,6 +1,7 @@
 // charts.js — all Chart.js rendering
 
 import { appData, GAME_SYSTEMS } from './data.js';
+import { localDateStr } from './ui.js';
 
 // Track chart instances so we can destroy before re-creating
 const _charts = {};
@@ -199,7 +200,7 @@ export function renderBurndown(canvasId, models, deadline) {
   if (!canvas) return;
   destroyChart(canvasId);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = localDateStr(new Date());
   const byDay = {};
   let totalPts = 0;
 

@@ -1,6 +1,7 @@
 // activity.js — painting activity calendar and session history
 
 import { appData } from './data.js';
+import { localDateStr } from './ui.js';
 
 export function renderActivity() {
   const container = document.getElementById('activityView');
@@ -58,7 +59,7 @@ function renderCalendar(sessions) {
   const days = [];
   const d = new Date(start);
   while (d <= today) {
-    days.push(d.toISOString().split('T')[0]);
+    days.push(localDateStr(d));
     d.setDate(d.getDate() + 1);
   }
 
