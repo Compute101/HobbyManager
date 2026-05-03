@@ -588,6 +588,22 @@
     .img-upload-actions { display: flex; gap: 0.5em; margin-bottom: 0.3em; }
     .img-upload-info { font-size: 0.75em; color: var(--text-muted); }
 
+    .storage-bar-wrap {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      height: 8px;
+      overflow: hidden;
+      margin: 0.3em 0 0.2em;
+    }
+    .storage-bar {
+      height: 100%;
+      background: var(--accent);
+      border-radius: 4px;
+      transition: width 0.3s;
+      min-width: 2px;
+    }
+
     /* ================================================================
        STAGE ROWS
     ================================================================ */
@@ -1886,7 +1902,41 @@
         ` : '<p class="empty-text" style="padding:0.5em 0">No custom types yet. Save one from the Add Model form.</p>'}
       </div>
       <div class="settings-section">
+        <h3>Photos</h3>
+        <div class="settings-row">
+          <div>
+            <div class="settings-row-label">Thumbnail quality</div>
+            <div class="settings-row-desc">Applied when you upload a new photo. Existing photos are unaffected.</div>
+          </div>
+          <select class="form-input" id="imageSizeSelect" style="width:auto">
+            <option value="small"  ${(appData.config.imageSize || 'small') === 'small'  ? 'selected' : ''}>Small (~3 KB)</option>
+            <option value="medium" ${appData.config.imageSize === 'medium' ? 'selected' : ''}>Medium (~9 KB)</option>
+            <option value="large"  ${appData.config.imageSize === 'large'  ? 'selected' : ''}>Large (~30 KB)</option>
+          </select>
+        </div>
+      </div>
+      <div class="settings-section">
         <h3>Data Management</h3>
+        <div class="settings-row" style="flex-direction:column;align-items:stretch;gap:0.4em">
+          <div class="settings-row-label">Storage used</div>
+          ${(() => {
+            let used = 0;
+            for (const key in localStorage) {
+              if (Object.prototype.hasOwnProperty.call(localStorage, key)) {
+                used += (localStorage[key].length + key.length) * 2;
+              }
+            }
+            const limit = 5 * 1024 * 1024;
+            const pct = Math.min(100, Math.round(used / limit * 100));
+            const usedKB = (used / 1024).toFixed(0);
+            return `
+              <div class="storage-bar-wrap">
+                <div class="storage-bar" style="width:${pct}%"></div>
+              </div>
+              <div class="settings-row-desc">${usedKB} KB of ~5 MB used (${pct}%)</div>
+            `;
+          })()}
+        </div>
         <div class="settings-row">
           <div>
             <div class="settings-row-label">Export Data</div>
@@ -1929,6 +1979,12 @@
     container.querySelector('#themeSelect')?.addEventListener('change', e => {
       applyTheme(e.target.value);
       toast('Theme saved!', 'success');
+    });
+
+    container.querySelector('#imageSizeSelect')?.addEventListener('change', e => {
+      appData.config.imageSize = e.target.value;
+      saveData();
+      toast('Photo quality saved!', 'success');
     });
 
     container.querySelectorAll('[data-delete-type]').forEach(btn => {

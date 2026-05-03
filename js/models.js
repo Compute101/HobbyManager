@@ -8,7 +8,7 @@ import {
 } from './data.js';
 import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue } from './ui.js';
 import { getTerm } from './theme.js';
-import { compressImageToBase64 } from './imageUtils.js';
+import { compressImageToBase64, IMAGE_SIZE_PRESETS } from './imageUtils.js';
 
 // Lazy import to avoid circular dependency
 async function pruneQueues() {
@@ -338,7 +338,8 @@ export function showModelForm(editId = null, defaultFolderId = null) {
     const infoEl = content.querySelector('#mfImageInfo');
     infoEl.textContent = 'Compressing…';
     try {
-      const dataUrl = await compressImageToBase64(file, 128, 0.65);
+      const preset = IMAGE_SIZE_PRESETS[appData.config.imageSize || 'small'];
+      const dataUrl = await compressImageToBase64(file, preset.maxDim, preset.quality);
       currentImage = dataUrl;
       const area = content.querySelector('#mfImageArea');
       area.innerHTML = `<img class="img-upload-preview" id="mfImagePreview" src="${dataUrl}" alt="">`;

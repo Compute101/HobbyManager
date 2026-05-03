@@ -202,7 +202,8 @@ export let appData = {
     deadline: null,
     activeTheme: 'theme-default',
     modelTypes: [],
-    weeklyGoal: 0
+    weeklyGoal: 0,
+    imageSize: 'small'
   },
   folders: {}, // id -> { id, name, collapsed }
   queues: {}   // id -> { id, name, entries: [{id, modelId, note}] }
@@ -248,7 +249,8 @@ export function loadData() {
           deadline: parsed.config?.deadline || null,
           activeTheme: parsed.config?.activeTheme || 'theme-default',
           modelTypes: parsed.config?.modelTypes || [],
-          weeklyGoal: parsed.config?.weeklyGoal || 0
+          weeklyGoal: parsed.config?.weeklyGoal || 0,
+          imageSize: parsed.config?.imageSize || 'small'
         }
       };
     }
