@@ -31,7 +31,8 @@ function renderCalendar(sessions) {
   const container = document.getElementById('activityCalendar');
   if (!container) return;
 
-  // Build a map of date -> points earned
+  // Build a map of date -> points earned (exclude historical sessions with no duration)
+  sessions = sessions.filter(s => s.duration);
   const byDate = {};
   sessions.forEach(s => {
     if (!s.date) return;
