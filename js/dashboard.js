@@ -130,7 +130,7 @@ function getWeekBounds() {
 
 function renderWeeklySummary() {
   const { start, end } = getWeekBounds();
-  const sessions = (appData.sessions || []).filter(s => s.date >= start && s.date <= end);
+  const sessions = (appData.sessions || []).filter(s => s.date >= start && s.date <= end && s.duration);
   const goal = appData.config.weeklyGoal || 0;
 
   // Points this week
@@ -337,7 +337,7 @@ function formatDate(dateStr) {
 }
 
 function renderRecentSessions() {
-  const sessions = [...appData.sessions].reverse().slice(0, 5);
+  const sessions = [...appData.sessions].filter(s => s.duration).reverse().slice(0, 5);
   if (!sessions.length) return '<p class="empty-text">No sessions logged yet.</p>';
 
   return `<div class="session-list">
