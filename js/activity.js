@@ -1,6 +1,7 @@
 // activity.js — painting activity calendar and session history
 
 import { appData } from './data.js';
+import { formatDate, localDateStr } from './ui.js';
 
 export function renderActivity() {
   const container = document.getElementById('activityView');
@@ -45,7 +46,7 @@ function renderCalendar(sessions) {
     byDate[s.date] = (byDate[s.date] || 0) + pts;
   });
 
-  // Build 52 weeks of dates ending today
+  // Build 52 weeks of dates ending today (local dates, matching in-memory session dates)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -58,7 +59,7 @@ function renderCalendar(sessions) {
   const days = [];
   const d = new Date(start);
   while (d <= today) {
-    days.push(d.toISOString().split('T')[0]);
+    days.push(localDateStr(d));
     d.setDate(d.getDate() + 1);
   }
 
@@ -74,11 +75,10 @@ function renderCalendar(sessions) {
   days.forEach((date, i) => {
     const pts = byDate[date] || 0;
     const intensity = pts === 0 ? 0 : Math.ceil((pts / maxPts) * 4);
-    const dayObj = new Date(date + 'T12:00:00');
-    const month = dayObj.getMonth();
+    const month = parseInt(date.split('-')[1]);
 
     if (month !== lastMonth) {
-      months.push({ label: dayObj.toLocaleDateString('en-GB', { month: 'short' }), weekIdx: Math.floor(i / 7) });
+      months.push({ label: formatDate(date, { month: 'short' }), weekIdx: Math.floor(i / 7) });
       lastMonth = month;
     }
 
@@ -160,8 +160,7 @@ function renderCalendar(sessions) {
 }
 
 function showDayDetail(date, daySessions) {
-  const d = new Date(date + 'T12:00:00');
-  const label = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const label = formatDate(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const lines = daySessions.map(s => {
     const models = (s.modelEntries || []).map(e => {
       const model = appData.models[e.modelId];
@@ -194,8 +193,7 @@ function renderSessionHistory(sessions) {
   });
 
   container.innerHTML = Object.entries(byMonth).map(([month, monthSessions]) => {
-    const d = new Date(month + '-01T12:00:00');
-    const label = d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+    const label = formatDate(month + '-01', { month: 'long', year: 'numeric' });
     const totalMins = monthSessions.reduce((a, s) => a + (s.duration || 0), 0);
     const totalPts = monthSessions.reduce((acc, s) => {
       return acc + (s.modelEntries || []).reduce((a, e) => {

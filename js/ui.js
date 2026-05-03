@@ -112,13 +112,35 @@ export function phaseLabel(phase) {
 }
 
 // --- Date helpers ---
+const _userLocale = navigator.language;
+const _userTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+export function localDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function today() {
-  return new Date().toISOString().split('T')[0];
+  return localDateStr(new Date());
+}
+
+// dateStr is a local YYYY-MM-DD string; parse at local noon to stay in the correct day.
+export function formatDate(dateStr, options) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(y, m - 1, d, 12, 0, 0);
+  return date.toLocaleDateString(_userLocale, { timeZone: _userTz, ...options });
 }
 
 export function daysUntil(dateStr) {
   if (!dateStr) return null;
-  return Math.ceil((new Date(dateStr) - new Date()) / 86400000);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const deadline = new Date(y, m - 1, d);
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  return Math.ceil((deadline - todayMidnight) / 86400000);
 }
 
 // --- Smart date input ---
