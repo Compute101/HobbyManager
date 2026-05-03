@@ -8,6 +8,7 @@ import {
 } from './data.js';
 import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue } from './ui.js';
 import { getTerm } from './theme.js';
+import { compressImageToBase64 } from './imageUtils.js';
 
 // Lazy import to avoid circular dependency
 async function pruneQueues() {
@@ -166,6 +167,7 @@ function modelCard(model) {
 
   return `
     <div class="model-card" data-model-view="${model.id}">
+      ${model.image ? `<img class="model-card-thumb" src="${model.image}" alt="">` : ''}
       <div class="model-card-header">
         <div>
           <div class="model-card-name">${model.name}</div>
@@ -201,6 +203,7 @@ export function showModelDetail(modelId) {
 
   const content = document.createElement('div');
   content.innerHTML = `
+    ${model.image ? `<img class="detail-image" src="${model.image}" alt="${model.name}">` : ''}
     <div class="detail-header">
       <div>
         <div class="detail-qty">Quantity: <b>${model.quantity}</b></div>
@@ -239,6 +242,7 @@ export function showModelForm(editId = null, defaultFolderId = null) {
   const allTypes = getAllModelTypes();
   const folders = getAllFolders();
   const currentFolderId = model?.folderId || defaultFolderId || '';
+  let currentImage = model?.image || null;
 
   const content = document.createElement('div');
   content.innerHTML = `
@@ -263,6 +267,21 @@ export function showModelForm(editId = null, defaultFolderId = null) {
     <div class="form-group">
       <label>Notes (optional)</label>
       <textarea id="mfNotes" class="form-input" rows="2">${model?.notes || ''}</textarea>
+    </div>
+    <div class="form-group">
+      <label>Photo (optional)</label>
+      <div class="img-upload-area" id="mfImageArea">
+        ${currentImage
+          ? `<img class="img-upload-preview" id="mfImagePreview" src="${currentImage}" alt="">`
+          : `<div class="img-upload-placeholder" id="mfImagePlaceholder">📷 No photo yet</div>`
+        }
+      </div>
+      <div class="img-upload-actions">
+        <button class="btn btn-sm" id="mfImageBtn" type="button">📷 Choose Photo</button>
+        <button class="btn btn-sm btn-danger" id="mfImageRemove" type="button" style="${currentImage ? '' : 'display:none'}">✕ Remove</button>
+      </div>
+      <input type="file" id="mfImageInput" accept="image/*" style="display:none">
+      <div class="img-upload-info" id="mfImageInfo"></div>
     </div>
     <div class="form-group">
       <label>Model Type</label>
@@ -306,6 +325,37 @@ export function showModelForm(editId = null, defaultFolderId = null) {
         e.target.value = currentFolderId || '';
       }
     }
+  });
+
+  // Image upload
+  content.querySelector('#mfImageBtn').addEventListener('click', () => {
+    content.querySelector('#mfImageInput').click();
+  });
+
+  content.querySelector('#mfImageInput').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const infoEl = content.querySelector('#mfImageInfo');
+    infoEl.textContent = 'Compressing…';
+    try {
+      const dataUrl = await compressImageToBase64(file, 128, 0.65);
+      currentImage = dataUrl;
+      const area = content.querySelector('#mfImageArea');
+      area.innerHTML = `<img class="img-upload-preview" id="mfImagePreview" src="${dataUrl}" alt="">`;
+      content.querySelector('#mfImageRemove').style.display = '';
+      const kb = Math.round(dataUrl.length * 0.75 / 1024);
+      infoEl.textContent = `Thumbnail: ~${kb} KB stored`;
+    } catch {
+      infoEl.textContent = 'Failed to process image.';
+    }
+    e.target.value = '';
+  });
+
+  content.querySelector('#mfImageRemove').addEventListener('click', () => {
+    currentImage = null;
+    content.querySelector('#mfImageArea').innerHTML = `<div class="img-upload-placeholder" id="mfImagePlaceholder">📷 No photo yet</div>`;
+    content.querySelector('#mfImageRemove').style.display = 'none';
+    content.querySelector('#mfImageInfo').textContent = '';
   });
 
   // Preset dropdown
@@ -363,10 +413,10 @@ export function showModelForm(editId = null, defaultFolderId = null) {
     const { stages: newStages, skipped: newSkipped } = collectStagesAndSkipped(content);
 
     if (editId) {
-      updateModel(editId, { name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped });
+      updateModel(editId, { name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped, image: currentImage });
       toast('Updated!', 'success');
     } else {
-      createModel({ name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped });
+      createModel({ name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped, image: currentImage });
       toast(`${getTerm('model')} added!`, 'success');
     }
 
