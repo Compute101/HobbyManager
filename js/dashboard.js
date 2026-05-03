@@ -1,7 +1,7 @@
 // dashboard.js — dashboard with pie charts and deadline cards
 
 import { appData, globalStats, listStats, saveData, GAME_SYSTEMS } from './data.js';
-import { progressBar, toast, daysUntil, localDateStr } from './ui.js';
+import { progressBar, toast, daysUntil } from './ui.js';
 import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
 
@@ -115,16 +115,14 @@ export function renderDashboard() {
 
 function getWeekBounds() {
   const now = new Date();
-  const day = now.getDay(); // 0=Sun, 1=Mon...
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - ((day + 6) % 7)); // roll back to Monday
-  monday.setHours(0, 0, 0, 0);
+  const day = now.getUTCDay(); // 0=Sun, 1=Mon...
+  const monday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  monday.setUTCDate(monday.getUTCDate() - ((day + 6) % 7)); // roll back to Monday
   const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-  sunday.setHours(23, 59, 59, 999);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
   return {
-    start: localDateStr(monday),
-    end: localDateStr(sunday)
+    start: monday.toISOString().split('T')[0],
+    end: sunday.toISOString().split('T')[0]
   };
 }
 
@@ -182,11 +180,11 @@ function renderWeeklySummary() {
   const dayNames = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
   const sessionDates = new Set(sessions.map(s => s.date));
   const dayDots = dayNames.map((d, i) => {
-    const date = new Date(start);
-    date.setDate(date.getDate() + i);
-    const dateStr = localDateStr(date);
+    const date = new Date(start + 'T00:00:00Z');
+    date.setUTCDate(date.getUTCDate() + i);
+    const dateStr = date.toISOString().split('T')[0];
     const painted = sessionDates.has(dateStr);
-    const isToday = dateStr === localDateStr(today);
+    const isToday = dateStr === new Date().toISOString().split('T')[0];
     return `<div class="week-dot ${painted ? 'painted' : ''} ${isToday ? 'today' : ''}">
       <div class="week-dot-circle"></div>
       <div class="week-dot-label">${d}</div>
@@ -247,13 +245,13 @@ function renderHobbyStats() {
   // Current streak — consecutive days with sessions
   const sessionDates = new Set(sessions.map(s => s.date).filter(Boolean));
   let streak = 0;
-  const today = new Date();
-  const check = new Date(today);
+  const now = new Date();
+  const check = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   while (true) {
-    const dateStr = localDateStr(check);
+    const dateStr = check.toISOString().split('T')[0];
     if (sessionDates.has(dateStr)) {
       streak++;
-      check.setDate(check.getDate() - 1);
+      check.setUTCDate(check.getUTCDate() - 1);
     } else {
       break;
     }
