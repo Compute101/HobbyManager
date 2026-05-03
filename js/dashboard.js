@@ -2,7 +2,7 @@
 
 import { appData, globalStats, listStats, saveData, GAME_SYSTEMS } from './data.js';
 import { progressBar, toast, daysUntil, formatDate } from './ui.js';
-import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar } from './charts.js';
+import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
 
 export function renderDashboard() {
@@ -87,6 +87,9 @@ export function renderDashboard() {
         ${renderRecentSessions()}
       </div>
 
+      <!-- Army completion breakdown -->
+      ${armyCompletionSection()}
+
     </div>
   `;
 
@@ -110,6 +113,10 @@ export function renderDashboard() {
   requestAnimationFrame(() => {
     renderCompletionPie('completionPie');
     renderCompositionPie('compositionPie');
+    Object.values(appData.lists).forEach(list => {
+      const models = (list.modelIds || []).map(id => appData.models[id]).filter(Boolean);
+      renderListCompletionPie(`armyPie_${list.id}`, models);
+    });
   });
 }
 
@@ -354,6 +361,29 @@ function renderRecentSessions() {
       </div>
     `).join('')}
   </div>`;
+}
+
+function armyCompletionSection() {
+  const lists = Object.values(appData.lists);
+  if (!lists.length) return '';
+  return `
+    <div class="dash-card dash-army-breakdown">
+      <h3>Army Completion Breakdown</h3>
+      <div class="army-pie-grid">
+        ${lists.map(list => {
+          const col = appData.collections[list.collectionId];
+          const sys = col ? GAME_SYSTEMS[col.gameSystemId] : null;
+          return `
+            <div class="army-pie-card">
+              <div class="army-pie-title">
+                ${list.name}
+                ${sys ? `<span class="sys-tag ${sys.theme}">${sys.shortLabel}</span>` : ''}
+              </div>
+              <div class="chart-wrap"><canvas id="armyPie_${list.id}"></canvas></div>
+            </div>`;
+        }).join('')}
+      </div>
+    </div>`;
 }
 
 // --- Per-list burndown modal ---

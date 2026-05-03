@@ -140,6 +140,52 @@ export function renderCompletionPie(canvasId) {
 }
 
 // ----------------------------------------------------------------
+// PIE: Completion status for a specific army list
+// ----------------------------------------------------------------
+export function renderListCompletionPie(canvasId, models) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  destroyChart(canvasId);
+
+  let finished = 0, painted = 0, tableReady = 0, inProgress = 0;
+  models.forEach(m => {
+    const thresh = calcModelThreshold(m);
+    const qty = m.quantity;
+    if (thresh === 'finished')         finished   += qty;
+    else if (thresh === 'painted')     painted    += qty;
+    else if (thresh === 'table_ready') tableReady += qty;
+    else                               inProgress += qty;
+  });
+
+  const total = finished + painted + tableReady + inProgress;
+  if (!total) {
+    canvas.parentElement.innerHTML = '<p class="empty-text">No models in this list.</p>';
+    return;
+  }
+
+  _charts[canvasId] = new Chart(canvas.getContext('2d'), {
+    type: 'doughnut',
+    data: {
+      labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress'],
+      datasets: [{
+        data: [finished, painted, tableReady, inProgress],
+        backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#2a2a3a'],
+        borderColor: '#1a1a2e',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { color: '#ccc', padding: 10, font: { size: 11 } } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/total*100)}%)` } }
+      }
+    }
+  });
+}
+
+// ----------------------------------------------------------------
 // BAR: Stage breakdown for a list (shown in burndown modal)
 // ----------------------------------------------------------------
 export function renderStageBar(canvasId, models) {

@@ -8,6 +8,7 @@ import {
 import { showModal, closeModal, toast, progressBar, thresholdBadge, createDateInput, getDateValue, formatDate } from './ui.js';
 import { applyTheme, resetTheme, setCurrentSystem, resetCurrentSystem, getTerm } from './theme.js';
 import { showLogProgress, showModelDetail } from './models.js';
+import { renderListCompletionPie } from './charts.js';
 
 let activeCollectionId = null;
 let activeListId = null;
@@ -179,6 +180,10 @@ function selectList(listId) {
         ${list.deadline ? `<button class="btn btn-xs btn-danger" id="clearDeadlineBtn">✕</button>` : ''}
       </div>
     </div>
+    <div class="dash-card list-completion-chart">
+      <h3>Completion Breakdown</h3>
+      <div class="chart-wrap"><canvas id="listCompletionPieChart"></canvas></div>
+    </div>
     <div class="list-models-header">
       <h3>${getTerm('group')}s / ${getTerm('model')}s</h3>
       <button class="btn btn-primary btn-sm" id="addModelToListBtn">+ Add from Pool</button>
@@ -227,6 +232,7 @@ function selectList(listId) {
       selectList(listId);
     });
   });
+  requestAnimationFrame(() => renderListCompletionPie('listCompletionPieChart', models));
 }
 
 function listModelRow(model, listId) {
