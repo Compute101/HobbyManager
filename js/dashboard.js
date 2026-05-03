@@ -145,7 +145,7 @@ function renderWeeklySummary() {
     return acc + (s.modelEntries || []).reduce((a, e) => {
       const model = appData.models[e.modelId];
       const stage = (model?.stages || appData.config.stages).find(st => st.id === e.stageId);
-      return a + (stage?.points || 1);
+      return a + (stage?.points || 1) * (e.qty || 0);
     }, 0);
   }, 0);
 
