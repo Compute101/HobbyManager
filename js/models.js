@@ -176,7 +176,7 @@ function modelCard(model) {
         ${badge}
       </div>
       ${progressBar(pts.pct)}
-      <div class="model-card-pts">${pts.done} / ${pts.total} pts (${pts.pct}%)</div>
+      <div class="model-card-pts">${pts.pct}% complete <span class="pts-detail">${pts.done}/${pts.total} pts</span></div>
       <div class="model-card-actions">
         <button class="btn btn-sm btn-primary" data-model-log="${model.id}">📝 Log</button>
         <button class="btn btn-sm" data-model-edit="${model.id}">✏️</button>
@@ -243,6 +243,11 @@ export function showModelForm(editId = null, defaultFolderId = null) {
   const folders = getAllFolders();
   const currentFolderId = model?.folderId || defaultFolderId || '';
   let currentImage = model?.image || null;
+  const hasType = !!(model?.modelTypeId && allTypes.find(t => t.id === model.modelTypeId));
+  const selectedType = hasType ? allTypes.find(t => t.id === model.modelTypeId) : null;
+  const stagesLabelHtml = hasType
+    ? `Using <b>${selectedType.name}</b> stages`
+    : `Hobby Stages <span class="form-hint">(edit points or toggle skipped)</span>`;
 
   const content = document.createElement('div');
   content.innerHTML = `
@@ -285,21 +290,26 @@ export function showModelForm(editId = null, defaultFolderId = null) {
     </div>
     <div class="form-group">
       <label>Model Type</label>
-      <div class="model-type-row">
-        <select id="mfTypeSelect" class="form-input">
-          <option value="">— Custom / Manual —</option>
-          ${allTypes.map(t => `<option value="${t.id}" ${model?.modelTypeId === t.id ? 'selected' : ''}>${t.name}${t.builtIn ? '' : ' ⭐'}</option>`).join('')}
-        </select>
-        <button class="btn btn-sm" id="mfSaveType" title="Save current stages as a custom type">💾 Save Type</button>
-      </div>
+      <select id="mfTypeSelect" class="form-input">
+        <option value="">— Custom / Manual —</option>
+        ${allTypes.map(t => `<option value="${t.id}" ${model?.modelTypeId === t.id ? 'selected' : ''}>${t.name}${t.builtIn ? '' : ' ⭐'}</option>`).join('')}
+      </select>
       <div class="model-type-manage" id="mfTypeManage"></div>
     </div>
     <div class="form-group">
-      <label>Hobby Stages <span class="form-hint">(edit points or toggle skipped)</span></label>
-      <div class="stages-config" id="mfStages">
-        ${stages.map(s => stageConfigRow(s, skipped)).join('')}
+      <div class="stages-section-header">
+        <label id="mfStagesLabel" style="margin:0">${stagesLabelHtml}</label>
+        <button class="btn btn-xs" id="mfStagesToggle" type="button" style="${hasType ? '' : 'display:none'}">▶ Customize</button>
       </div>
-      <button class="btn btn-sm" id="mfAddStage">+ Stage</button>
+      <div id="mfStagesBody" style="${hasType ? 'display:none' : ''}">
+        <div class="stages-config" id="mfStages">
+          ${stages.map(s => stageConfigRow(s, skipped)).join('')}
+        </div>
+        <div class="stages-actions-row">
+          <button class="btn btn-sm" id="mfAddStage" type="button">+ Stage</button>
+          <button class="btn btn-sm" id="mfSaveType" type="button" title="Save current stages as a custom type">💾 Save Type</button>
+        </div>
+      </div>
     </div>
     <div class="modal-actions">
       <button class="btn btn-primary" id="mfSave">${editId ? 'Update' : 'Add'} ${getTerm('model')}</button>
@@ -361,12 +371,31 @@ export function showModelForm(editId = null, defaultFolderId = null) {
 
   // Preset dropdown
   const typeSelect = content.querySelector('#mfTypeSelect');
+  const stagesBody = content.querySelector('#mfStagesBody');
+  const stagesLabel = content.querySelector('#mfStagesLabel');
+  const stagesToggle = content.querySelector('#mfStagesToggle');
+
+  stagesToggle.addEventListener('click', () => {
+    const isHidden = stagesBody.style.display === 'none';
+    stagesBody.style.display = isHidden ? '' : 'none';
+    stagesToggle.textContent = isHidden ? '▲ Collapse' : '▶ Customize';
+  });
+
   typeSelect.addEventListener('change', () => {
     const typeId = typeSelect.value;
-    if (!typeId) return;
-    const preset = allTypes.find(t => t.id === typeId);
-    if (!preset) return;
-    content.querySelector('#mfStages').innerHTML = preset.stages.map(s => stageConfigRow(s, [])).join('');
+    if (typeId) {
+      const preset = allTypes.find(t => t.id === typeId);
+      if (!preset) return;
+      content.querySelector('#mfStages').innerHTML = preset.stages.map(s => stageConfigRow(s, [])).join('');
+      stagesLabel.innerHTML = `Using <b>${preset.name}</b> stages`;
+      stagesBody.style.display = 'none';
+      stagesToggle.textContent = '▶ Customize';
+      stagesToggle.style.display = '';
+    } else {
+      stagesLabel.innerHTML = `Hobby Stages <span class="form-hint">(edit points or toggle skipped)</span>`;
+      stagesBody.style.display = '';
+      stagesToggle.style.display = 'none';
+    }
     updateTypeManage(content, typeId, allTypes);
   });
 
@@ -438,7 +467,7 @@ function stageConfigRow(s, skipped) {
   return `
     <div class="stage-config-row" data-sid="${s.id}">
       <input type="text" class="form-input stage-cfg-name" value="${s.name}" placeholder="Stage name">
-      <input type="number" class="form-input stage-cfg-pts" value="${s.points || 1}" min="0" max="20" title="Points">
+      <input type="number" class="form-input stage-cfg-pts" value="${s.points || 1}" min="0" max="20" title="Hobby points for this stage (used for weekly goal tracking)">
       <select class="form-input stage-cfg-milestone" title="Milestone this stage completes">
         ${milestoneOptions.map(o => `<option value="${o.value}" ${(s.threshold || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
       </select>
@@ -546,13 +575,12 @@ export function showLogProgress(modelId) {
               <label class="log-stage-check ${isDone ? 'is-done' : ''}">
                 <input type="checkbox" class="stage-checkbox" id="lp_${s.id}" data-sid="${s.id}" ${isDone ? 'checked' : ''}>
                 <span class="log-stage-name">${s.name}</span>
-                <span class="log-stage-pts">${s.points}pts</span>
               </label>
             `;
           }
           return `
             <div class="log-stage-row">
-              <div class="log-stage-name">${s.name} <span class="log-stage-pts">(${s.points}pts each)</span></div>
+              <div class="log-stage-name">${s.name}</div>
               <div class="log-stage-input">
                 <button class="btn btn-sm qty-dec" data-sid="${s.id}">−</button>
                 <input type="number" class="form-input qty-input" id="lp_${s.id}"
