@@ -139,7 +139,7 @@ export const BUILTIN_MODEL_TYPES = [
   },
   {
     id: 'vehicle',
-    name: 'Vehicle (40K)',
+    name: 'Vehicle',
     builtIn: true,
     stages: [
       { id: 's1', name: 'Assembly',  points: 5, phase: 'assembly', skippable: false, threshold: 'table_ready' },
@@ -149,6 +149,125 @@ export const BUILTIN_MODEL_TYPES = [
       { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
       { id: 's6', name: 'Highlight', points: 3, phase: 'painting', skippable: true,  threshold: 'painted' },
       { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'swarm',
+    name: 'Swarm',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 1, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 1, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 1, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 1, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 1, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'jetbike',
+    name: 'Jetbike',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 3, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'monstrous_cavalry',
+    name: 'Monstrous Cavalry',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 3, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'chariot',
+    name: 'Chariot',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',     points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',        points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',     points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',        points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',        points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight',    points: 3, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Crew Detail',  points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's8', name: 'Basing',       points: 3, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'character_horse',
+    name: 'Character on Horseback',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',     points: 3, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',        points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',     points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',        points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',        points: 3, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight',    points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Horse Detail', points: 3, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's8', name: 'Face Detail',  points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's9', name: 'Basing',       points: 1, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'walker',
+    name: 'Walker / Dreadnought',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',     points: 5, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',        points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',     points: 5, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',        points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',        points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight',    points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Panel Detail', points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's8', name: 'Basing',       points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'character_monster',
+    name: 'Character on Ridden Monster',
+    builtIn: true,
+    stages: [
+      { id: 's1',  name: 'Assembly',         points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2',  name: 'Prime',            points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3',  name: 'Monster Basecoat', points: 5, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4',  name: 'Monster Shade',    points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5',  name: 'Rider Basecoat',   points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's6',  name: 'Rider Shade',      points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's7',  name: 'Layer',            points: 3, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's8',  name: 'Highlight',        points: 5, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's9',  name: 'Face Detail',      points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's10', name: 'Basing',           points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'terrain',
+    name: 'Terrain / Scenery',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Drybrush',  points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Wash',      points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's6', name: 'Details',   points: 2, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 1, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
 ];
