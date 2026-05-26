@@ -237,14 +237,16 @@ export function showModelDetail(modelId) {
 export function showModelForm(editId = null, defaultFolderId = null) {
   editId = editId || null;
   const model = editId ? appData.models[editId] : null;
-  const stages = model?.stages || appData.config.stages.map(s => ({ ...s }));
-  const skipped = model?.skippedStages || [];
   const allTypes = getAllModelTypes();
+  const defaultTypeId = !editId ? 'infantry' : null;
+  const effectiveTypeId = model?.modelTypeId || defaultTypeId;
+  const selectedType = effectiveTypeId ? allTypes.find(t => t.id === effectiveTypeId) : null;
+  const stages = model?.stages || (selectedType ? selectedType.stages.map(s => ({ ...s })) : appData.config.stages.map(s => ({ ...s })));
+  const skipped = model?.skippedStages || [];
   const folders = getAllFolders();
   const currentFolderId = model?.folderId || defaultFolderId || '';
   let currentImage = model?.image || null;
-  const hasType = !!(model?.modelTypeId && allTypes.find(t => t.id === model.modelTypeId));
-  const selectedType = hasType ? allTypes.find(t => t.id === model.modelTypeId) : null;
+  const hasType = !!selectedType;
   const stagesLabelHtml = hasType
     ? `Using <b>${selectedType.name}</b> stages`
     : `Hobby Stages <span class="form-hint">(edit points or toggle skipped)</span>`;
@@ -292,7 +294,7 @@ export function showModelForm(editId = null, defaultFolderId = null) {
       <label>Model Type</label>
       <select id="mfTypeSelect" class="form-input">
         <option value="">— Custom / Manual —</option>
-        ${allTypes.map(t => `<option value="${t.id}" ${model?.modelTypeId === t.id ? 'selected' : ''}>${t.name}${t.builtIn ? '' : ' ⭐'}</option>`).join('')}
+        ${allTypes.map(t => `<option value="${t.id}" ${effectiveTypeId === t.id ? 'selected' : ''}>${t.name}${t.builtIn ? '' : ' ⭐'}</option>`).join('')}
       </select>
       <div class="model-type-manage" id="mfTypeManage"></div>
     </div>
@@ -399,7 +401,7 @@ export function showModelForm(editId = null, defaultFolderId = null) {
     updateTypeManage(content, typeId, allTypes);
   });
 
-  updateTypeManage(content, model?.modelTypeId || '', allTypes);
+  updateTypeManage(content, effectiveTypeId || '', allTypes);
 
   content.querySelector('#mfSaveType').addEventListener('click', () => {
     const name = prompt('Name for this custom model type:');
