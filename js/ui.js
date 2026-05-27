@@ -97,10 +97,11 @@ export function progressBar(pct, colorVar = '--accent') {
 
 export function thresholdBadge(threshold) {
   const map = {
-    table_ready: { icon: '⚔️', label: 'Table Ready', cls: 'badge-table' },
-    painted:     { icon: '🎨', label: 'Painted',     cls: 'badge-painted' },
-    finished:    { icon: '🏆', label: 'Finished',    cls: 'badge-finished' },
-    null:        { icon: '🔧', label: 'In Progress', cls: 'badge-wip' },
+    table_ready:  { icon: '⚔️', label: 'Table Ready',  cls: 'badge-table' },
+    painted:      { icon: '🎨', label: 'Painted',       cls: 'badge-painted' },
+    finished:     { icon: '🏆', label: 'Finished',      cls: 'badge-finished' },
+    null:         { icon: '🔧', label: 'In Progress',   cls: 'badge-wip' },
+    not_started:  { icon: '⬜', label: 'Not Started',   cls: 'badge-not-started' },
   };
   const info = map[threshold] || map[null];
   return `<span class="badge ${info.cls}">${info.icon} ${info.label}</span>`;

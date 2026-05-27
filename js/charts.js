@@ -100,18 +100,19 @@ export function renderCompletionPie(canvasId) {
   if (!canvas) return;
   destroyChart(canvasId);
 
-  let finished = 0, painted = 0, tableReady = 0, inProgress = 0;
+  let finished = 0, painted = 0, tableReady = 0, inProgress = 0, notStarted = 0;
 
   Object.values(appData.models).forEach(m => {
     const thresh = calcModelThreshold(m);
     const qty = m.quantity;
-    if (thresh === 'finished')     finished   += qty;
-    else if (thresh === 'painted') painted    += qty;
-    else if (thresh === 'table_ready') tableReady += qty;
-    else                           inProgress += qty;
+    if (thresh === 'finished')          finished    += qty;
+    else if (thresh === 'painted')      painted     += qty;
+    else if (thresh === 'table_ready')  tableReady  += qty;
+    else if (thresh === 'not_started')  notStarted  += qty;
+    else                                inProgress  += qty;
   });
 
-  const total = finished + painted + tableReady + inProgress;
+  const total = finished + painted + tableReady + inProgress + notStarted;
   if (!total) {
     canvas.parentElement.innerHTML = '<p class="empty-text">No models in your pool yet.</p>';
     return;
@@ -120,10 +121,10 @@ export function renderCompletionPie(canvasId) {
   _charts[canvasId] = new Chart(canvas.getContext('2d'), {
     type: 'doughnut',
     data: {
-      labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress'],
+      labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress', '⬜ Not Started'],
       datasets: [{
-        data: [finished, painted, tableReady, inProgress],
-        backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#2a2a3a'],
+        data: [finished, painted, tableReady, inProgress, notStarted],
+        backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#2a2a3a', '#1a1a2e'],
         borderColor: '#1a1a2e',
         borderWidth: 2
       }]
@@ -147,17 +148,18 @@ export function renderListCompletionPie(canvasId, models) {
   if (!canvas) return;
   destroyChart(canvasId);
 
-  let finished = 0, painted = 0, tableReady = 0, inProgress = 0;
+  let finished = 0, painted = 0, tableReady = 0, inProgress = 0, notStarted = 0;
   models.forEach(m => {
     const thresh = calcModelThreshold(m);
     const qty = m.quantity;
-    if (thresh === 'finished')         finished   += qty;
-    else if (thresh === 'painted')     painted    += qty;
-    else if (thresh === 'table_ready') tableReady += qty;
-    else                               inProgress += qty;
+    if (thresh === 'finished')          finished   += qty;
+    else if (thresh === 'painted')      painted    += qty;
+    else if (thresh === 'table_ready')  tableReady += qty;
+    else if (thresh === 'not_started')  notStarted += qty;
+    else                                inProgress += qty;
   });
 
-  const total = finished + painted + tableReady + inProgress;
+  const total = finished + painted + tableReady + inProgress + notStarted;
   if (!total) {
     canvas.parentElement.innerHTML = '<p class="empty-text">No models in this list.</p>';
     return;
@@ -166,10 +168,10 @@ export function renderListCompletionPie(canvasId, models) {
   _charts[canvasId] = new Chart(canvas.getContext('2d'), {
     type: 'doughnut',
     data: {
-      labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress'],
+      labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress', '⬜ Not Started'],
       datasets: [{
-        data: [finished, painted, tableReady, inProgress],
-        backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#2a2a3a'],
+        data: [finished, painted, tableReady, inProgress, notStarted],
+        backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#2a2a3a', '#1a1a2e'],
         borderColor: '#1a1a2e',
         borderWidth: 2
       }]
@@ -330,12 +332,14 @@ function calcModelThreshold(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
   const activeStages = stages.filter(s => !skipped.includes(s.id));
+  const hasAnyProgress = activeStages.some(s => (model.progress[s.id]?.done || 0) > 0);
 
   const hasThresholds = stages.some(s => s.threshold);
   if (!hasThresholds) {
     const allDone = activeStages.length > 0 &&
       activeStages.every(s => (model.progress[s.id]?.done || 0) >= model.quantity);
-    return allDone ? 'finished' : null;
+    if (allDone) return 'finished';
+    return hasAnyProgress ? null : 'not_started';
   }
 
   for (const thresh of ['finished', 'painted', 'table_ready']) {
@@ -347,7 +351,7 @@ function calcModelThreshold(model) {
     });
     if (allDone) return thresh;
   }
-  return null;
+  return hasAnyProgress ? null : 'not_started';
 }
 
 export function destroyAllCharts() {
