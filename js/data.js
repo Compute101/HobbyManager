@@ -444,18 +444,18 @@ export function logProgress(modelId, stageId, done, date) {
 // --- Stats helpers ---
 
 export function modelThreshold(model) {
-  // Returns highest threshold reached: 'finished' | 'painted' | 'table_ready' | null
+  // Returns highest threshold reached: 'finished' | 'painted' | 'table_ready' | null | 'not_started'
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
   const activeStages = stages.filter(s => !skipped.includes(s.id));
+  const hasAnyProgress = activeStages.some(s => (model.progress[s.id]?.done || 0) > 0);
 
-  // Fallback for custom types with no threshold markers defined:
-  // if all non-skipped stages are fully done => treat as Finished
   const hasThresholds = stages.some(s => s.threshold);
   if (!hasThresholds) {
     const allDone = activeStages.length > 0 &&
       activeStages.every(s => (model.progress[s.id]?.done || 0) >= model.quantity);
-    return allDone ? 'finished' : null;
+    if (allDone) return 'finished';
+    return hasAnyProgress ? null : 'not_started';
   }
 
   // Standard logic: check highest threshold first
@@ -468,7 +468,7 @@ export function modelThreshold(model) {
     });
     if (allDone) return thresh;
   }
-  return null;
+  return hasAnyProgress ? null : 'not_started';
 }
 
 export function modelPoints(model) {
