@@ -9,6 +9,7 @@ import { showModal, closeModal, toast, progressBar, thresholdBadge, createDateIn
 import { applyTheme, resetTheme, setCurrentSystem, resetCurrentSystem, getTerm } from './theme.js';
 import { showLogProgress, showModelDetail } from './models.js';
 import { renderListCompletionPie } from './charts.js';
+import { showOwbImportModal } from './owb-import.js';
 
 let activeCollectionId = null;
 let activeListId = null;
@@ -45,9 +46,21 @@ export function renderCollections() {
             </div>
           </div>
         </div>
-        <button class="btn btn-primary onboarding-cta" id="addFirstCollection">+ Create First Game System</button>
+        <div style="display:flex;gap:0.6em;flex-wrap:wrap;justify-content:center">
+          <button class="btn btn-primary onboarding-cta" id="addFirstCollection">+ Create First Game System</button>
+          <button class="btn onboarding-cta" id="owbImportOnboarding">📋 Import Old World Builder List</button>
+        </div>
       </div>`;
     document.getElementById('addFirstCollection')?.addEventListener('click', () => showCollectionForm());
+    document.getElementById('owbImportOnboarding')?.addEventListener('click', () => {
+      showOwbImportModal((colId, listId) => {
+        activeCollectionId = colId;
+        activeListId = listId;
+        renderCollections();
+        selectCollection(colId);
+        selectList(listId);
+      });
+    });
     return;
   }
   container.innerHTML = `
@@ -72,7 +85,10 @@ function renderCollectionsSidebar() {
   sidebar.innerHTML = `
     <div class="sidebar-header">
       <span>Game Systems</span>
-      <button class="btn btn-sm btn-primary" id="addCollBtn">+</button>
+      <div style="display:flex;gap:0.3em">
+        <button class="btn btn-sm" id="owbImportBtn" title="Import Old World Builder list">📋</button>
+        <button class="btn btn-sm btn-primary" id="addCollBtn">+</button>
+      </div>
     </div>
     <div class="sidebar-list">
       ${collections.map(col => {
@@ -108,6 +124,15 @@ function renderCollectionsSidebar() {
       }).join('')}
     </div>
   `;
+  sidebar.querySelector('#owbImportBtn')?.addEventListener('click', () => {
+    showOwbImportModal((colId, listId) => {
+      activeCollectionId = colId;
+      activeListId = listId;
+      renderCollections();
+      selectCollection(colId);
+      selectList(listId);
+    });
+  });
   sidebar.querySelector('#addCollBtn')?.addEventListener('click', () => showCollectionForm());
   sidebar.querySelectorAll('[data-col-id]').forEach(el => {
     el.querySelector('.sidebar-col-name')?.addEventListener('click', () => selectCollection(el.dataset.colId));
