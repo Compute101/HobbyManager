@@ -402,13 +402,14 @@ export function getModel(id) { return appData.models[id]; }
 
 export function getAllModels() { return Object.values(appData.models); }
 
-export function createModel({ name, quantity = 1, notes = '', gameSystemId = null, stages = null, skippedStages = [], folderId = null, image = null }) {
+export function createModel({ name, quantity = 1, notes = '', gameSystemId = null, stages = null, skippedStages = [], folderId = null, image = null, modelTypeId = null }) {
   const id = uid();
   const modelStages = stages || appData.config.stages.map(s => ({ ...s }));
   appData.models[id] = {
     id, name, quantity, notes, gameSystemId, folderId, image,
     stages: modelStages,
     skippedStages,
+    modelTypeId,
     progress: {},
     sessions: []
   };
