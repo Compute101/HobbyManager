@@ -1056,6 +1056,59 @@
     .empty-state p { margin-bottom: 1em; font-size: 0.95em; }
     .empty-text { font-size: 0.85em; color: var(--text-muted); font-style: italic; }
 
+    /* Onboarding card (first-run empty states) */
+    .onboarding-card {
+      max-width: 520px;
+      margin: 2em auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2em 1.75em;
+    }
+    .onboarding-title { font-family: var(--font-display); font-size: 1.3em; margin-bottom: 0.5em; }
+    .onboarding-desc { color: var(--text-muted); font-size: 0.9em; margin-bottom: 1.25em; }
+    .onboarding-steps { display: flex; flex-direction: column; gap: 1em; margin-bottom: 1.5em; }
+    .onboarding-step { display: flex; gap: 0.9em; align-items: flex-start; }
+    .onboarding-step .step-num {
+      flex-shrink: 0;
+      width: 1.6em; height: 1.6em;
+      border-radius: 50%;
+      background: var(--accent);
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8em; font-weight: bold;
+    }
+    .onboarding-step div { line-height: 1.4; }
+    .onboarding-step b { display: block; margin-bottom: 0.15em; }
+    .onboarding-step p { margin: 0; font-size: 0.85em; color: var(--text-muted); }
+    .onboarding-cta { margin-top: 0.5em; }
+
+    /* Army nudge banner */
+    .army-nudge {
+      display: flex; align-items: center; gap: 0.75em;
+      background: var(--surface);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      padding: 0.7em 1em;
+      margin-bottom: 1em;
+      font-size: 0.88em;
+    }
+    .army-nudge-icon { font-size: 1.3em; flex-shrink: 0; }
+    .army-nudge-body { flex: 1; line-height: 1.4; }
+    .army-nudge-body b { display: block; margin-bottom: 0.1em; }
+    .army-nudge-body span { color: var(--text-muted); }
+
+    /* Stage done indicator in Log Progress */
+    .stage-done { opacity: 0.55; }
+    .stage-done-badge { font-size: 0.78em; color: var(--accent); font-weight: bold; margin-left: 0.3em; }
+
+    /* Weekly goal nudge */
+    .weekly-goal-nudge { margin-bottom: 0.5em; }
+    .goal-nudge-text { font-size: 0.82em; color: var(--text-muted); margin-bottom: 0.5em; }
+
+    /* Log time hint */
+    .log-time-hint { margin-top: 0.25em; }
+
     /* ================================================================
        SETTINGS PANEL
     ================================================================ */

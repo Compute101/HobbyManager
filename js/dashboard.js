@@ -216,8 +216,9 @@ function renderWeeklySummary() {
         </div>
       </div>
     ` : `
-      <div class="weekly-goal-set">
-        <button class="btn btn-sm" id="setWeeklyGoalBtn">🎯 Set weekly goal</button>
+      <div class="weekly-goal-nudge">
+        <p class="goal-nudge-text">Set a weekly painting goal to track your pace and get encouragement messages.</p>
+        <button class="btn btn-sm btn-primary" id="setWeeklyGoalBtn">🎯 Set weekly goal</button>
       </div>
     `}
     <div class="weekly-message">${message}</div>
