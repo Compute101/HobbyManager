@@ -2,7 +2,8 @@
 
 import {
   appData, createCollection, createList, createModel,
-  addModelToList, getModelType, GAME_SYSTEMS
+  addModelToList, getModelType, GAME_SYSTEMS,
+  getAllFolders, createFolder
 } from './data.js';
 import { showModal, closeModal, toast } from './ui.js';
 
@@ -101,7 +102,7 @@ export function parseW40kList(text) {
   return { armyName: armyName || 'Imported Army', gameSystemId: 'wh40k', units: collectedUnits };
 }
 
-function doImport(text) {
+function doImport(text, folderId = null) {
   const { armyName, gameSystemId, units } = parseW40kList(text);
 
   if (!units.length) return null;
@@ -123,6 +124,7 @@ function doImport(text) {
       gameSystemId,
       modelTypeId: unit.modelTypeId,
       stages,
+      folderId,
     });
     addModelToList(listId, modelId);
   }
@@ -142,12 +144,22 @@ const TYPE_LABELS = {
 
 // Show the import modal. onSuccess(collectionId, listId) is called after a successful import.
 export function showW40kImportModal(onSuccess) {
+  const folders = getAllFolders();
+
   const content = document.createElement('div');
   content.innerHTML = `
     <p style="font-size:0.85em;color:var(--text-muted);margin-bottom:0.75em">
       Paste your army list from the Warhammer 40,000 app. Units are imported into a new army list; characters, monsters, and vehicles are detected automatically.
     </p>
-    <textarea id="w40kPasteArea" class="form-input" rows="14" placeholder="Niddos (1500 points)
+    <div class="form-group" style="margin-bottom:0.75em">
+      <label style="font-size:0.85em;font-weight:600">Import into folder</label>
+      <select id="w40kFolderSelect" class="form-input">
+        <option value="">— Unfiled —</option>
+        ${folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
+        <option value="__new__">+ New folder...</option>
+      </select>
+    </div>
+    <textarea id="w40kPasteArea" class="form-input" rows="12" placeholder="Niddos (1500 points)
 
 Tyranids
 Strike Force (2000 points)
@@ -174,6 +186,25 @@ Exported with App Version: v1.53.0 (119), Data Version: v780"></textarea>
       <button class="btn" id="w40kCancelBtn">Cancel</button>
     </div>
   `;
+
+  // Inline folder creation
+  content.querySelector('#w40kFolderSelect').addEventListener('change', e => {
+    if (e.target.value === '__new__') {
+      const name = prompt('New folder name:');
+      if (name?.trim()) {
+        const fid = createFolder(name.trim());
+        const opt = document.createElement('option');
+        opt.value = fid;
+        opt.textContent = name.trim();
+        opt.selected = true;
+        const newOpt = e.target.querySelector('[value="__new__"]');
+        e.target.insertBefore(opt, newOpt);
+        e.target.value = fid;
+      } else {
+        e.target.value = '';
+      }
+    }
+  });
 
   const textarea = content.querySelector('#w40kPasteArea');
   const preview = content.querySelector('#w40kPreview');
@@ -213,7 +244,8 @@ Exported with App Version: v1.53.0 (119), Data Version: v780"></textarea>
   content.querySelector('#w40kImportBtn').addEventListener('click', () => {
     const text = textarea.value.trim();
     if (!text) { toast('Please paste an army list first', 'error'); return; }
-    const result = doImport(text);
+    const folderId = content.querySelector('#w40kFolderSelect').value || null;
+    const result = doImport(text, folderId);
     if (!result) { toast('No units found — check the list format', 'error'); return; }
     closeModal();
     toast(`Imported "${result.armyName}" — ${result.unitCount} unit${result.unitCount !== 1 ? 's' : ''}`, 'success');
