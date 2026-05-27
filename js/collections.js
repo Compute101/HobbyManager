@@ -19,9 +19,33 @@ export function renderCollections() {
   const collections = Object.values(appData.collections);
   if (!collections.length) {
     container.innerHTML = `
-      <div class="empty-state">
-        <p>No game systems yet. Add one to get started.</p>
-        <button class="btn btn-primary" id="addFirstCollection">+ Add Game System</button>
+      <div class="onboarding-card">
+        <div class="onboarding-title">🛡️ Army Lists</div>
+        <p class="onboarding-desc">Army lists let you group models from your pool into specific projects — a tournament force, a painting batch — and track them toward a deadline.</p>
+        <div class="onboarding-steps">
+          <div class="onboarding-step">
+            <span class="step-num">1</span>
+            <div>
+              <b>Create a Game System</b>
+              <p>Choose the game you're painting for — Old World, 40K, Age of Sigmar, or custom.</p>
+            </div>
+          </div>
+          <div class="onboarding-step">
+            <span class="step-num">2</span>
+            <div>
+              <b>Add an Army List</b>
+              <p>Name your project (e.g. "Tournament Army" or "February batch") and optionally set a target date.</p>
+            </div>
+          </div>
+          <div class="onboarding-step">
+            <span class="step-num">3</span>
+            <div>
+              <b>Add models from your pool</b>
+              <p>Pick which models belong to this list — their progress tracks together and appears on the Dashboard.</p>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary onboarding-cta" id="addFirstCollection">+ Create First Game System</button>
       </div>`;
     document.getElementById('addFirstCollection')?.addEventListener('click', () => showCollectionForm());
     return;

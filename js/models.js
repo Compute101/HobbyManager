@@ -28,10 +28,36 @@ export function renderModelPool(containerId = 'modelPool') {
   const folders = getAllFolders();
 
   if (!allModels.length && !folders.length) {
-    container.innerHTML = `<div class="empty-state">
-      <p>No ${getTerm('model')}s in your collection yet.</p>
-      <p style="font-size:0.85em;color:var(--text-muted)">Use the + button to add your first model.</p>
-    </div>`;
+    container.innerHTML = `
+      <div class="onboarding-card">
+        <div class="onboarding-title">👋 Welcome to Hobby Manager!</div>
+        <p class="onboarding-desc">Track your miniature painting progress from sprue to finished model.</p>
+        <div class="onboarding-steps">
+          <div class="onboarding-step">
+            <span class="step-num">1</span>
+            <div>
+              <b>Add your models</b>
+              <p>Tap <b>+</b> above to add models to your collection. Choose a type — Infantry, Cavalry, Behemoth — and set how many you have.</p>
+            </div>
+          </div>
+          <div class="onboarding-step">
+            <span class="step-num">2</span>
+            <div>
+              <b>Build an army list</b>
+              <p>Head to the <b>🛡️ Armies</b> tab to create a game system and army list, then pull your models in from this pool.</p>
+            </div>
+          </div>
+          <div class="onboarding-step">
+            <span class="step-num">3</span>
+            <div>
+              <b>Log your sessions</b>
+              <p>Hit <b>📝 Log</b> on any model card to record which painting stages you've completed. Progress shows on the Dashboard.</p>
+            </div>
+          </div>
+        </div>
+        <button class="btn btn-primary onboarding-cta" id="onboardingAddBtn">+ Add your first model</button>
+      </div>`;
+    container.querySelector('#onboardingAddBtn').addEventListener('click', () => showModelForm());
     return;
   }
 
@@ -47,6 +73,7 @@ export function renderModelPool(containerId = 'modelPool') {
     }
   });
 
+  const hasLists = Object.keys(appData.lists || {}).length > 0;
   let html = '';
 
   // Render each folder
@@ -99,7 +126,22 @@ export function renderModelPool(containerId = 'modelPool') {
     html = `<div class="empty-state"><p>No models yet. Use the + button to add one.</p></div>`;
   }
 
+  if (!hasLists) {
+    html = `<div class="army-nudge">
+      <span class="army-nudge-icon">🛡️</span>
+      <div class="army-nudge-body">
+        <b>Organise into army lists</b>
+        <span>Head to the Armies tab to group these models into a project and track progress toward a deadline.</span>
+      </div>
+      <button class="btn btn-sm btn-primary" id="nudgeArmiesBtn">Armies →</button>
+    </div>` + html;
+  }
+
   container.innerHTML = html;
+
+  container.querySelector('#nudgeArmiesBtn')?.addEventListener('click', () => {
+    document.querySelector('.nav-tab[data-tab="collections"]')?.click();
+  });
 
   // Folder toggle collapse
   container.querySelectorAll('[data-toggle-folder]').forEach(btn => {
@@ -234,6 +276,39 @@ export function showModelDetail(modelId) {
 
 // --- Model form (create / edit) ---
 
+const TYPE_GROUPS = {
+  'Infantry-scale': ['infantry', 'swarm'],
+  'Mounted':        ['cavalry', 'monstrous_cavalry', 'jetbike', 'chariot'],
+  'Large':          ['monster', 'walker', 'behemoth'],
+  'Characters':     ['character', 'character_horse', 'character_monster'],
+  'Vehicles':       ['warmachine', 'vehicle'],
+  'Special':        ['terrain'],
+};
+
+function renderTypeOptions(allTypes, selectedId) {
+  const builtIn = allTypes.filter(t => t.builtIn);
+  const custom = allTypes.filter(t => !t.builtIn);
+  const grouped = Object.values(TYPE_GROUPS).flat();
+  let html = '';
+  for (const [group, ids] of Object.entries(TYPE_GROUPS)) {
+    const types = builtIn.filter(t => ids.includes(t.id));
+    if (!types.length) continue;
+    html += `<optgroup label="${group}">${types.map(t =>
+      `<option value="${t.id}" ${selectedId === t.id ? 'selected' : ''}>${t.name}</option>`
+    ).join('')}</optgroup>`;
+  }
+  const ungrouped = builtIn.filter(t => !grouped.includes(t.id));
+  if (ungrouped.length) html += ungrouped.map(t =>
+    `<option value="${t.id}" ${selectedId === t.id ? 'selected' : ''}>${t.name}</option>`
+  ).join('');
+  if (custom.length) {
+    html += `<optgroup label="Custom ⭐">${custom.map(t =>
+      `<option value="${t.id}" ${selectedId === t.id ? 'selected' : ''}>${t.name}</option>`
+    ).join('')}</optgroup>`;
+  }
+  return html;
+}
+
 export function showModelForm(editId = null, defaultFolderId = null) {
   editId = editId || null;
   const model = editId ? appData.models[editId] : null;
@@ -294,7 +369,7 @@ export function showModelForm(editId = null, defaultFolderId = null) {
       <label>Model Type</label>
       <select id="mfTypeSelect" class="form-input">
         <option value="">— Custom / Manual —</option>
-        ${allTypes.map(t => `<option value="${t.id}" ${effectiveTypeId === t.id ? 'selected' : ''}>${t.name}${t.builtIn ? '' : ' ⭐'}</option>`).join('')}
+        ${renderTypeOptions(allTypes, effectiveTypeId)}
       </select>
       <div class="model-type-manage" id="mfTypeManage"></div>
     </div>
@@ -559,7 +634,8 @@ export function showLogProgress(modelId) {
       </div>
       <div class="form-group">
         <label>Time spent (mins)</label>
-        <input id="lpDuration" type="number" class="form-input" min="0" placeholder="e.g. 90">
+        <input id="lpDuration" type="number" class="form-input" min="0" placeholder="e.g. 45">
+        <div class="form-hint log-time-hint">If left blank, logged as historical activity.</div>
       </div>
     </div>
     <div class="form-group">
@@ -581,8 +657,8 @@ export function showLogProgress(modelId) {
             `;
           }
           return `
-            <div class="log-stage-row">
-              <div class="log-stage-name">${s.name}</div>
+            <div class="log-stage-row${isDone ? ' stage-done' : ''}">
+              <div class="log-stage-name">${s.name}${isDone ? ' <span class="stage-done-badge">✓</span>' : ''}</div>
               <div class="log-stage-input">
                 <button class="btn btn-sm qty-dec" data-sid="${s.id}">−</button>
                 <input type="number" class="form-input qty-input" id="lp_${s.id}"
@@ -631,6 +707,7 @@ export function showLogProgress(modelId) {
 
   // Reset All — zero everything out
   content.querySelector('#lpReset').addEventListener('click', () => {
+    if (!confirm('Reset all stage progress to zero? This cannot be undone.')) return;
     if (isSingle) {
       content.querySelectorAll('.stage-checkbox').forEach(cb => {
         cb.checked = false;
@@ -645,7 +722,9 @@ export function showLogProgress(modelId) {
 
   content.querySelector('#lpSave').addEventListener('click', () => {
     const date = getDateValue('lpDate');
-    const duration = parseInt(content.querySelector('#lpDuration').value) || null;
+    const rawDuration = content.querySelector('#lpDuration').value;
+    const duration = rawDuration ? (parseInt(rawDuration) || null) : null;
+    if (!duration && !confirm('No time entered — this will be recorded as historical activity with no session time. Log anyway?')) return;
 
     const modelEntries = [];
     stages.forEach(s => {
