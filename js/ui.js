@@ -87,6 +87,23 @@ export function confirm(message) {
   return window.confirm(message);
 }
 
+export function showConfirm({ message, confirmLabel = 'Delete', onConfirm }) {
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <p style="margin:0 0 1.25em">${message}</p>
+    <div class="modal-actions">
+      <button class="btn btn-danger" id="confirmYes">${confirmLabel}</button>
+      <button class="btn" id="confirmNo">Cancel</button>
+    </div>
+  `;
+  content.querySelector('#confirmYes').addEventListener('click', () => {
+    closeModal();
+    onConfirm();
+  });
+  content.querySelector('#confirmNo').addEventListener('click', () => closeModal());
+  showModal({ title: 'Are you sure?', content });
+}
+
 // --- Progress bar ---
 
 export function progressBar(pct, colorVar = '--accent') {
