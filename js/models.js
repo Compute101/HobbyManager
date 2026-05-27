@@ -11,6 +11,10 @@ import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, to
 import { getTerm } from './theme.js';
 import { compressImageToBase64, IMAGE_SIZE_PRESETS } from './imageUtils.js';
 
+// Select mode state for mass move
+let _selectMode = false;
+let _selectedIds = new Set();
+
 // Lazy import to avoid circular dependency
 async function pruneQueues() {
   try {
@@ -138,10 +142,74 @@ export function renderModelPool(containerId = 'modelPool') {
     </div>` + html;
   }
 
+  // Select-mode controls (only when there are models)
+  if (allModels.length) {
+    const selCount = _selectedIds.size;
+    const controlsHtml = `
+      <div class="pool-select-controls">
+        <button class="btn btn-sm${_selectMode ? ' btn-primary' : ''}" id="poolSelectToggle">
+          ${_selectMode ? `☑ Selecting${selCount ? ` (${selCount})` : ''}` : '☐ Select'}
+        </button>
+        ${_selectMode ? `
+          <button class="btn btn-xs" id="poolSelectAll">All</button>
+          <button class="btn btn-xs" id="poolSelectNone">None</button>
+        ` : ''}
+      </div>
+      ${_selectMode && selCount > 0 ? `
+        <div class="mass-move-bar">
+          <span class="mass-move-label">Move ${selCount} to:</span>
+          <select class="form-input mass-move-select" id="massMoveFolder">
+            <option value="">— Unfiled —</option>
+            ${folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
+          </select>
+          <button class="btn btn-sm btn-primary" id="massMoveApply">Move</button>
+        </div>
+      ` : ''}
+    `;
+    html = controlsHtml + html;
+  }
+
   container.innerHTML = html;
 
   container.querySelector('#nudgeArmiesBtn')?.addEventListener('click', () => {
     document.querySelector('.nav-tab[data-tab="collections"]')?.click();
+  });
+
+  // Select mode controls
+  container.querySelector('#poolSelectToggle')?.addEventListener('click', () => {
+    _selectMode = !_selectMode;
+    if (!_selectMode) _selectedIds.clear();
+    renderModelPool(containerId);
+  });
+
+  container.querySelector('#poolSelectAll')?.addEventListener('click', () => {
+    allModels.forEach(m => _selectedIds.add(m.id));
+    renderModelPool(containerId);
+  });
+
+  container.querySelector('#poolSelectNone')?.addEventListener('click', () => {
+    _selectedIds.clear();
+    renderModelPool(containerId);
+  });
+
+  container.querySelector('#massMoveApply')?.addEventListener('click', () => {
+    const folderId = container.querySelector('#massMoveFolder').value || null;
+    const count = _selectedIds.size;
+    _selectedIds.forEach(id => updateModel(id, { folderId }));
+    _selectMode = false;
+    _selectedIds.clear();
+    const dest = folderId ? (appData.folders[folderId]?.name || 'folder') : 'Unfiled';
+    toast(`Moved ${count} model${count !== 1 ? 's' : ''} to ${dest}`, 'success');
+    renderModelPool(containerId);
+  });
+
+  container.querySelectorAll('[data-model-select]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.modelSelect;
+      if (_selectedIds.has(id)) _selectedIds.delete(id);
+      else _selectedIds.add(id);
+      renderModelPool(containerId);
+    });
   });
 
   // Folder toggle collapse
@@ -205,6 +273,24 @@ export function renderModelPool(containerId = 'modelPool') {
 
 function modelCard(model) {
   const pts = modelPoints(model);
+
+  if (_selectMode) {
+    const checked = _selectedIds.has(model.id);
+    return `
+      <div class="model-card model-card-selectable${checked ? ' model-card-selected' : ''}" data-model-select="${model.id}">
+        <div class="model-select-check">${checked ? '☑' : '☐'}</div>
+        <div class="model-card-header">
+          <div>
+            <div class="model-card-name">${model.name}</div>
+            <div class="model-card-qty">Qty: ${model.quantity}</div>
+          </div>
+        </div>
+        ${progressBar(pts.pct)}
+        <div class="model-card-pts">${pts.pct}% · ${pts.done}/${pts.total} pts</div>
+      </div>
+    `;
+  }
+
   const thresh = modelThreshold(model);
   const badge = thresholdBadge(thresh);
 

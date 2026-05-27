@@ -1667,6 +1667,44 @@
     .folder-unfiled .folder-header { background: var(--bg2); }
 
     /* ================================================================
+       POOL SELECT MODE / MASS MOVE
+    ================================================================ */
+    .pool-select-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+      padding: 0.4em 0.5em;
+      margin-bottom: 0.5em;
+    }
+
+    .mass-move-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      padding: 0.5em 0.75em;
+      background: var(--bg2);
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      margin-bottom: 0.75em;
+      flex-wrap: wrap;
+    }
+    .mass-move-label { font-size: 0.85em; font-weight: 600; white-space: nowrap; }
+    .mass-move-select { flex: 1; min-width: 8em; max-width: 16em; font-size: 0.85em; padding: 0.25em 0.4em; }
+
+    .model-card-selectable {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+    }
+    .model-card-selectable:hover { border-color: var(--accent); }
+    .model-card-selected { border-color: var(--accent) !important; background: color-mix(in srgb, var(--accent) 12%, var(--bg2)); }
+    .model-select-check {
+      font-size: 1.15em;
+      margin-bottom: 0.2em;
+      color: var(--accent);
+    }
+
+    /* ================================================================
        FLOATING ACTION BUTTON
     ================================================================ */
     .fab {
