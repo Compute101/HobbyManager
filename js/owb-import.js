@@ -2,7 +2,8 @@
 
 import {
   appData, createCollection, createList, createModel,
-  addModelToList, getModelType, GAME_SYSTEMS
+  addModelToList, getModelType, GAME_SYSTEMS,
+  getAllFolders, createFolder
 } from './data.js';
 import { showModal, closeModal, toast } from './ui.js';
 
@@ -114,7 +115,7 @@ export function parseOwbList(text) {
   return { armyName: armyName || 'Imported Army', gameSystemId, units };
 }
 
-function doImport(text) {
+function doImport(text, folderId = null) {
   const { armyName, gameSystemId, units } = parseOwbList(text);
 
   if (!units.length) return null;
@@ -137,6 +138,7 @@ function doImport(text) {
       gameSystemId,
       modelTypeId: unit.modelTypeId,
       stages,
+      folderId,
     });
     addModelToList(listId, modelId);
   }
@@ -156,12 +158,22 @@ const TYPE_LABELS = {
 
 // Show the import modal. onSuccess(collectionId, listId) is called after a successful import.
 export function showOwbImportModal(onSuccess) {
+  const folders = getAllFolders();
+
   const content = document.createElement('div');
   content.innerHTML = `
     <p style="font-size:0.85em;color:var(--text-muted);margin-bottom:0.75em">
       Paste your army list from the Old World Builder app or website. Units are imported into a new army list; characters, cavalry, and war machines are detected automatically.
     </p>
-    <textarea id="owbPasteArea" class="form-input" rows="14" placeholder="===
+    <div class="form-group" style="margin-bottom:0.75em">
+      <label style="font-size:0.85em;font-weight:600">Import into folder</label>
+      <select id="owbFolderSelect" class="form-input">
+        <option value="">— Unfiled —</option>
+        ${folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
+        <option value="__new__">+ New folder...</option>
+      </select>
+    </div>
+    <textarea id="owbPasteArea" class="form-input" rows="12" placeholder="===
 Clan Eshin [748 pts]
 Warhammer: The Old World, Skaven...
 ===
@@ -178,6 +190,25 @@ Skaven Chieftain [51 pts]
       <button class="btn" id="owbCancelBtn">Cancel</button>
     </div>
   `;
+
+  // Inline folder creation
+  content.querySelector('#owbFolderSelect').addEventListener('change', e => {
+    if (e.target.value === '__new__') {
+      const name = prompt('New folder name:');
+      if (name?.trim()) {
+        const fid = createFolder(name.trim());
+        const opt = document.createElement('option');
+        opt.value = fid;
+        opt.textContent = name.trim();
+        opt.selected = true;
+        const newOpt = e.target.querySelector('[value="__new__"]');
+        e.target.insertBefore(opt, newOpt);
+        e.target.value = fid;
+      } else {
+        e.target.value = '';
+      }
+    }
+  });
 
   const textarea = content.querySelector('#owbPasteArea');
   const preview = content.querySelector('#owbPreview');
@@ -217,7 +248,9 @@ Skaven Chieftain [51 pts]
   content.querySelector('#owbImportBtn').addEventListener('click', () => {
     const text = textarea.value.trim();
     if (!text) { toast('Please paste an army list first', 'error'); return; }
-    const result = doImport(text);
+    const rawFolder = content.querySelector('#owbFolderSelect').value;
+    const folderId = rawFolder && rawFolder !== '__new__' ? rawFolder : null;
+    const result = doImport(text, folderId);
     if (!result) { toast('No units found — check the list format', 'error'); return; }
     closeModal();
     toast(`Imported "${result.armyName}" — ${result.unitCount} unit${result.unitCount !== 1 ? 's' : ''}`, 'success');
