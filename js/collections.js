@@ -297,11 +297,13 @@ function calcModelThreshold(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
   const activeStages = stages.filter(s => !skipped.includes(s.id));
+  const hasAnyProgress = activeStages.some(s => (model.progress[s.id]?.done || 0) > 0);
   const hasThresholds = stages.some(s => s.threshold);
   if (!hasThresholds) {
     const allDone = activeStages.length > 0 &&
       activeStages.every(s => (model.progress[s.id]?.done || 0) >= model.quantity);
-    return allDone ? 'finished' : null;
+    if (allDone) return 'finished';
+    return hasAnyProgress ? null : 'not_started';
   }
   for (const thresh of ['finished', 'painted', 'table_ready']) {
     const threshStageIdx = stages.findIndex(s => s.threshold === thresh);
@@ -312,7 +314,7 @@ function calcModelThreshold(model) {
     });
     if (allDone) return thresh;
   }
-  return null;
+  return hasAnyProgress ? null : 'not_started';
 }
 
 function showAddModelToList(listId) {
@@ -491,6 +493,7 @@ function shareList(listId) {
     if (thresh === 'finished')     return '🏆 Finished';
     if (thresh === 'painted')      return '🎨 Painted';
     if (thresh === 'table_ready')  return '⚔️ Table Ready';
+    if (thresh === 'not_started')  return '⬜ Not Started';
     return '🔧 In Progress';
   };
 
