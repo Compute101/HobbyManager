@@ -4,6 +4,7 @@ import {
   appData, createModel, updateModel, deleteModel,
   logProgress, logSession, modelPoints, modelThreshold, uid, saveData,
   getAllModelTypes, saveCustomModelType, deleteCustomModelType,
+  saveModelTypeOverride, resetModelTypeOverride, BUILTIN_MODEL_TYPES,
   createFolder, updateFolder, deleteFolder, getAllFolders
 } from './data.js';
 import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue } from './ui.js';
@@ -755,4 +756,121 @@ export function showLogProgress(modelId) {
   content.querySelector('#lpCancel').addEventListener('click', () => closeModal());
 
   showModal({ title: `Log Progress — ${model.name}`, content });
+}
+
+// --- Model type template editor ---
+
+function stageTemplateRow(s) {
+  const milestoneOptions = [
+    { value: '', label: 'None' },
+    { value: 'table_ready', label: '⚔️ Table Ready' },
+    { value: 'painted',     label: '🎨 Painted' },
+    { value: 'finished',    label: '🏆 Finished' },
+  ];
+  return `
+    <div class="stage-config-row" data-sid="${s.id}" data-phase="${s.phase || 'painting'}" data-skippable="${s.skippable ?? true}">
+      <input type="text" class="form-input stage-cfg-name" value="${s.name}" placeholder="Stage name">
+      <input type="number" class="form-input stage-cfg-pts" value="${s.points || 1}" min="0" max="20" title="Hobby points for this stage">
+      <select class="form-input stage-cfg-milestone" title="Milestone this stage completes">
+        ${milestoneOptions.map(o => `<option value="${o.value}" ${(s.threshold || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
+      </select>
+      <button class="btn btn-xs btn-danger stage-cfg-del" title="Remove stage">✕</button>
+    </div>
+  `;
+}
+
+function collectTemplateStages(container) {
+  const stages = [];
+  container.querySelectorAll('.stage-config-row').forEach(row => {
+    const name = row.querySelector('.stage-cfg-name').value.trim();
+    const pts = parseInt(row.querySelector('.stage-cfg-pts').value) || 1;
+    const threshold = row.querySelector('.stage-cfg-milestone').value || null;
+    if (name) stages.push({
+      id: row.dataset.sid,
+      name,
+      points: pts,
+      threshold,
+      phase: row.dataset.phase || 'painting',
+      skippable: row.dataset.skippable !== 'false'
+    });
+  });
+  return stages;
+}
+
+export function showModelTypeEditor(typeId, onSaved) {
+  const allTypes = getAllModelTypes();
+  const type = allTypes.find(t => t.id === typeId);
+  if (!type) return;
+
+  const isOverridden = !!(appData.config.modelTypeOverrides || {})[typeId];
+  const defaultType = BUILTIN_MODEL_TYPES.find(t => t.id === typeId);
+  const defaultPts = defaultType ? defaultType.stages.reduce((a, s) => a + s.points, 0) : 0;
+
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <p class="form-hint" style="margin-bottom:1em">
+      Changes here set the default stages for all new <b>${type.name}</b> models. Existing models are unaffected.
+    </p>
+    <div class="stages-section-header" style="margin-bottom:0.5em">
+      <span id="metStagesLabel">Stages · <span id="metTotalPts">${type.stages.reduce((a, s) => a + s.points, 0)}</span> total pts</span>
+      <button type="button" class="btn btn-sm" id="metAddStage">+ Add Stage</button>
+    </div>
+    <div id="metStages">
+      ${type.stages.map(s => stageTemplateRow(s)).join('')}
+    </div>
+    <div style="display:flex;gap:0.5em;justify-content:flex-end;margin-top:1em;flex-wrap:wrap">
+      ${isOverridden ? `<button class="btn btn-sm btn-danger" id="metReset">↺ Reset to Default (${defaultPts} pts)</button>` : ''}
+      <button class="btn btn-sm" id="metCancel">Cancel</button>
+      <button class="btn btn-sm btn-primary" id="metSave">Save Template</button>
+    </div>
+  `;
+
+  const stagesContainer = content.querySelector('#metStages');
+  const totalPtsEl = content.querySelector('#metTotalPts');
+
+  function updateTotal() {
+    let total = 0;
+    stagesContainer.querySelectorAll('.stage-cfg-pts').forEach(input => {
+      total += parseInt(input.value) || 0;
+    });
+    totalPtsEl.textContent = total;
+  }
+
+  stagesContainer.addEventListener('input', updateTotal);
+
+  stagesContainer.addEventListener('click', e => {
+    if (e.target.classList.contains('stage-cfg-del')) {
+      e.target.closest('.stage-config-row').remove();
+      updateTotal();
+    }
+  });
+
+  content.querySelector('#metAddStage').addEventListener('click', () => {
+    const s = { id: uid(), name: '', points: 1, phase: 'painting', skippable: true, threshold: null };
+    const row = document.createElement('div');
+    row.innerHTML = stageTemplateRow(s);
+    stagesContainer.appendChild(row.firstElementChild);
+    updateTotal();
+  });
+
+  content.querySelector('#metCancel').addEventListener('click', () => closeModal());
+
+  content.querySelector('#metSave').addEventListener('click', () => {
+    const stages = collectTemplateStages(stagesContainer);
+    if (!stages.length) { toast('Add at least one stage', 'error'); return; }
+    saveModelTypeOverride(typeId, stages);
+    toast(`${type.name} template saved!`, 'success');
+    closeModal();
+    onSaved?.();
+  });
+
+  content.querySelector('#metReset')?.addEventListener('click', () => {
+    if (!confirm(`Reset ${type.name} back to factory defaults?`)) return;
+    resetModelTypeOverride(typeId);
+    toast(`${type.name} reset to defaults`, 'info');
+    closeModal();
+    onSaved?.();
+  });
+
+  showModal({ title: `Edit Template: ${type.name}`, content, wide: true });
 }

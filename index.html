@@ -1143,6 +1143,18 @@
     .settings-row:last-child { border-bottom: none; }
     .settings-row-label { font-size: 0.9em; }
     .settings-row-desc { font-size: 0.78em; color: var(--text-muted); }
+    .type-customised-badge {
+      display: inline-block;
+      font-size: 0.7em;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--accent-dim, #1a2e20);
+      color: var(--accent, #4a9d6f);
+      border: 1px solid var(--accent, #4a9d6f44);
+      vertical-align: middle;
+      margin-left: 0.4em;
+      font-weight: normal;
+    }
 
     .model-type-row {
       display: flex;
@@ -1842,8 +1854,8 @@
 </div>
 
 <script type="module">
-  import { loadData, exportJSON, importJSON, appData, getAllModelTypes, deleteCustomModelType, createFolder } from './js/data.js';
-  import { renderModelPool, showModelForm } from './js/models.js';
+  import { loadData, exportJSON, importJSON, appData, getAllModelTypes, deleteCustomModelType, BUILTIN_MODEL_TYPES, createFolder } from './js/data.js';
+  import { renderModelPool, showModelForm, showModelTypeEditor } from './js/models.js';
   import { renderCollections } from './js/collections.js';
   import { renderDashboard } from './js/dashboard.js';
   import { renderQueues } from './js/queue.js';
@@ -1940,6 +1952,27 @@
             <option value="theme-heresy" ${appData.config.activeTheme === 'theme-heresy' ? 'selected' : ''}>🔱 Horus Heresy</option>
             <option value="theme-aos" ${appData.config.activeTheme === 'theme-aos' ? 'selected' : ''}>✨ Age of Sigmar</option>
           </select>
+        </div>
+      </div>
+      <div class="settings-section">
+        <h3>Standard Model Type Templates</h3>
+        <p class="settings-row-desc" style="margin-bottom:0.75em">Edit the default stages and hobby points for each built-in model type. New models of that type will use your settings; existing models are unaffected.</p>
+        <div class="custom-types-list">
+          ${BUILTIN_MODEL_TYPES.map(t => {
+            const overrides = appData.config.modelTypeOverrides || {};
+            const effectiveStages = overrides[t.id] ? overrides[t.id] : t.stages;
+            const totalPts = effectiveStages.reduce((a, s) => a + s.points, 0);
+            const isCustomised = !!overrides[t.id];
+            return `
+              <div class="settings-row">
+                <div>
+                  <div class="settings-row-label">${t.name}${isCustomised ? ' <span class="type-customised-badge">customised</span>' : ''}</div>
+                  <div class="settings-row-desc">${effectiveStages.length} stages · ${totalPts} total pts</div>
+                </div>
+                <button class="btn btn-sm" data-edit-builtin="${t.id}">✏️ Edit</button>
+              </div>
+            `;
+          }).join('')}
         </div>
       </div>
       <div class="settings-section">
@@ -2042,6 +2075,12 @@
       appData.config.imageSize = e.target.value;
       saveData();
       toast('Photo quality saved!', 'success');
+    });
+
+    container.querySelectorAll('[data-edit-builtin]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        showModelTypeEditor(btn.dataset.editBuiltin, () => renderSettings());
+      });
     });
 
     container.querySelectorAll('[data-delete-type]').forEach(btn => {
