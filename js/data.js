@@ -272,14 +272,30 @@ export const BUILTIN_MODEL_TYPES = [
   },
 ];
 
-// Get all model types (built-in + custom)
+// Get all model types (built-in + custom), applying any user overrides to built-in stages
 export function getAllModelTypes() {
+  const overrides = appData.config.modelTypeOverrides || {};
   const custom = appData.config.modelTypes || [];
-  return [...BUILTIN_MODEL_TYPES, ...custom];
+  const builtIn = BUILTIN_MODEL_TYPES.map(t =>
+    overrides[t.id] ? { ...t, stages: overrides[t.id] } : t
+  );
+  return [...builtIn, ...custom];
 }
 
 export function getModelType(id) {
   return getAllModelTypes().find(t => t.id === id) || null;
+}
+
+export function saveModelTypeOverride(typeId, stages) {
+  if (!appData.config.modelTypeOverrides) appData.config.modelTypeOverrides = {};
+  appData.config.modelTypeOverrides[typeId] = stages;
+  saveData();
+}
+
+export function resetModelTypeOverride(typeId) {
+  if (!appData.config.modelTypeOverrides) return;
+  delete appData.config.modelTypeOverrides[typeId];
+  saveData();
 }
 
 export function saveCustomModelType(typeObj) {
@@ -321,6 +337,7 @@ export let appData = {
     deadline: null,
     activeTheme: 'theme-default',
     modelTypes: [],
+    modelTypeOverrides: {},
     weeklyGoal: 0,
     imageSize: 'small'
   },
@@ -368,6 +385,7 @@ export function loadData() {
           deadline: parsed.config?.deadline || null,
           activeTheme: parsed.config?.activeTheme || 'theme-default',
           modelTypes: parsed.config?.modelTypes || [],
+          modelTypeOverrides: parsed.config?.modelTypeOverrides || {},
           weeklyGoal: parsed.config?.weeklyGoal || 0,
           imageSize: parsed.config?.imageSize || 'small'
         }
