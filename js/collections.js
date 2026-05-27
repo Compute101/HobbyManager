@@ -349,6 +349,7 @@ function showAddModelToList(listId) {
         <option value="">All folders</option>
         ${folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
       </select>
+      <button class="btn btn-sm" id="poolSelectAll" style="white-space:nowrap">Select All</button>
     </div>
     <div class="pool-picker" id="poolPicker">
       ${renderPicker()}
@@ -359,14 +360,29 @@ function showAddModelToList(listId) {
     </div>
   `;
 
+  const updateSelectAllLabel = () => {
+    const btn = content.querySelector('#poolSelectAll');
+    const checkboxes = content.querySelectorAll('#poolPicker input[type="checkbox"]:not(:disabled)');
+    const allChecked = checkboxes.length > 0 && [...checkboxes].every(cb => cb.checked);
+    btn.textContent = allChecked ? 'Deselect All' : 'Select All';
+  };
+
   const updatePicker = () => {
     const filter = content.querySelector('#poolSearch').value;
     const folderId = content.querySelector('#poolFolderFilter').value;
     content.querySelector('#poolPicker').innerHTML = renderPicker(filter, folderId);
+    updateSelectAllLabel();
   };
 
   content.querySelector('#poolSearch').addEventListener('input', updatePicker);
   content.querySelector('#poolFolderFilter').addEventListener('change', updatePicker);
+
+  content.querySelector('#poolSelectAll').addEventListener('click', () => {
+    const checkboxes = content.querySelectorAll('#poolPicker input[type="checkbox"]:not(:disabled)');
+    const allChecked = [...checkboxes].every(cb => cb.checked);
+    checkboxes.forEach(cb => { cb.checked = !allChecked; });
+    updateSelectAllLabel();
+  });
 
   content.querySelector('#poolPickSave')?.addEventListener('click', () => {
     content.querySelectorAll('#poolPicker input:checked:not(:disabled)').forEach(cb => {
