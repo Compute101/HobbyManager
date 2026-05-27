@@ -1,6 +1,6 @@
 // dashboard.js — dashboard with pie charts and deadline cards
 
-import { appData, globalStats, listStats, saveData, GAME_SYSTEMS } from './data.js';
+import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold } from './data.js';
 import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
 import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
@@ -90,6 +90,9 @@ export function renderDashboard() {
       <!-- Army completion breakdown -->
       ${armyCompletionSection()}
 
+      <!-- Pile of Potential -->
+      ${pileOfPotentialSection()}
+
     </div>
   `;
 
@@ -97,6 +100,9 @@ export function renderDashboard() {
   container.querySelectorAll('[data-burndown-list]').forEach(btn => {
     btn.addEventListener('click', () => showListBurndown(btn.dataset.burndownList));
   });
+
+  // Pile of Potential share button
+  document.getElementById('sharePileBtn')?.addEventListener('click', sharePileOfPotential);
 
   // Weekly goal button
   document.getElementById('setWeeklyGoalBtn')?.addEventListener('click', () => {
@@ -387,6 +393,123 @@ function armyCompletionSection() {
         }).join('')}
       </div>
     </div>`;
+}
+
+// --- Pile of Potential ---
+
+function pileOfPotentialSection() {
+  const notStarted = Object.values(appData.models)
+    .filter(m => modelThreshold(m) === 'not_started');
+
+  const totalCount = notStarted.reduce((acc, m) => acc + m.quantity, 0);
+
+  const bySystem = {};
+  notStarted.forEach(m => {
+    const key = m.gameSystemId || 'none';
+    if (!bySystem[key]) bySystem[key] = [];
+    bySystem[key].push(m);
+  });
+
+  const systemSections = Object.entries(bySystem).map(([sysId, models]) => {
+    const sys = GAME_SYSTEMS[sysId];
+    const sysCount = models.reduce((a, m) => a + m.quantity, 0);
+    const sysLabel = sys ? sys.shortLabel : 'Unassigned';
+    const sysTheme = sys ? sys.theme : '';
+    return `
+      <div class="pile-system-group">
+        <div class="pile-system-header">
+          ${sys ? `<span class="sys-tag ${sysTheme}">${sysLabel}</span>` : `<span class="pile-system-label">Unassigned</span>`}
+          <span class="pile-system-count">${sysCount} model${sysCount !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="pile-items">
+          ${models.map(m => `
+            <div class="pile-item">
+              <span class="pile-item-name">${m.name}</span>
+              <span class="pile-item-qty">×${m.quantity}</span>
+            </div>
+          `).join('')}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="dash-card dash-pile">
+      <div class="pile-card-header">
+        <h3>Pile of Potential</h3>
+        ${notStarted.length ? `<button class="btn btn-sm" id="sharePileBtn">📤 Share</button>` : ''}
+      </div>
+      ${!notStarted.length
+        ? `<p class="empty-text">Your pile of potential is empty — every model has been started. Impressive!</p>`
+        : `
+          <div class="pile-total">⬜ ${totalCount} model${totalCount !== 1 ? 's' : ''} awaiting the brush</div>
+          <div class="pile-groups">${systemSections}</div>
+        `
+      }
+    </div>`;
+}
+
+function sharePileOfPotential() {
+  const notStarted = Object.values(appData.models)
+    .filter(m => modelThreshold(m) === 'not_started');
+
+  if (!notStarted.length) return;
+
+  const totalCount = notStarted.reduce((acc, m) => acc + m.quantity, 0);
+
+  const bySystem = {};
+  notStarted.forEach(m => {
+    const key = m.gameSystemId || 'none';
+    if (!bySystem[key]) bySystem[key] = [];
+    bySystem[key].push(m);
+  });
+
+  const systemLines = Object.entries(bySystem).map(([sysId, models]) => {
+    const sys = GAME_SYSTEMS[sysId];
+    const sysLabel = sys ? sys.shortLabel : 'Unassigned';
+    const sysCount = models.reduce((a, m) => a + m.quantity, 0);
+    const modelLines = models.map(m => `  • ${m.name} ×${m.quantity}`).join('\n');
+    return `📦 ${sysLabel} (${sysCount} model${sysCount !== 1 ? 's' : ''}):\n${modelLines}`;
+  }).join('\n\n');
+
+  const text = [
+    `⬜ My Pile of Potential`,
+    `${'━'.repeat(24)}`,
+    ``,
+    `${totalCount} model${totalCount !== 1 ? 's' : ''} awaiting the brush...`,
+    ``,
+    systemLines,
+    ``,
+    `🎯 Will they ever get painted? The world may never know.`,
+  ].join('\n').trim();
+
+  if (navigator.share) {
+    navigator.share({ title: 'My Pile of Potential', text }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text)
+      .then(() => toast('Copied to clipboard!', 'success'))
+      .catch(() => showPileShareFallback(text));
+  }
+}
+
+function showPileShareFallback(text) {
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <p style="font-size:0.85em;color:var(--text-muted);margin-bottom:0.75em">
+      Copy the text below and paste it into WhatsApp or any messenger:
+    </p>
+    <textarea class="form-input share-text-area" readonly rows="16">${text}</textarea>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="shareCopyBtn">📋 Copy</button>
+      <button class="btn" id="shareCloseBtn">Close</button>
+    </div>
+  `;
+  content.querySelector('#shareCopyBtn').addEventListener('click', () => {
+    content.querySelector('.share-text-area').select();
+    document.execCommand('copy');
+    toast('Copied!', 'success');
+  });
+  content.querySelector('#shareCloseBtn').addEventListener('click', () => closeModal());
+  showModal({ title: '📤 Share Pile of Potential', content, wide: true });
 }
 
 // --- Per-list burndown modal ---

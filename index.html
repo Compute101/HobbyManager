@@ -936,6 +936,21 @@
     .list-completion-chart { margin-top: 1rem; }
     .list-completion-chart .chart-wrap { height: 220px; }
 
+    .dash-pile { grid-column: 1 / -1; }
+    .pile-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75em; }
+    .pile-card-header h3 { margin-bottom: 0; }
+    .pile-total { font-size: 0.9em; color: var(--text-muted); margin-bottom: 0.75em; }
+    .pile-groups { display: flex; flex-wrap: wrap; gap: 1.25rem; }
+    .pile-system-group { flex: 1 1 180px; min-width: 150px; }
+    .pile-system-header { display: flex; align-items: center; gap: 0.5em; margin-bottom: 0.4em; }
+    .pile-system-count { font-size: 0.78em; color: var(--text-muted); }
+    .pile-system-label { font-size: 0.8em; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+    .pile-items { display: flex; flex-direction: column; }
+    .pile-item { display: flex; align-items: baseline; justify-content: space-between; font-size: 0.88em; padding: 0.22em 0; border-bottom: 1px solid var(--border); }
+    .pile-item:last-child { border-bottom: none; }
+    .pile-item-name { flex: 1; }
+    .pile-item-qty { color: var(--text-muted); font-size: 0.88em; margin-left: 0.5em; }
+
     .session-list { display: flex; flex-direction: column; gap: 0.5em; }
     .session-item { padding: 0.5em; background: var(--surface2); border-radius: var(--radius); font-size: 0.85em; }
     .session-date { font-weight: 700; color: var(--accent); }
