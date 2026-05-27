@@ -5,7 +5,7 @@ import {
   createList, deleteList, addModelToList, removeModelFromList,
   listStats, saveData, uid, GAME_SYSTEMS
 } from './data.js';
-import { showModal, closeModal, toast, progressBar, thresholdBadge, createDateInput, getDateValue, formatDate } from './ui.js';
+import { showModal, closeModal, showConfirm, toast, progressBar, thresholdBadge, createDateInput, getDateValue, formatDate } from './ui.js';
 import { applyTheme, resetTheme, setCurrentSystem, resetCurrentSystem, getTerm } from './theme.js';
 import { showLogProgress, showModelDetail } from './models.js';
 import { renderListCompletionPie } from './charts.js';
@@ -172,6 +172,10 @@ function selectCollection(colId) {
     <div class="main-header">
       <h2>${col.name}</h2>
       <span class="sys-tag ${sys?.theme || ''}">${sys?.label || ''}</span>
+      <div style="margin-left:auto;display:flex;gap:0.4em">
+        <button class="btn btn-sm" id="editCollBtn">✏️ Edit</button>
+        <button class="btn btn-sm btn-danger" id="deleteCollBtn">🗑️ Delete</button>
+      </div>
     </div>
     <div class="list-grid">
       ${lists.map(list => {
@@ -197,6 +201,8 @@ function selectCollection(colId) {
     el.addEventListener('click', () => selectList(el.dataset.listSelect));
   });
   main.querySelector('#addListCard')?.addEventListener('click', () => showListForm(colId));
+  main.querySelector('#editCollBtn')?.addEventListener('click', () => showCollectionForm(colId));
+  main.querySelector('#deleteCollBtn')?.addEventListener('click', () => confirmDeleteCollection(colId));
 }
 
 function selectList(listId) {
@@ -213,7 +219,10 @@ function selectList(listId) {
     <div class="main-header">
       <button class="btn btn-sm" id="backToCol">← ${col?.name || 'Back'}</button>
       <h2>${list.name}</h2>
-      <button class="btn btn-sm" id="shareListBtn" title="Share progress">📤 Share</button>
+      <div style="margin-left:auto;display:flex;gap:0.4em">
+        <button class="btn btn-sm" id="shareListBtn" title="Share progress">📤 Share</button>
+        <button class="btn btn-sm btn-danger" id="deleteListBtn" title="Delete army list">🗑️ Delete</button>
+      </div>
     </div>
     <div class="list-summary">
       ${progressBar(stats.pct)}
@@ -244,6 +253,7 @@ function selectList(listId) {
   main.querySelector('#backToCol')?.addEventListener('click', () => selectCollection(list.collectionId));
   main.querySelector('#addModelToListBtn')?.addEventListener('click', () => showAddModelToList(listId));
   main.querySelector('#shareListBtn')?.addEventListener('click', () => shareList(listId));
+  main.querySelector('#deleteListBtn')?.addEventListener('click', () => confirmDeleteList(listId));
   const deadlineEl = document.getElementById('listDeadlineInput');
   const saveListDeadline = () => {
     const val = getDateValue('listDeadlineInput');
@@ -466,13 +476,20 @@ function showCollectionForm(editId = null) {
 function confirmDeleteCollection(id) {
   const col = appData.collections[id];
   if (!col) return;
-  if (!window.confirm(`Delete "${col.name}" and all its army lists?`)) return;
-  deleteCollection(id);
-  activeCollectionId = null;
-  activeListId = null;
-  resetCurrentSystem();
-  toast('Deleted', 'info');
-  renderCollections();
+  const listCount = (col.listIds || []).length;
+  const detail = listCount ? ` This will also delete ${listCount} army list${listCount !== 1 ? 's' : ''}.` : '';
+  showConfirm({
+    message: `Delete <strong>${col.name}</strong>?${detail}`,
+    confirmLabel: 'Delete Game System',
+    onConfirm: () => {
+      deleteCollection(id);
+      activeCollectionId = null;
+      activeListId = null;
+      resetCurrentSystem();
+      toast('Game system deleted', 'info');
+      renderCollections();
+    }
+  });
 }
 
 function showListForm(collectionId = null, editId = null) {
@@ -512,13 +529,18 @@ function showListForm(collectionId = null, editId = null) {
 function confirmDeleteList(id) {
   const list = appData.lists[id];
   if (!list) return;
-  if (!window.confirm(`Delete list "${list.name}"? Models in your pool won't be affected.`)) return;
   const colId = list.collectionId;
-  deleteList(id);
-  if (activeListId === id) activeListId = null;
-  toast('List deleted', 'info');
-  renderCollections();
-  if (colId) selectCollection(colId);
+  showConfirm({
+    message: `Delete army list <strong>${list.name}</strong>? Models in your pool won't be affected.`,
+    confirmLabel: 'Delete Army List',
+    onConfirm: () => {
+      deleteList(id);
+      if (activeListId === id) activeListId = null;
+      toast('Army list deleted', 'info');
+      renderCollections();
+      if (colId) selectCollection(colId);
+    }
+  });
 }
 
 function shareList(listId) {
