@@ -220,6 +220,51 @@ export function getDateValue(id) {
   return `${yy}-${mm}-${dd}`;
 }
 
+// --- Smart time input ---
+// On mobile: native <input type="time"> (gives scroll wheels on iOS)
+// On desktop: hour + minute dropdowns in 5-min increments
+
+export function createTimeInput(id, value = '') {
+  const [h = '', m = ''] = value ? value.split(':') : [];
+
+  if (isMobile()) {
+    return `<input type="time" id="${id}" class="form-input" value="${value}">`;
+  }
+
+  const hours = Array.from({length: 24}, (_, i) => i);
+  const minutes = Array.from({length: 12}, (_, i) => i * 5);
+
+  return `
+    <div class="time-dropdowns" id="${id}">
+      <select class="form-input time-hh">
+        <option value="">HH</option>
+        ${hours.map(n => {
+          const val = String(n).padStart(2, '0');
+          return `<option value="${val}" ${h === val ? 'selected' : ''}>${val}</option>`;
+        }).join('')}
+      </select>
+      <span class="time-sep">:</span>
+      <select class="form-input time-mm">
+        <option value="">MM</option>
+        ${minutes.map(n => {
+          const val = String(n).padStart(2, '0');
+          return `<option value="${val}" ${m === val ? 'selected' : ''}>${val}</option>`;
+        }).join('')}
+      </select>
+    </div>
+  `;
+}
+
+export function getTimeValue(id) {
+  const el = document.getElementById(id);
+  if (!el) return '';
+  if (el.tagName === 'INPUT') return el.value;
+  const hh = el.querySelector('.time-hh')?.value;
+  const mm = el.querySelector('.time-mm')?.value;
+  if (!hh || !mm) return '';
+  return `${hh}:${mm}`;
+}
+
 // --- Render a stage progress row ---
 export function stageRow(stage, prog, quantity, skipped) {
   const done = prog?.done || 0;

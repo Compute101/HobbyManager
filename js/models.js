@@ -7,7 +7,7 @@ import {
   saveModelTypeOverride, resetModelTypeOverride, BUILTIN_MODEL_TYPES,
   createFolder, updateFolder, deleteFolder, getAllFolders
 } from './data.js';
-import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue } from './ui.js';
+import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue, createTimeInput } from './ui.js';
 import { getTerm } from './theme.js';
 import { compressImageToBase64, IMAGE_SIZE_PRESETS } from './imageUtils.js';
 
@@ -720,9 +720,13 @@ export function showLogProgress(modelId) {
         ${createDateInput('lpDate', today())}
       </div>
       <div class="form-group">
-        <label>Time spent (mins)</label>
-        <input id="lpDuration" type="number" class="form-input" min="0" placeholder="e.g. 45">
-        <div class="form-hint log-time-hint">If left blank, logged as historical activity.</div>
+        <label>Session time</label>
+        <div class="time-range-row">
+          ${createTimeInput('lpStartTime')}
+          <span class="time-range-arrow">→</span>
+          ${createTimeInput('lpEndTime')}
+        </div>
+        <div class="form-hint log-time-hint" id="lpDurationHint">If left blank, logged as historical activity.</div>
       </div>
     </div>
     <div class="form-group">
@@ -807,10 +811,46 @@ export function showLogProgress(modelId) {
     }
   });
 
+  // Live duration hint update
+  const calcDurationFromContent = () => {
+    const getT = (id) => {
+      const el = content.querySelector(`#${id}`);
+      if (!el) return '';
+      if (el.tagName === 'INPUT') return el.value;
+      const hh = el.querySelector('.time-hh')?.value;
+      const mm = el.querySelector('.time-mm')?.value;
+      return (hh && mm) ? `${hh}:${mm}` : '';
+    };
+    const start = getT('lpStartTime');
+    const end = getT('lpEndTime');
+    if (!start || !end) return null;
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    let mins = (eh * 60 + em) - (sh * 60 + sm);
+    if (mins < 0) mins += 24 * 60;
+    return mins > 0 ? mins : null;
+  };
+
+  const updateDurationHint = () => {
+    const hint = content.querySelector('#lpDurationHint');
+    if (!hint) return;
+    const mins = calcDurationFromContent();
+    const startEl = content.querySelector('#lpStartTime');
+    const endEl = content.querySelector('#lpEndTime');
+    const hasStart = startEl?.tagName === 'INPUT' ? startEl.value : startEl?.querySelector('.time-hh')?.value;
+    const hasEnd = endEl?.tagName === 'INPUT' ? endEl.value : endEl?.querySelector('.time-hh')?.value;
+    if (hasStart && hasEnd) {
+      hint.textContent = mins ? `= ${mins} mins` : 'End time must be after start time.';
+    } else {
+      hint.textContent = 'If left blank, logged as historical activity.';
+    }
+  };
+
+  content.querySelector('.time-range-row').addEventListener('change', updateDurationHint);
+
   content.querySelector('#lpSave').addEventListener('click', () => {
     const date = getDateValue('lpDate');
-    const rawDuration = content.querySelector('#lpDuration').value;
-    const duration = rawDuration ? (parseInt(rawDuration) || null) : null;
+    const duration = calcDurationFromContent();
     if (!duration && !confirm('No time entered — this will be recorded as historical activity with no session time. Log anyway?')) return;
 
     const modelEntries = [];
