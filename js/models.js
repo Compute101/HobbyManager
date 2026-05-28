@@ -550,7 +550,7 @@ export function showModelForm(editId = null, defaultFolderId = null) {
     if (typeId) {
       const preset = allTypes.find(t => t.id === typeId);
       if (!preset) return;
-      content.querySelector('#mfStages').innerHTML = preset.stages.map(s => stageConfigRow(s, [])).join('');
+      content.querySelector('#mfStages').innerHTML = preset.stages.map(s => stageConfigRow(s, preset.defaultSkipped || [])).join('');
       stagesLabel.innerHTML = `Using <b>${preset.name}</b> stages`;
       stagesBody.style.display = 'none';
       stagesToggle.textContent = '▶ Customize';
