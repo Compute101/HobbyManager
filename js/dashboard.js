@@ -93,6 +93,9 @@ export function renderDashboard() {
       <!-- Pile of Potential -->
       ${pileOfPotentialSection()}
 
+      <!-- Grey Brigade -->
+      ${greyBrigadeSection()}
+
     </div>
   `;
 
@@ -103,6 +106,9 @@ export function renderDashboard() {
 
   // Pile of Potential share button
   document.getElementById('sharePileBtn')?.addEventListener('click', sharePileOfPotential);
+
+  // Grey Brigade share button
+  document.getElementById('shareGreyBtn')?.addEventListener('click', shareGreyBrigade);
 
   // Weekly goal button
   document.getElementById('setWeeklyGoalBtn')?.addEventListener('click', () => {
@@ -511,9 +517,9 @@ function pileOfPotentialSection() {
         ${withUnstarted.length ? `<button class="btn btn-sm" id="sharePileBtn">📤 Share</button>` : ''}
       </div>
       ${!withUnstarted.length
-        ? `<p class="empty-text">Your pile of potential is empty — every model has been started. Impressive!</p>`
+        ? `<p class="empty-text">Your pile of potential is empty — no models still on the sprue. Impressive!</p>`
         : `
-          <div class="pile-total">⬜ ${totalCount} model${totalCount !== 1 ? 's' : ''} awaiting the brush</div>
+          <div class="pile-total">⬜ ${totalCount} model${totalCount !== 1 ? 's' : ''} still on the sprue</div>
           <div class="pile-groups">${systemSections}</div>
         `
       }
@@ -557,11 +563,11 @@ function sharePileOfPotential() {
     `⬜ My Pile of Potential`,
     `${'━'.repeat(24)}`,
     ``,
-    `${totalCount} model${totalCount !== 1 ? 's' : ''} awaiting the brush...`,
+    `${totalCount} model${totalCount !== 1 ? 's' : ''} still on the sprue...`,
     ``,
     systemLines,
     ``,
-    `🎯 Will they ever get painted? The world may never know.`,
+    `🎯 Will they ever leave the sprue? The world may never know.`,
   ].join('\n').trim();
 
   if (navigator.share) {
@@ -592,6 +598,169 @@ function showPileShareFallback(text) {
   });
   content.querySelector('#shareCloseBtn').addEventListener('click', () => closeModal());
   showModal({ title: '📤 Share Pile of Potential', content, wide: true });
+}
+
+// --- Grey Brigade ---
+
+function greyBrigadeCount(model) {
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+
+  const assemblyStage = stages.find(s => s.threshold === 'table_ready');
+  if (!assemblyStage) return 0;
+
+  const assembled = Math.min(model.progress[assemblyStage.id]?.done || 0, model.quantity);
+  if (assembled === 0) return 0;
+
+  // Stages after Prime (assemblyIdx + 2 onward) up to and including the painted threshold
+  const assemblyIdx = stages.indexOf(assemblyStage);
+  const paintedStage = stages.find(s => s.threshold === 'painted');
+  const paintedIdx = paintedStage ? stages.indexOf(paintedStage) : stages.length - 1;
+
+  const actualPaintingStages = stages
+    .slice(assemblyIdx + 2, paintedIdx + 1)
+    .filter(s => !skipped.includes(s.id));
+
+  const maxPainted = actualPaintingStages.reduce((max, s) =>
+    Math.max(max, model.progress[s.id]?.done || 0), 0);
+
+  return Math.max(0, assembled - maxPainted);
+}
+
+function greyBrigadeSection() {
+  const withGrey = Object.values(appData.models)
+    .map(m => ({ model: m, greyCount: greyBrigadeCount(m) }))
+    .filter(({ greyCount }) => greyCount > 0)
+    .sort((a, b) => b.greyCount - a.greyCount);
+
+  const totalCount = withGrey.reduce((acc, { greyCount }) => acc + greyCount, 0);
+
+  const bySystem = {};
+  withGrey.forEach(entry => {
+    const key = resolveGameSystemId(entry.model) || 'none';
+    if (!bySystem[key]) bySystem[key] = [];
+    bySystem[key].push(entry);
+  });
+
+  const sortedSystems = Object.entries(bySystem)
+    .map(([sysId, entries]) => ({
+      sysId,
+      entries,
+      total: entries.reduce((a, e) => a + e.greyCount, 0),
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  const systemSections = sortedSystems.map(({ sysId, entries }) => {
+    const sys = GAME_SYSTEMS[sysId];
+    const sysCount = entries.reduce((a, { greyCount }) => a + greyCount, 0);
+    const sysLabel = sys ? sys.shortLabel : 'Unassigned';
+    const sysTheme = sys ? sys.theme : '';
+    return `
+      <div class="pile-system-group">
+        <div class="pile-system-header">
+          ${sys ? `<span class="sys-tag ${sysTheme}">${sysLabel}</span>` : `<span class="pile-system-label">Unassigned</span>`}
+          <span class="pile-system-count">${sysCount} model${sysCount !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="pile-items">
+          ${entries.map(({ model: m, greyCount }) => `
+            <div class="pile-item">
+              <span class="pile-item-name">${m.name}</span>
+              <span class="pile-item-qty">×${greyCount}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="dash-card dash-grey-brigade">
+      <div class="pile-card-header">
+        <h3>Grey Brigade</h3>
+        ${withGrey.length ? `<button class="btn btn-sm" id="shareGreyBtn">📤 Share</button>` : ''}
+      </div>
+      ${!withGrey.length
+        ? `<p class="empty-text">No models in the Grey Brigade — everything is either still on the sprue or has had paint applied. Nothing languishing in the middle!</p>`
+        : `
+          <div class="pile-total">🩶 ${totalCount} model${totalCount !== 1 ? 's' : ''} assembled or primed, awaiting paint</div>
+          <div class="pile-groups">${systemSections}</div>
+        `
+      }
+    </div>`;
+}
+
+function shareGreyBrigade() {
+  const withGrey = Object.values(appData.models)
+    .map(m => ({ model: m, greyCount: greyBrigadeCount(m) }))
+    .filter(({ greyCount }) => greyCount > 0)
+    .sort((a, b) => b.greyCount - a.greyCount);
+
+  if (!withGrey.length) return;
+
+  const totalCount = withGrey.reduce((acc, { greyCount }) => acc + greyCount, 0);
+
+  const bySystem = {};
+  withGrey.forEach(entry => {
+    const key = resolveGameSystemId(entry.model) || 'none';
+    if (!bySystem[key]) bySystem[key] = [];
+    bySystem[key].push(entry);
+  });
+
+  const sortedSystems = Object.entries(bySystem)
+    .map(([sysId, entries]) => ({
+      sysId,
+      entries,
+      total: entries.reduce((a, e) => a + e.greyCount, 0),
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  const systemLines = sortedSystems.map(({ sysId, entries }) => {
+    const sys = GAME_SYSTEMS[sysId];
+    const sysLabel = sys ? sys.shortLabel : 'Unassigned';
+    const sysCount = entries.reduce((a, { greyCount }) => a + greyCount, 0);
+    const modelLines = entries.map(({ model: m, greyCount }) =>
+      `  • ${m.name} ×${greyCount}`
+    ).join('\n');
+    return `🩶 ${sysLabel} (${sysCount} model${sysCount !== 1 ? 's' : ''}):\n${modelLines}`;
+  }).join('\n\n');
+
+  const text = [
+    `🩶 My Grey Brigade`,
+    `${'━'.repeat(24)}`,
+    ``,
+    `${totalCount} model${totalCount !== 1 ? 's' : ''} assembled or primed, awaiting the brush...`,
+    ``,
+    systemLines,
+    ``,
+    `🎨 One day they will be painted. One day.`,
+  ].join('\n').trim();
+
+  if (navigator.share) {
+    navigator.share({ title: 'My Grey Brigade', text }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text)
+      .then(() => toast('Copied to clipboard!', 'success'))
+      .catch(() => showGreyShareFallback(text));
+  }
+}
+
+function showGreyShareFallback(text) {
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <p style="font-size:0.85em;color:var(--text-muted);margin-bottom:0.75em">
+      Copy the text below and paste it into WhatsApp or any messenger:
+    </p>
+    <textarea class="form-input share-text-area" readonly rows="14">${text}</textarea>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="greyCopyBtn">📋 Copy</button>
+      <button class="btn" id="greyCloseBtn">Close</button>
+    </div>
+  `;
+  content.querySelector('#greyCopyBtn').addEventListener('click', () => {
+    content.querySelector('.share-text-area').select();
+    document.execCommand('copy');
+    toast('Copied!', 'success');
+  });
+  content.querySelector('#greyCloseBtn').addEventListener('click', () => closeModal());
+  showModal({ title: '📤 Share Grey Brigade', content, wide: true });
 }
 
 // --- Per-list burndown modal ---
