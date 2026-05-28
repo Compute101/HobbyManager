@@ -428,6 +428,7 @@ export function createModel({ name, quantity = 1, notes = '', gameSystemId = nul
     stages: modelStages,
     skippedStages,
     modelTypeId,
+    dateAdded: new Date().toISOString().slice(0, 10),
     progress: {},
     sessions: []
   };
