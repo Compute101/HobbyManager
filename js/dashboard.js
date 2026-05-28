@@ -398,6 +398,18 @@ function armyCompletionSection() {
 
 // --- Pile of Potential ---
 
+function resolveGameSystemId(model) {
+  if (model.gameSystemId) return model.gameSystemId;
+  // For manually created models, infer from whichever list they belong to
+  for (const list of Object.values(appData.lists)) {
+    if ((list.modelIds || []).includes(model.id)) {
+      const col = appData.collections?.[list.collectionId];
+      if (col?.gameSystemId) return col.gameSystemId;
+    }
+  }
+  return null;
+}
+
 function getModelDateAdded(model) {
   if (model.dateAdded) return new Date(model.dateAdded);
   // Derive from uid: Date.now().toString(36) prefix (8 chars for current timestamps)
@@ -459,7 +471,7 @@ function pileOfPotentialSection() {
 
   const bySystem = {};
   withUnstarted.forEach(entry => {
-    const key = entry.model.gameSystemId || 'none';
+    const key = resolveGameSystemId(entry.model) || 'none';
     if (!bySystem[key]) bySystem[key] = [];
     bySystem[key].push(entry);
   });
@@ -521,7 +533,7 @@ function sharePileOfPotential() {
 
   const bySystem = {};
   withUnstarted.forEach(entry => {
-    const key = entry.model.gameSystemId || 'none';
+    const key = resolveGameSystemId(entry.model) || 'none';
     if (!bySystem[key]) bySystem[key] = [];
     bySystem[key].push(entry);
   });
