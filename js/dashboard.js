@@ -398,21 +398,77 @@ function armyCompletionSection() {
 
 // --- Pile of Potential ---
 
+function getModelDateAdded(model) {
+  if (model.dateAdded) return new Date(model.dateAdded);
+  // Derive from uid: Date.now().toString(36) prefix (8 chars for current timestamps)
+  const id = model.id || '';
+  for (const len of [8, 9]) {
+    if (id.length < len + 5) continue;
+    const ts = parseInt(id.slice(0, len), 36);
+    const year = new Date(ts).getFullYear();
+    if (year >= 2020 && year <= 2100) return new Date(ts);
+  }
+  return null;
+}
+
+function shameScore(model, unstarted) {
+  if (unstarted === 0) return 0;
+  let score = unstarted;
+  if (modelThreshold(model) === 'not_started') {
+    score *= 2;
+    const dateAdded = getModelDateAdded(model);
+    if (dateAdded) {
+      const days = Math.floor((Date.now() - dateAdded.getTime()) / 86400000);
+      if (days >= 365) score *= 4;
+      else if (days >= 180) score *= 3;
+      else if (days >= 90) score *= 2;
+      else if (days >= 30) score *= 1.5;
+    }
+  }
+  return score;
+}
+
+function shameLabel(model) {
+  if (modelThreshold(model) !== 'not_started') return null;
+  const dateAdded = getModelDateAdded(model);
+  if (!dateAdded) return { text: 'Never started', cls: 'shame-fresh' };
+  const days = Math.floor((Date.now() - dateAdded.getTime()) / 86400000);
+  if (days >= 365) {
+    const yrs = Math.floor(days / 365);
+    return { text: `${yrs}yr+ collecting dust`, cls: 'shame-ancient' };
+  }
+  if (days >= 90) {
+    const mos = Math.floor(days / 30);
+    return { text: `${mos}mo untouched`, cls: 'shame-veteran' };
+  }
+  if (days >= 30) {
+    const mos = Math.floor(days / 30);
+    return { text: `${mos}mo untouched`, cls: 'shame-dusty' };
+  }
+  return { text: 'Never started', cls: 'shame-fresh' };
+}
+
 function pileOfPotentialSection() {
   const withUnstarted = Object.values(appData.models)
     .map(m => ({ model: m, unstarted: unstartedCount(m) }))
-    .filter(({ unstarted }) => unstarted > 0);
+    .filter(({ unstarted }) => unstarted > 0)
+    .map(entry => ({ ...entry, score: shameScore(entry.model, entry.unstarted) }))
+    .sort((a, b) => b.score - a.score);
 
   const totalCount = withUnstarted.reduce((acc, { unstarted }) => acc + unstarted, 0);
 
   const bySystem = {};
-  withUnstarted.forEach(({ model: m, unstarted }) => {
-    const key = m.gameSystemId || 'none';
+  withUnstarted.forEach(entry => {
+    const key = entry.model.gameSystemId || 'none';
     if (!bySystem[key]) bySystem[key] = [];
-    bySystem[key].push({ model: m, unstarted });
+    bySystem[key].push(entry);
   });
 
-  const systemSections = Object.entries(bySystem).map(([sysId, entries]) => {
+  const sortedSystems = Object.entries(bySystem)
+    .map(([sysId, entries]) => ({ sysId, entries, maxScore: entries[0].score }))
+    .sort((a, b) => b.maxScore - a.maxScore);
+
+  const systemSections = sortedSystems.map(({ sysId, entries }) => {
     const sys = GAME_SYSTEMS[sysId];
     const sysCount = entries.reduce((a, { unstarted }) => a + unstarted, 0);
     const sysLabel = sys ? sys.shortLabel : 'Unassigned';
@@ -424,12 +480,14 @@ function pileOfPotentialSection() {
           <span class="pile-system-count">${sysCount} model${sysCount !== 1 ? 's' : ''}</span>
         </div>
         <div class="pile-items">
-          ${entries.map(({ model: m, unstarted }) => `
-            <div class="pile-item">
-              <span class="pile-item-name">${m.name}</span>
-              <span class="pile-item-qty">×${unstarted}</span>
-            </div>
-          `).join('')}
+          ${entries.map(({ model: m, unstarted }) => {
+            const label = shameLabel(m);
+            return `
+              <div class="pile-item">
+                <span class="pile-item-name">${m.name}${label ? `<span class="pile-shame-badge ${label.cls}">${label.text}</span>` : ''}</span>
+                <span class="pile-item-qty">×${unstarted}</span>
+              </div>`;
+          }).join('')}
         </div>
       </div>`;
   }).join('');
@@ -453,24 +511,33 @@ function pileOfPotentialSection() {
 function sharePileOfPotential() {
   const withUnstarted = Object.values(appData.models)
     .map(m => ({ model: m, unstarted: unstartedCount(m) }))
-    .filter(({ unstarted }) => unstarted > 0);
+    .filter(({ unstarted }) => unstarted > 0)
+    .map(entry => ({ ...entry, score: shameScore(entry.model, entry.unstarted) }))
+    .sort((a, b) => b.score - a.score);
 
   if (!withUnstarted.length) return;
 
   const totalCount = withUnstarted.reduce((acc, { unstarted }) => acc + unstarted, 0);
 
   const bySystem = {};
-  withUnstarted.forEach(({ model: m, unstarted }) => {
-    const key = m.gameSystemId || 'none';
+  withUnstarted.forEach(entry => {
+    const key = entry.model.gameSystemId || 'none';
     if (!bySystem[key]) bySystem[key] = [];
-    bySystem[key].push({ model: m, unstarted });
+    bySystem[key].push(entry);
   });
 
-  const systemLines = Object.entries(bySystem).map(([sysId, entries]) => {
+  const sortedSystems = Object.entries(bySystem)
+    .map(([sysId, entries]) => ({ sysId, entries, maxScore: entries[0].score }))
+    .sort((a, b) => b.maxScore - a.maxScore);
+
+  const systemLines = sortedSystems.map(({ sysId, entries }) => {
     const sys = GAME_SYSTEMS[sysId];
     const sysLabel = sys ? sys.shortLabel : 'Unassigned';
     const sysCount = entries.reduce((a, { unstarted }) => a + unstarted, 0);
-    const modelLines = entries.map(({ model: m, unstarted }) => `  • ${m.name} ×${unstarted}`).join('\n');
+    const modelLines = entries.map(({ model: m, unstarted }) => {
+      const label = shameLabel(m);
+      return `  • ${m.name} ×${unstarted}${label ? ` [${label.text}]` : ''}`;
+    }).join('\n');
     return `📦 ${sysLabel} (${sysCount} model${sysCount !== 1 ? 's' : ''}):\n${modelLines}`;
   }).join('\n\n');
 

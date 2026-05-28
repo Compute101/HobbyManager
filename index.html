@@ -950,6 +950,11 @@
     .pile-item:last-child { border-bottom: none; }
     .pile-item-name { flex: 1; }
     .pile-item-qty { color: var(--text-muted); font-size: 0.88em; margin-left: 0.5em; }
+    .pile-shame-badge { display: inline-block; font-size: 0.7em; padding: 0.1em 0.45em; border-radius: 3px; margin-left: 0.5em; font-family: var(--font-ui); white-space: nowrap; vertical-align: middle; }
+    .shame-fresh { background: color-mix(in srgb, var(--text-muted) 20%, transparent); color: var(--text-muted); }
+    .shame-dusty { background: color-mix(in srgb, var(--warning) 25%, transparent); color: var(--warning); }
+    .shame-veteran { background: color-mix(in srgb, var(--danger) 25%, transparent); color: var(--danger); }
+    .shame-ancient { background: color-mix(in srgb, var(--danger) 40%, transparent); color: var(--danger); font-weight: 600; }
 
     .session-list { display: flex; flex-direction: column; gap: 0.5em; }
     .session-item { padding: 0.5em; background: var(--surface2); border-radius: var(--radius); font-size: 0.85em; }
