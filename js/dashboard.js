@@ -248,14 +248,15 @@ function renderHobbyStats() {
   const avgMins = timed.length ? Math.round(timed.reduce((a, s) => a + s.duration, 0) / timed.length) : null;
   const avgStr = avgMins ? `${avgMins} mins` : 'Not recorded';
 
-  // Most worked on model
-  const modelCounts = {};
+  // Most worked on model — by total minutes in sessions where model was logged
+  const modelMins = {};
   sessions.forEach(s => {
+    if (!s.duration) return;
     (s.modelEntries || []).forEach(e => {
-      modelCounts[e.modelId] = (modelCounts[e.modelId] || 0) + 1;
+      modelMins[e.modelId] = (modelMins[e.modelId] || 0) + s.duration;
     });
   });
-  const topModelId = Object.entries(modelCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+  const topModelId = Object.entries(modelMins).sort((a, b) => b[1] - a[1])[0]?.[0];
   const topModel = topModelId ? appData.models[topModelId] : null;
 
   // Current streak — consecutive days with sessions
