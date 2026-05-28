@@ -517,9 +517,9 @@ function pileOfPotentialSection() {
         ${withUnstarted.length ? `<button class="btn btn-sm" id="sharePileBtn">📤 Share</button>` : ''}
       </div>
       ${!withUnstarted.length
-        ? `<p class="empty-text">Your pile of potential is empty — every model has been started. Impressive!</p>`
+        ? `<p class="empty-text">Your pile of potential is empty — no models still on the sprue. Impressive!</p>`
         : `
-          <div class="pile-total">⬜ ${totalCount} model${totalCount !== 1 ? 's' : ''} awaiting the brush</div>
+          <div class="pile-total">⬜ ${totalCount} model${totalCount !== 1 ? 's' : ''} still on the sprue</div>
           <div class="pile-groups">${systemSections}</div>
         `
       }
@@ -563,11 +563,11 @@ function sharePileOfPotential() {
     `⬜ My Pile of Potential`,
     `${'━'.repeat(24)}`,
     ``,
-    `${totalCount} model${totalCount !== 1 ? 's' : ''} awaiting the brush...`,
+    `${totalCount} model${totalCount !== 1 ? 's' : ''} still on the sprue...`,
     ``,
     systemLines,
     ``,
-    `🎯 Will they ever get painted? The world may never know.`,
+    `🎯 Will they ever leave the sprue? The world may never know.`,
   ].join('\n').trim();
 
   if (navigator.share) {
