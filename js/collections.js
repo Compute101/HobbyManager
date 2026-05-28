@@ -9,8 +9,7 @@ import { showModal, closeModal, showConfirm, toast, progressBar, thresholdBadge,
 import { applyTheme, resetTheme, setCurrentSystem, resetCurrentSystem, getTerm } from './theme.js';
 import { showLogProgress, showModelDetail } from './models.js';
 import { renderListCompletionPie } from './charts.js';
-import { showOwbImportModal } from './owb-import.js';
-import { showW40kImportModal } from './w40k-import.js';
+import { showImportModal } from './import.js';
 
 let activeCollectionId = null;
 let activeListId = null;
@@ -49,22 +48,12 @@ export function renderCollections() {
         </div>
         <div style="display:flex;gap:0.6em;flex-wrap:wrap;justify-content:center">
           <button class="btn btn-primary onboarding-cta" id="addFirstCollection">+ Create First Game System</button>
-          <button class="btn onboarding-cta" id="owbImportOnboarding">📋 Import Old World Builder List</button>
-          <button class="btn onboarding-cta" id="w40kImportOnboarding">📲 Import Warhammer 40,000 App List</button>
+          <button class="btn onboarding-cta" id="importOnboarding">📋 Import Army List</button>
         </div>
       </div>`;
     document.getElementById('addFirstCollection')?.addEventListener('click', () => showCollectionForm());
-    document.getElementById('owbImportOnboarding')?.addEventListener('click', () => {
-      showOwbImportModal((colId, listId) => {
-        activeCollectionId = colId;
-        activeListId = listId;
-        renderCollections();
-        selectCollection(colId);
-        selectList(listId);
-      });
-    });
-    document.getElementById('w40kImportOnboarding')?.addEventListener('click', () => {
-      showW40kImportModal((colId, listId) => {
+    document.getElementById('importOnboarding')?.addEventListener('click', () => {
+      showImportModal((colId, listId) => {
         activeCollectionId = colId;
         activeListId = listId;
         renderCollections();
@@ -97,8 +86,7 @@ function renderCollectionsSidebar() {
     <div class="sidebar-header">
       <span>Game Systems</span>
       <div style="display:flex;gap:0.3em">
-        <button class="btn btn-sm" id="owbImportBtn" title="Import Old World Builder list">📋</button>
-        <button class="btn btn-sm" id="w40kImportBtn" title="Import Warhammer 40,000 app list">📲</button>
+        <button class="btn btn-sm" id="listImportBtn" title="Import army list">📋</button>
         <button class="btn btn-sm btn-primary" id="addCollBtn">+</button>
       </div>
     </div>
@@ -136,17 +124,8 @@ function renderCollectionsSidebar() {
       }).join('')}
     </div>
   `;
-  sidebar.querySelector('#owbImportBtn')?.addEventListener('click', () => {
-    showOwbImportModal((colId, listId) => {
-      activeCollectionId = colId;
-      activeListId = listId;
-      renderCollections();
-      selectCollection(colId);
-      selectList(listId);
-    });
-  });
-  sidebar.querySelector('#w40kImportBtn')?.addEventListener('click', () => {
-    showW40kImportModal((colId, listId) => {
+  sidebar.querySelector('#listImportBtn')?.addEventListener('click', () => {
+    showImportModal((colId, listId) => {
       activeCollectionId = colId;
       activeListId = listId;
       renderCollections();
