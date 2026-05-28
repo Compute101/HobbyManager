@@ -1,6 +1,6 @@
 // dashboard.js — dashboard with pie charts and deadline cards
 
-import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold } from './data.js';
+import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount } from './data.js';
 import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
 import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
@@ -398,21 +398,22 @@ function armyCompletionSection() {
 // --- Pile of Potential ---
 
 function pileOfPotentialSection() {
-  const notStarted = Object.values(appData.models)
-    .filter(m => modelThreshold(m) === 'not_started');
+  const withUnstarted = Object.values(appData.models)
+    .map(m => ({ model: m, unstarted: unstartedCount(m) }))
+    .filter(({ unstarted }) => unstarted > 0);
 
-  const totalCount = notStarted.reduce((acc, m) => acc + m.quantity, 0);
+  const totalCount = withUnstarted.reduce((acc, { unstarted }) => acc + unstarted, 0);
 
   const bySystem = {};
-  notStarted.forEach(m => {
+  withUnstarted.forEach(({ model: m, unstarted }) => {
     const key = m.gameSystemId || 'none';
     if (!bySystem[key]) bySystem[key] = [];
-    bySystem[key].push(m);
+    bySystem[key].push({ model: m, unstarted });
   });
 
-  const systemSections = Object.entries(bySystem).map(([sysId, models]) => {
+  const systemSections = Object.entries(bySystem).map(([sysId, entries]) => {
     const sys = GAME_SYSTEMS[sysId];
-    const sysCount = models.reduce((a, m) => a + m.quantity, 0);
+    const sysCount = entries.reduce((a, { unstarted }) => a + unstarted, 0);
     const sysLabel = sys ? sys.shortLabel : 'Unassigned';
     const sysTheme = sys ? sys.theme : '';
     return `
@@ -422,10 +423,10 @@ function pileOfPotentialSection() {
           <span class="pile-system-count">${sysCount} model${sysCount !== 1 ? 's' : ''}</span>
         </div>
         <div class="pile-items">
-          ${models.map(m => `
+          ${entries.map(({ model: m, unstarted }) => `
             <div class="pile-item">
               <span class="pile-item-name">${m.name}</span>
-              <span class="pile-item-qty">×${m.quantity}</span>
+              <span class="pile-item-qty">×${unstarted}</span>
             </div>
           `).join('')}
         </div>
@@ -436,9 +437,9 @@ function pileOfPotentialSection() {
     <div class="dash-card dash-pile">
       <div class="pile-card-header">
         <h3>Pile of Potential</h3>
-        ${notStarted.length ? `<button class="btn btn-sm" id="sharePileBtn">📤 Share</button>` : ''}
+        ${withUnstarted.length ? `<button class="btn btn-sm" id="sharePileBtn">📤 Share</button>` : ''}
       </div>
-      ${!notStarted.length
+      ${!withUnstarted.length
         ? `<p class="empty-text">Your pile of potential is empty — every model has been started. Impressive!</p>`
         : `
           <div class="pile-total">⬜ ${totalCount} model${totalCount !== 1 ? 's' : ''} awaiting the brush</div>
@@ -449,25 +450,26 @@ function pileOfPotentialSection() {
 }
 
 function sharePileOfPotential() {
-  const notStarted = Object.values(appData.models)
-    .filter(m => modelThreshold(m) === 'not_started');
+  const withUnstarted = Object.values(appData.models)
+    .map(m => ({ model: m, unstarted: unstartedCount(m) }))
+    .filter(({ unstarted }) => unstarted > 0);
 
-  if (!notStarted.length) return;
+  if (!withUnstarted.length) return;
 
-  const totalCount = notStarted.reduce((acc, m) => acc + m.quantity, 0);
+  const totalCount = withUnstarted.reduce((acc, { unstarted }) => acc + unstarted, 0);
 
   const bySystem = {};
-  notStarted.forEach(m => {
+  withUnstarted.forEach(({ model: m, unstarted }) => {
     const key = m.gameSystemId || 'none';
     if (!bySystem[key]) bySystem[key] = [];
-    bySystem[key].push(m);
+    bySystem[key].push({ model: m, unstarted });
   });
 
-  const systemLines = Object.entries(bySystem).map(([sysId, models]) => {
+  const systemLines = Object.entries(bySystem).map(([sysId, entries]) => {
     const sys = GAME_SYSTEMS[sysId];
     const sysLabel = sys ? sys.shortLabel : 'Unassigned';
-    const sysCount = models.reduce((a, m) => a + m.quantity, 0);
-    const modelLines = models.map(m => `  • ${m.name} ×${m.quantity}`).join('\n');
+    const sysCount = entries.reduce((a, { unstarted }) => a + unstarted, 0);
+    const modelLines = entries.map(({ model: m, unstarted }) => `  • ${m.name} ×${unstarted}`).join('\n');
     return `📦 ${sysLabel} (${sysCount} model${sysCount !== 1 ? 's' : ''}):\n${modelLines}`;
   }).join('\n\n');
 

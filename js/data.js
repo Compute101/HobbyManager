@@ -489,6 +489,14 @@ export function modelThreshold(model) {
   return hasAnyProgress ? null : 'not_started';
 }
 
+export function unstartedCount(model) {
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+  const activeStages = stages.filter(s => !skipped.includes(s.id));
+  const maxDone = activeStages.reduce((max, s) => Math.max(max, model.progress[s.id]?.done || 0), 0);
+  return Math.max(0, model.quantity - maxDone);
+}
+
 export function modelPoints(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
