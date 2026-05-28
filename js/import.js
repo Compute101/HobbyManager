@@ -37,6 +37,8 @@ const TYPE_LABELS = {
 };
 
 function autoDetectFormat(text) {
+  if (/created with [""]old world builder[""]/i.test(text) || /old-world-builder\.com/i.test(text)) return 'owb';
+  if (/exported with app version:/i.test(text)) return 'w40k';
   if (/^===/.test(text.trim()) || /\[\d+\s*pts?\]/.test(text)) return 'owb';
   if (/\(\d+\s*points?\)/i.test(text)) return 'w40k';
   return null;
