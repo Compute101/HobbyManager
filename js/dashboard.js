@@ -678,7 +678,7 @@ function greyBrigadeSection() {
         ${withGrey.length ? `<button class="btn btn-sm" id="shareGreyBtn">📤 Share</button>` : ''}
       </div>
       ${!withGrey.length
-        ? `<p class="empty-text">No models in the Grey Brigade — everything is either unstarted or has had paint applied. Get those brushes out!</p>`
+        ? `<p class="empty-text">No models in the Grey Brigade — everything is either still on the sprue or has had paint applied. Nothing languishing in the middle!</p>`
         : `
           <div class="pile-total">🩶 ${totalCount} model${totalCount !== 1 ? 's' : ''} assembled or primed, awaiting paint</div>
           <div class="pile-groups">${systemSections}</div>
