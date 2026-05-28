@@ -124,7 +124,7 @@ export function renderCompletionPie(canvasId) {
       labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress', '⬜ Not Started'],
       datasets: [{
         data: [finished, painted, tableReady, inProgress, notStarted],
-        backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#2a2a3a', '#1a1a2e'],
+        backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#555570', '#1a1a2e'],
         borderColor: '#1a1a2e',
         borderWidth: 2
       }]
@@ -171,7 +171,7 @@ export function renderListCompletionPie(canvasId, models) {
       labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress', '⬜ Not Started'],
       datasets: [{
         data: [finished, painted, tableReady, inProgress, notStarted],
-        backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#2a2a3a', '#1a1a2e'],
+        backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#555570', '#1a1a2e'],
         borderColor: '#1a1a2e',
         borderWidth: 2
       }]
