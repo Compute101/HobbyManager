@@ -248,14 +248,12 @@ function renderHobbyStats() {
   const avgMins = timed.length ? Math.round(timed.reduce((a, s) => a + s.duration, 0) / timed.length) : null;
   const avgStr = avgMins ? `${avgMins} mins` : 'Not recorded';
 
-  // Most worked on model — by minutes logged (session duration split evenly across models)
+  // Most worked on model — by total minutes in sessions where model was logged
   const modelMins = {};
   sessions.forEach(s => {
-    const entries = s.modelEntries || [];
-    if (!entries.length || !s.duration) return;
-    const minsEach = s.duration / entries.length;
-    entries.forEach(e => {
-      modelMins[e.modelId] = (modelMins[e.modelId] || 0) + minsEach;
+    if (!s.duration) return;
+    (s.modelEntries || []).forEach(e => {
+      modelMins[e.modelId] = (modelMins[e.modelId] || 0) + s.duration;
     });
   });
   const topModelId = Object.entries(modelMins).sort((a, b) => b[1] - a[1])[0]?.[0];
