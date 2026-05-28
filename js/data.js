@@ -110,6 +110,7 @@ export const BUILTIN_MODEL_TYPES = [
     id: 'character',
     name: 'Character / Hero',
     builtIn: true,
+    defaultSkipped: ['s8', 's9'],
     stages: [
       { id: 's1', name: 'Assembly',     points: 2, phase: 'assembly', skippable: false, threshold: 'table_ready' },
       { id: 's2', name: 'Prime',        points: 1, phase: 'painting', skippable: false, threshold: null },
