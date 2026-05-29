@@ -1907,7 +1907,8 @@
 </div>
 
 <script type="module">
-  import { loadData, exportJSON, importJSON, appData, getAllModelTypes, deleteCustomModelType, BUILTIN_MODEL_TYPES, createFolder } from './js/data.js';
+  import { loadData, exportJSON, importJSON, appData, getAllModelTypes, deleteCustomModelType, BUILTIN_MODEL_TYPES, createFolder, driveSync, replaceData } from './js/data.js';
+  import { isConfigured, isConnected, wasConnected, getSavedEmail, getLastSyncTime, init as gDriveInit, connect as gDriveConnect, disconnect as gDriveDisconnect, loadFromDrive, saveToDrive } from './js/gdrive.js';
   import { renderModelPool, showModelForm, showModelTypeEditor } from './js/models.js';
   import { renderCollections } from './js/collections.js';
   import { renderDashboard } from './js/dashboard.js';
@@ -1919,6 +1920,20 @@
   // --- Boot ---
   loadData();
   loadSavedTheme();
+
+  // --- Drive sync ---
+  let _driveSyncTimer = null;
+  driveSync.callback = data => {
+    if (isConnected()) {
+      clearTimeout(_driveSyncTimer);
+      _driveSyncTimer = setTimeout(() =>
+        saveToDrive(data).catch(e => {
+          if (e.message === 'Token expired')
+            toast('Google Drive disconnected — reconnect in Settings', 'warning', 5000);
+        }), 2000);
+    }
+  };
+  if (isConfigured()) gDriveInit().catch(() => {});
 
   // --- Tab switching ---
   const tabs = document.querySelectorAll('.nav-tab');
@@ -1972,6 +1987,142 @@
     }
     e.target.value = '';
   });
+
+  // --- Google Drive helpers ---
+
+  function _formatSyncTime(isoStr) {
+    if (!isoStr) return 'Never';
+    const diff = Date.now() - new Date(isoStr).getTime();
+    if (diff < 60000)      return 'Just now';
+    if (diff < 3600000)    return `${Math.floor(diff / 60000)} min ago`;
+    if (diff < 86400000)   return `${Math.floor(diff / 3600000)}h ago`;
+    return new Date(isoStr).toLocaleDateString();
+  }
+
+  async function _handleGDriveConnect() {
+    const btn = document.querySelector('#gdriveConnectBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Connecting…'; }
+    try {
+      await gDriveInit();
+      await gDriveConnect();
+      let driveResult = null;
+      try { driveResult = await loadFromDrive(); } catch {}
+      const rawLocal  = localStorage.getItem('hobbymanager_v2');
+      const localData = rawLocal ? JSON.parse(rawLocal) : {};
+      const hasLocal  = Object.keys(localData.models || {}).length > 0;
+
+      if (driveResult && hasLocal) {
+        await _showDataConflictDialog(driveResult, localData);
+      } else if (!driveResult && hasLocal) {
+        await _showUploadDialog(localData);
+      } else if (driveResult && !hasLocal) {
+        replaceData(driveResult.data);
+        applyTheme(appData.config.activeTheme);
+        switchTab('dashboard');
+        toast('Data loaded from Google Drive', 'success');
+      } else {
+        toast('Connected to Google Drive', 'success');
+      }
+      renderSettings();
+    } catch (err) {
+      if (err.message !== 'popup_closed_by_user') toast('Could not connect: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = wasConnected() ? 'Reconnect' : 'Connect'; }
+    }
+  }
+
+  async function _handleGDriveDisconnect() {
+    if (!confirm('Disconnect Google Drive? Your data will stay on this device.')) return;
+    gDriveDisconnect();
+    toast('Disconnected from Google Drive', 'info');
+    renderSettings();
+  }
+
+  async function _handleGDriveSyncNow() {
+    const btn = document.querySelector('#gdriveSyncNowBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Syncing…'; }
+    try {
+      const data = JSON.parse(localStorage.getItem('hobbymanager_v2') || '{}');
+      await saveToDrive(data);
+      toast('Synced to Google Drive', 'success');
+      renderSettings();
+    } catch (err) {
+      toast('Sync failed: ' + err.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = 'Sync Now'; }
+    }
+  }
+
+  function _showUploadDialog(localData) {
+    return new Promise(resolve => {
+      const count = Object.keys(localData.models || {}).length;
+      const content = document.createElement('div');
+      content.innerHTML = `
+        <p style="margin:0 0 0.75em">Would you like to upload your existing data to Google Drive?</p>
+        <p style="margin:0 0 1.5em;color:var(--text-muted)">${count} model${count !== 1 ? 's' : ''} will be backed up. Future changes sync automatically.</p>
+        <div class="modal-actions">
+          <button class="btn btn-primary" id="driveUploadYes">Upload to Drive</button>
+          <button class="btn" id="driveUploadNo">Skip for now</button>
+        </div>
+      `;
+      content.querySelector('#driveUploadYes').addEventListener('click', async () => {
+        closeModal();
+        try {
+          await saveToDrive(JSON.parse(localStorage.getItem('hobbymanager_v2') || '{}'));
+          toast('Data backed up to Google Drive', 'success');
+        } catch (e) { toast('Upload failed: ' + e.message, 'error'); }
+        resolve();
+      });
+      content.querySelector('#driveUploadNo').addEventListener('click', () => {
+        closeModal();
+        toast('Connected — future changes will sync to Drive', 'info');
+        resolve();
+      });
+      showModal({ title: 'Back Up to Google Drive?', content });
+    });
+  }
+
+  function _showDataConflictDialog(driveResult, localData) {
+    return new Promise(resolve => {
+      const localCount = Object.keys(localData.models || {}).length;
+      const driveCount = Object.keys(driveResult.data.models || {}).length;
+      const driveDate  = driveResult.modifiedTime
+        ? new Date(driveResult.modifiedTime).toLocaleDateString() : 'unknown date';
+      const content = document.createElement('div');
+      content.innerHTML = `
+        <p style="margin:0 0 1em">Found hobby data in both places — which would you like to keep?</p>
+        <div style="display:grid;gap:0.5em;margin-bottom:1.5em">
+          <div style="padding:0.75em;border:1px solid var(--border);border-radius:var(--radius)">
+            <strong>📱 This device</strong>
+            <div style="color:var(--text-muted);font-size:0.85em;margin-top:0.2em">${localCount} model${localCount !== 1 ? 's' : ''}</div>
+          </div>
+          <div style="padding:0.75em;border:1px solid var(--border);border-radius:var(--radius)">
+            <strong>☁️ Google Drive</strong>
+            <div style="color:var(--text-muted);font-size:0.85em;margin-top:0.2em">${driveCount} model${driveCount !== 1 ? 's' : ''} · saved ${driveDate}</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.5em">
+          <button class="btn btn-primary" id="conflictKeepLocal">Keep local data &amp; upload to Drive</button>
+          <button class="btn" id="conflictUseDrive">Use Drive data on this device</button>
+        </div>
+      `;
+      content.querySelector('#conflictKeepLocal').addEventListener('click', async () => {
+        closeModal();
+        try {
+          await saveToDrive(JSON.parse(localStorage.getItem('hobbymanager_v2') || '{}'));
+          toast('Local data uploaded to Google Drive', 'success');
+        } catch (e) { toast('Upload failed: ' + e.message, 'error'); }
+        resolve();
+      });
+      content.querySelector('#conflictUseDrive').addEventListener('click', () => {
+        closeModal();
+        replaceData(driveResult.data);
+        applyTheme(appData.config.activeTheme);
+        switchTab('dashboard');
+        toast('Data loaded from Google Drive', 'success');
+        resolve();
+      });
+      showModal({ title: 'Choose Your Data', content });
+    });
+  }
 
   function renderSettings(container) {
     container = container || document.getElementById('settingsView');
@@ -2103,11 +2254,50 @@
         </div>
       </div>
       <div class="settings-section">
+        <h3>Cloud Sync</h3>
+        ${!isConfigured() ? `
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Google Drive</div>
+              <div class="settings-row-desc">Not configured — set <code>GOOGLE_CLIENT_ID</code> in <code>js/gdrive.js</code> to enable.</div>
+            </div>
+          </div>
+        ` : isConnected() ? `
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">
+                <span style="display:inline-block;width:8px;height:8px;background:var(--accent);border-radius:50%;margin-right:6px;vertical-align:middle"></span>
+                Google Drive Connected
+              </div>
+              <div class="settings-row-desc">Signed in as ${getSavedEmail()}</div>
+            </div>
+            <button class="btn btn-sm btn-danger" id="gdriveDisconnectBtn">Disconnect</button>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Auto-sync on</div>
+              <div class="settings-row-desc">Last synced: ${_formatSyncTime(getLastSyncTime())}</div>
+            </div>
+            <button class="btn btn-sm" id="gdriveSyncNowBtn">Sync Now</button>
+          </div>
+        ` : `
+          <div class="settings-row">
+            <div>
+              <div class="settings-row-label">Google Drive</div>
+              <div class="settings-row-desc">${wasConnected()
+                ? `Last connected as <strong>${getSavedEmail()}</strong> — reconnect to resume syncing`
+                : 'Back up and sync your data across devices'}</div>
+            </div>
+            <button class="btn btn-sm" id="gdriveConnectBtn">${wasConnected() ? 'Reconnect' : 'Connect'}</button>
+          </div>
+        `}
+      </div>
+      <div class="settings-section">
         <h3>About</h3>
         <div class="settings-row">
           <div>
             <div class="settings-row-label">Hobby Manager</div>
-            <div class="settings-row-desc">Track your miniature painting progress. Data stored locally on this device.</div>
+            <div class="settings-row-desc">Track your miniature painting progress. Data stored locally; optionally synced to Google Drive.</div>
           </div>
         </div>
       </div>
@@ -2154,6 +2344,10 @@
       localStorage.removeItem('hobbymanager_v2');
       location.reload();
     });
+
+    container.querySelector('#gdriveConnectBtn')?.addEventListener('click', _handleGDriveConnect);
+    container.querySelector('#gdriveDisconnectBtn')?.addEventListener('click', _handleGDriveDisconnect);
+    container.querySelector('#gdriveSyncNowBtn')?.addEventListener('click', _handleGDriveSyncNow);
   }
 
   // --- Initial render ---

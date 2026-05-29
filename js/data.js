@@ -404,15 +404,43 @@ export function saveData() {
       sessions: appData.sessions.map(s => s.date ? { ...s, date: localToUtc(s.date) } : s)
     };
     localStorage.setItem('hobbymanager_v2', JSON.stringify(dataToSave));
+    driveSync.callback?.(dataToSave);
   } catch (e) {
     console.error('Failed to save data:', e);
     alert('Could not save data — storage may be full.');
   }
 }
 
+// Replace all in-memory data with a parsed snapshot (e.g. loaded from Drive).
+// Applies the same UTC→local date conversion as loadData(), then persists to localStorage.
+export function replaceData(parsed) {
+  if (!parsed?.models || !parsed?.collections) throw new Error('Invalid data structure');
+  appData = {
+    models: parsed.models || {},
+    collections: parsed.collections || {},
+    lists: parsed.lists || {},
+    sessions: (parsed.sessions || []).map(s => s.date ? { ...s, date: utcToLocal(s.date) } : s),
+    folders: parsed.folders || {},
+    queues: parsed.queues || {},
+    config: {
+      stages: parsed.config?.stages || [...DEFAULT_STAGES],
+      deadline: parsed.config?.deadline || null,
+      activeTheme: parsed.config?.activeTheme || 'theme-default',
+      modelTypes: parsed.config?.modelTypes || [],
+      modelTypeOverrides: parsed.config?.modelTypeOverrides || {},
+      weeklyGoal: parsed.config?.weeklyGoal || 0,
+      imageSize: parsed.config?.imageSize || 'small'
+    }
+  };
+  saveData();
+}
+
 export function uid() {
   return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }
+
+// Set by index.html to trigger a debounced Drive upload after every save.
+export const driveSync = { callback: null };
 
 // --- Model helpers ---
 
