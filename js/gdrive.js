@@ -7,7 +7,7 @@
 //   4. Add your app's URL to "Authorised JavaScript origins"
 //   5. Paste the Client ID below
 
-export const GOOGLE_CLIENT_ID = '';
+export const GOOGLE_CLIENT_ID = '535720062304-uiq2vkli62jg5fgm02khj62471a5463l.apps.googleusercontent.com;
 
 const SCOPES    = 'https://www.googleapis.com/auth/drive.appdata openid email';
 const FILE_NAME = 'hobbymanager_data.json';
