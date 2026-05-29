@@ -840,6 +840,72 @@
     .list-model-prog { flex: 1; min-width: 120px; }
     .list-model-actions { display: flex; gap: 0.3em; }
 
+    /* --- Virtual Split --- */
+    .list-model-split-group {
+      margin-bottom: 0.5em;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .split-group-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      padding: 0.45em 0.65em;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .split-group-name { font-weight: 700; font-size: 0.88em; }
+    .split-group-meta { font-size: 0.75em; color: var(--text-muted); }
+    .list-model-split-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75em;
+      padding: 0.55em 0.65em 0.55em 1.2em;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.15s;
+      flex-wrap: wrap;
+    }
+    .list-model-split-row:last-child { border-bottom: none; }
+    .list-model-split-row:hover { background: var(--surface2); }
+    .list-model-split-row.split-excluded { opacity: 0.5; }
+    .split-badge {
+      display: inline-block;
+      font-size: 0.68em;
+      padding: 0.1em 0.45em;
+      border-radius: 3px;
+      background: var(--bg3);
+      color: var(--text-muted);
+      vertical-align: middle;
+      margin-left: 0.35em;
+    }
+    /* Split modal */
+    .split-modal-desc { font-size: 0.85em; color: var(--text-muted); margin-bottom: 0.8em; }
+    .split-tally {
+      display: flex;
+      gap: 1.2em;
+      font-size: 0.85em;
+      margin-bottom: 0.75em;
+      padding: 0.5em 0.75em;
+      background: var(--surface2);
+      border-radius: var(--radius);
+    }
+    .split-tally-over { color: var(--danger); }
+    .split-rows-container { display: flex; flex-direction: column; gap: 0.4em; margin-bottom: 0.5em; }
+    .split-edit-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4em;
+      flex-wrap: wrap;
+    }
+    .split-name-inp { flex: 1; min-width: 120px; }
+    .split-size-inp { width: 4.5em; flex: 0 0 auto; }
+    .split-inlist-toggle { display: flex; align-items: center; gap: 0.3em; font-size: 0.82em; white-space: nowrap; cursor: pointer; }
+    .split-error { color: var(--danger); font-size: 0.82em; margin-top: 0.4em; }
+
     .pool-filter-row {
       display: flex;
       gap: 0.5em;

@@ -3,6 +3,7 @@
 import {
   appData, createCollection, deleteCollection,
   createList, deleteList, addModelToList, removeModelFromList,
+  setModelSplits, removeModelSplits, splitModelPoints, splitModelThreshold,
   listStats, saveData, uid, GAME_SYSTEMS
 } from './data.js';
 import { showModal, closeModal, showConfirm, toast, progressBar, thresholdBadge, createDateInput, getDateValue, formatDate } from './ui.js';
@@ -291,10 +292,24 @@ function selectList(listId) {
       selectList(listId);
     });
   });
+  main.querySelectorAll('[data-model-split]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      const model = appData.models[el.dataset.modelSplit];
+      if (model) showSplitModal(model, listId);
+    });
+  });
   requestAnimationFrame(() => renderListCompletionPie('listCompletionPieChart', models));
 }
 
 function listModelRow(model, listId) {
+  const list = appData.lists[listId];
+  const splits = (list?.modelSplits || {})[model.id];
+
+  if (splits && splits.length > 0) {
+    return listModelRowSplit(model, listId, splits);
+  }
+
   const pts = calcModelPoints(model);
   const thresh = calcModelThreshold(model);
   return `
@@ -308,11 +323,60 @@ function listModelRow(model, listId) {
         <span class="list-model-thresh">${thresholdBadge(thresh)}</span>
       </div>
       <div class="list-model-actions">
+        <button class="btn btn-sm" data-model-split="${model.id}" title="Split unit">✂️</button>
         <button class="btn btn-sm btn-primary" data-model-log="${model.id}">📝</button>
         <button class="btn btn-sm btn-danger" data-model-remove="${model.id}">✕</button>
       </div>
     </div>
   `;
+}
+
+function listModelRowSplit(model, listId, splits) {
+  let offset = 0;
+  const splitRows = splits.map(split => {
+    const pts = calcSplitPoints(model, split.size, offset);
+    const thresh = calcSplitThreshold(model, split.size, offset);
+    const excluded = !split.inList;
+    offset += split.size;
+    return `
+      <div class="list-model-split-row${excluded ? ' split-excluded' : ''}" data-model-view="${model.id}">
+        <div class="list-model-info">
+          <div class="list-model-name">
+            ${split.name || model.name}
+            ${excluded ? '<span class="split-badge">not in list</span>' : ''}
+          </div>
+          <div class="list-model-qty">×${split.size}</div>
+        </div>
+        <div class="list-model-prog">
+          <div class="prog-bar"><div class="prog-fill" style="width:${pts.pct}%"></div></div>
+          <span class="list-model-thresh">${thresholdBadge(thresh)}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="list-model-split-group">
+      <div class="split-group-header">
+        <span class="split-group-name">${model.name}</span>
+        <span class="split-group-meta">✂️ split · pool: ×${model.quantity}</span>
+        <div class="list-model-actions" style="margin-left:auto">
+          <button class="btn btn-sm" data-model-split="${model.id}" title="Edit split">✂️ Edit</button>
+          <button class="btn btn-sm btn-primary" data-model-log="${model.id}">📝</button>
+          <button class="btn btn-sm btn-danger" data-model-remove="${model.id}">✕</button>
+        </div>
+      </div>
+      ${splitRows}
+    </div>
+  `;
+}
+
+function calcSplitPoints(model, splitSize, offset) {
+  return splitModelPoints(model, splitSize, offset);
+}
+
+function calcSplitThreshold(model, splitSize, offset) {
+  return splitModelThreshold(model, splitSize, offset);
 }
 
 function calcModelPoints(model) {
@@ -350,6 +414,104 @@ function calcModelThreshold(model) {
     if (allDone) return thresh;
   }
   return hasAnyProgress ? null : 'not_started';
+}
+
+function showSplitModal(model, listId) {
+  const list = appData.lists[listId];
+  if (!list || !model) return;
+
+  const existing = (list.modelSplits || {})[model.id] || [];
+  let splits = existing.length > 0
+    ? existing.map(s => ({ ...s }))
+    : [
+        { id: uid(), name: `${model.name} (1)`, size: Math.ceil(model.quantity / 2), inList: true },
+        { id: uid(), name: `${model.name} (2)`, size: Math.floor(model.quantity / 2), inList: true }
+      ];
+
+  const content = document.createElement('div');
+
+  const render = () => {
+    const usedSize = splits.reduce((sum, s) => sum + (parseInt(s.size) || 0), 0);
+    const remaining = model.quantity - usedSize;
+    const overLimit = remaining < 0;
+
+    content.innerHTML = `
+      <p class="split-modal-desc">
+        Virtually divide this group for display in the army list.
+        Progress is still recorded on the full pool of <strong>${model.quantity}</strong> models — this is just how they appear in the list.
+        The "most finished" models are always allocated to earlier splits.
+      </p>
+      <div class="split-tally">
+        <span>Pool: <strong>${model.quantity}</strong></span>
+        <span>Assigned: <strong>${usedSize}</strong></span>
+        <span class="${overLimit ? 'split-tally-over' : ''}">Unassigned: <strong>${remaining}</strong></span>
+      </div>
+      <div class="split-rows-container">
+        ${splits.map((s, i) => `
+          <div class="split-edit-row" data-idx="${i}">
+            <input class="form-input split-name-inp" type="text" value="${s.name.replace(/"/g, '&quot;')}" placeholder="Unit name" data-field="name" data-idx="${i}">
+            <input class="form-input split-size-inp" type="number" min="1" max="${model.quantity}" value="${s.size}" data-field="size" data-idx="${i}">
+            <label class="split-inlist-toggle" title="Include in army list stats">
+              <input type="checkbox" data-field="inList" data-idx="${i}" ${s.inList ? 'checked' : ''}> In list
+            </label>
+            <button class="btn btn-xs btn-danger" data-remove-idx="${i}">✕</button>
+          </div>
+        `).join('')}
+      </div>
+      <button class="btn btn-sm" id="addSplitPartBtn">+ Add Part</button>
+      ${overLimit ? `<p class="split-error">⚠ Total (${usedSize}) exceeds pool size (${model.quantity}).</p>` : ''}
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="splitSaveBtn" ${overLimit ? 'disabled' : ''}>Save Split</button>
+        ${existing.length > 0 ? `<button class="btn btn-danger" id="splitClearBtn">Remove Split</button>` : ''}
+        <button class="btn" id="splitCancelBtn">Cancel</button>
+      </div>
+    `;
+
+    content.querySelectorAll('[data-field]').forEach(el => {
+      const handler = () => {
+        const idx = parseInt(el.dataset.idx);
+        const field = el.dataset.field;
+        if (field === 'inList') splits[idx].inList = el.checked;
+        else if (field === 'size') splits[idx].size = Math.max(0, parseInt(el.value) || 0);
+        else splits[idx][field] = el.value;
+        render();
+      };
+      el.addEventListener(el.type === 'checkbox' ? 'change' : 'input', handler);
+    });
+
+    content.querySelectorAll('[data-remove-idx]').forEach(el => {
+      el.addEventListener('click', () => {
+        splits.splice(parseInt(el.dataset.removeIdx), 1);
+        render();
+      });
+    });
+
+    content.querySelector('#addSplitPartBtn')?.addEventListener('click', () => {
+      splits.push({ id: uid(), name: `${model.name} (${splits.length + 1})`, size: 0, inList: true });
+      render();
+    });
+
+    content.querySelector('#splitSaveBtn')?.addEventListener('click', () => {
+      const valid = splits.filter(s => s.size > 0);
+      if (!valid.length) { toast('Add at least one split with size > 0', 'error'); return; }
+      setModelSplits(listId, model.id, valid);
+      toast('Split saved', 'success');
+      closeModal();
+      selectList(listId);
+    });
+
+    content.querySelector('#splitClearBtn')?.addEventListener('click', () => {
+      removeModelSplits(listId, model.id);
+      toast('Split removed', 'info');
+      closeModal();
+      selectList(listId);
+    });
+
+    content.querySelector('#splitCancelBtn')?.addEventListener('click', () => closeModal());
+  };
+
+  render();
+  showModal({ title: `✂️ Split: ${model.name}`, content, wide: true });
 }
 
 function showAddModelToList(listId) {
@@ -565,7 +727,21 @@ function shareList(listId) {
     return '█'.repeat(filled) + '░'.repeat(10 - filled) + ` ${pct}%`;
   };
 
+  const modelSplits = list.modelSplits || {};
   const regimentLines = models.map(m => {
+    const splits = modelSplits[m.id];
+    if (splits && splits.length > 0) {
+      let offset = 0;
+      return splits.map(s => {
+        const thresh = calcSplitThreshold(m, s.size, offset);
+        const pts = calcSplitPoints(m, s.size, offset);
+        offset += s.size;
+        const label = threshLabel(thresh);
+        const extra = thresh === null ? ` (${pts.pct}%)` : '';
+        const notInList = !s.inList ? ' [not in list]' : '';
+        return `• ${s.name} ×${s.size} — ${label}${extra}${notInList}`;
+      }).join('\n');
+    }
     const thresh = calcModelThreshold(m);
     const pts = calcModelPoints(m);
     const label = threshLabel(thresh);

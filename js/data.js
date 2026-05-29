@@ -472,9 +472,9 @@ export function updateModel(id, fields) {
 }
 
 export function deleteModel(id) {
-  // Remove from all lists
   Object.values(appData.lists).forEach(list => {
     list.modelIds = list.modelIds.filter(mid => mid !== id);
+    if (list.modelSplits) delete list.modelSplits[id];
   });
   delete appData.models[id];
   saveData();
@@ -542,19 +542,39 @@ export function modelPoints(model) {
 }
 
 export function listStats(list) {
-  const models = (list.modelIds || []).map(id => appData.models[id]).filter(Boolean);
+  const modelSplits = list.modelSplits || {};
   let totalPts = 0, donePts = 0;
   let tableReady = 0, painted = 0, finished = 0, total = 0;
 
-  models.forEach(m => {
-    const pts = modelPoints(m);
-    totalPts += pts.total;
-    donePts += pts.done;
-    total += m.quantity;
-    const thresh = modelThreshold(m);
-    if (thresh === 'table_ready' || thresh === 'painted' || thresh === 'finished') tableReady += m.quantity;
-    if (thresh === 'painted' || thresh === 'finished') painted += m.quantity;
-    if (thresh === 'finished') finished += m.quantity;
+  (list.modelIds || []).forEach(id => {
+    const m = appData.models[id];
+    if (!m) return;
+    const splits = modelSplits[id];
+    if (splits && splits.length > 0) {
+      let offset = 0;
+      splits.forEach(split => {
+        if (split.inList) {
+          const pts = splitModelPoints(m, split.size, offset);
+          const thresh = splitModelThreshold(m, split.size, offset);
+          totalPts += pts.total;
+          donePts += pts.done;
+          total += split.size;
+          if (thresh === 'table_ready' || thresh === 'painted' || thresh === 'finished') tableReady += split.size;
+          if (thresh === 'painted' || thresh === 'finished') painted += split.size;
+          if (thresh === 'finished') finished += split.size;
+        }
+        offset += split.size;
+      });
+    } else {
+      const pts = modelPoints(m);
+      totalPts += pts.total;
+      donePts += pts.done;
+      total += m.quantity;
+      const thresh = modelThreshold(m);
+      if (thresh === 'table_ready' || thresh === 'painted' || thresh === 'finished') tableReady += m.quantity;
+      if (thresh === 'painted' || thresh === 'finished') painted += m.quantity;
+      if (thresh === 'finished') finished += m.quantity;
+    }
   });
 
   return {
@@ -634,8 +654,72 @@ export function removeModelFromList(listId, modelId) {
   const list = appData.lists[listId];
   if (list) {
     list.modelIds = list.modelIds.filter(id => id !== modelId);
+    if (list.modelSplits) delete list.modelSplits[modelId];
     saveData();
   }
+}
+
+export function setModelSplits(listId, modelId, splits) {
+  const list = appData.lists[listId];
+  if (!list) return;
+  if (!list.modelSplits) list.modelSplits = {};
+  list.modelSplits[modelId] = splits;
+  saveData();
+}
+
+export function removeModelSplits(listId, modelId) {
+  const list = appData.lists[listId];
+  if (!list || !list.modelSplits) return;
+  delete list.modelSplits[modelId];
+  saveData();
+}
+
+// Returns points for a virtual slice of a model (most-finished-first ordering).
+// offset = number of models in preceding splits; splitSize = models in this split.
+export function splitModelPoints(model, splitSize, offset) {
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+  let total = 0, done = 0;
+  stages.forEach(s => {
+    if (skipped.includes(s.id)) return;
+    total += (s.points || 1) * splitSize;
+    const rawDone = model.progress[s.id]?.done || 0;
+    const splitDone = Math.max(0, Math.min(rawDone - offset, splitSize));
+    done += splitDone * (s.points || 1);
+  });
+  return { total, done, pct: total ? Math.round(done / total * 100) : 0 };
+}
+
+// Returns threshold for a virtual slice of a model (most-finished-first ordering).
+export function splitModelThreshold(model, splitSize, offset) {
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+  const activeStages = stages.filter(s => !skipped.includes(s.id));
+
+  const getSplitDone = s => {
+    const rawDone = model.progress[s.id]?.done || 0;
+    return Math.max(0, Math.min(rawDone - offset, splitSize));
+  };
+
+  const hasAnyProgress = activeStages.some(s => getSplitDone(s) > 0);
+
+  const hasThresholds = stages.some(s => s.threshold);
+  if (!hasThresholds) {
+    const allDone = activeStages.length > 0 && activeStages.every(s => getSplitDone(s) >= splitSize);
+    if (allDone) return 'finished';
+    return hasAnyProgress ? null : 'not_started';
+  }
+
+  for (const thresh of ['finished', 'painted', 'table_ready']) {
+    const threshStageIdx = stages.findIndex(s => s.threshold === thresh);
+    if (threshStageIdx === -1) continue;
+    const allDone = stages.slice(0, threshStageIdx + 1).every(s => {
+      if (skipped.includes(s.id)) return true;
+      return getSplitDone(s) >= splitSize;
+    });
+    if (allDone) return thresh;
+  }
+  return hasAnyProgress ? null : 'not_started';
 }
 
 // --- Session helpers ---
