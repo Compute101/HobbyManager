@@ -71,7 +71,7 @@ export const BUILTIN_MODEL_TYPES = [
     stages: [
       { id: 's1', name: 'Assembly',  points: 3, phase: 'assembly', skippable: false, threshold: 'table_ready' },
       { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 6, phase: 'painting', skippable: false, threshold: null },
       { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
       { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
       { id: 's6', name: 'Highlight', points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
