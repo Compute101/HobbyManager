@@ -63,9 +63,6 @@ function renderCalendar(sessions) {
     d.setDate(d.getDate() + 1);
   }
 
-  // Max points in a day for intensity scaling
-  const maxPts = Math.max(1, ...Object.values(byDate));
-
   // Month labels
   const months = [];
   let lastMonth = -1;
@@ -74,7 +71,7 @@ function renderCalendar(sessions) {
 
   days.forEach((date, i) => {
     const pts = byDate[date] || 0;
-    const intensity = pts === 0 ? 0 : Math.ceil((pts / maxPts) * 4);
+    const intensity = pts === 0 ? 0 : pts <= 5 ? 1 : pts <= 15 ? 2 : pts <= 30 ? 3 : 4;
     const month = parseInt(date.split('-')[1]);
 
     if (month !== lastMonth) {
