@@ -274,10 +274,11 @@ export function renderBurndown(canvasId, models, deadline) {
   const dateRange = [...allDates].sort();
 
   let cumSoFar = 0;
-  const actualData = dateRange.map(d => {
+  const actualData = [];
+  dateRange.forEach(d => {
     const entry = cumulativeDates.find(e => e.d === d);
     if (entry) cumSoFar = entry.cum;
-    return d <= todayStr ? cumSoFar : null;
+    if (d <= todayStr) actualData.push({ x: d, y: cumSoFar });
   });
 
   const datasets = [{
@@ -287,14 +288,16 @@ export function renderBurndown(canvasId, models, deadline) {
     backgroundColor: accent() + '26',
     pointRadius: 4,
     tension: 0.3,
-    fill: true,
-    spanGaps: false
+    fill: true
   }];
 
   if (deadline) {
     datasets.push({
       label: 'Ideal',
-      data: dateRange.map((_, i) => Math.round((i / (dateRange.length - 1 || 1)) * totalPts)),
+      data: [
+        { x: dateRange[0], y: 0 },
+        { x: deadline, y: totalPts }
+      ],
       borderColor: '#666',
       borderDash: [6, 4],
       pointRadius: 0,
@@ -305,7 +308,7 @@ export function renderBurndown(canvasId, models, deadline) {
 
   _charts[canvasId] = new Chart(canvas.getContext('2d'), {
     type: 'line',
-    data: { labels: dateRange, datasets },
+    data: { datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -314,7 +317,15 @@ export function renderBurndown(canvasId, models, deadline) {
         tooltip: { mode: 'index', intersect: false }
       },
       scales: {
-        x: { ticks: { color: tickColor(), maxTicksLimit: 8 }, grid: { color: gridColor() } },
+        x: {
+          type: 'time',
+          time: {
+            tooltipFormat: 'yyyy-MM-dd',
+            displayFormats: { day: 'MMM d', week: 'MMM d', month: 'MMM yyyy' }
+          },
+          ticks: { color: tickColor(), maxTicksLimit: 8 },
+          grid: { color: gridColor() }
+        },
         y: {
           min: 0, max: totalPts || 10,
           ticks: { color: tickColor() }, grid: { color: gridColor() },
