@@ -1,7 +1,7 @@
 // activity.js — painting activity calendar and session history
 
-import { appData } from './data.js';
-import { formatDate, localDateStr } from './ui.js';
+import { appData, deleteSession } from './data.js';
+import { formatDate, localDateStr, showConfirm, toast } from './ui.js';
 
 export function renderActivity() {
   const container = document.getElementById('activityView');
@@ -24,6 +24,20 @@ export function renderActivity() {
 
   renderCalendar(sessions);
   renderSessionHistory(sessions);
+
+  container.querySelectorAll('[data-delete-session]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.deleteSession;
+      showConfirm({
+        message: 'Delete this activity log entry? This cannot be undone.',
+        onConfirm: () => {
+          deleteSession(id);
+          toast('Activity entry deleted', 'info');
+          renderActivity();
+        }
+      });
+    });
+  });
 }
 
 // --- Calendar (GitHub contribution graph style) ---
@@ -223,7 +237,10 @@ function sessionRow(s) {
     <div class="session-item">
       <div class="session-item-header">
         <span class="session-date">${s.date}</span>
-        ${s.duration ? `<span class="session-dur">⏱️ ${s.duration} mins</span>` : ''}
+        <span class="session-item-right">
+          ${s.duration ? `<span class="session-dur">⏱️ ${s.duration} mins</span>` : ''}
+          <button class="btn btn-sm btn-danger session-delete" data-delete-session="${s.id}" title="Delete entry">🗑️</button>
+        </span>
       </div>
       ${models ? `<div class="session-models">${models}</div>` : ''}
       ${s.notes ? `<div class="session-notes">${s.notes}</div>` : ''}
