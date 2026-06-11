@@ -734,6 +734,11 @@ export function logSession({ date, duration, notes, modelEntries }) {
   return id;
 }
 
+export function deleteSession(id) {
+  appData.sessions = appData.sessions.filter(s => s.id !== id);
+  saveData();
+}
+
 // --- Folder helpers ---
 
 export function createFolder(name) {
