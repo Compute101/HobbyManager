@@ -340,7 +340,8 @@ export let appData = {
     modelTypes: [],
     modelTypeOverrides: {},
     weeklyGoal: 0,
-    imageSize: 'small'
+    imageSize: 'small',
+    pieChartMode: 'count'
   },
   folders: {}, // id -> { id, name, collapsed }
   queues: {}   // id -> { id, name, entries: [{id, modelId, note}] }
@@ -388,7 +389,8 @@ export function loadData() {
           modelTypes: parsed.config?.modelTypes || [],
           modelTypeOverrides: parsed.config?.modelTypeOverrides || {},
           weeklyGoal: parsed.config?.weeklyGoal || 0,
-          imageSize: parsed.config?.imageSize || 'small'
+          imageSize: parsed.config?.imageSize || 'small',
+          pieChartMode: parsed.config?.pieChartMode || 'count'
         }
       };
     }
@@ -430,7 +432,8 @@ export function replaceData(parsed) {
       modelTypes: parsed.config?.modelTypes || [],
       modelTypeOverrides: parsed.config?.modelTypeOverrides || {},
       weeklyGoal: parsed.config?.weeklyGoal || 0,
-      imageSize: parsed.config?.imageSize || 'small'
+      imageSize: parsed.config?.imageSize || 'small',
+      pieChartMode: parsed.config?.pieChartMode || 'count'
     }
   };
   saveData();

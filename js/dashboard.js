@@ -2,7 +2,7 @@
 
 import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount } from './data.js';
 import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
-import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie } from './charts.js';
+import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
 
 export function renderDashboard() {
@@ -59,7 +59,10 @@ export function renderDashboard() {
 
       <!-- Completion status pie -->
       <div class="dash-card dash-chart-card">
-        <h3>Completion Status</h3>
+        <div class="pile-card-header">
+          <h3>Completion Status</h3>
+          ${pieModeToggleHtml()}
+        </div>
         <div class="chart-wrap"><canvas id="completionPie"></canvas></div>
       </div>
 
@@ -120,6 +123,9 @@ export function renderDashboard() {
       renderDashboard();
     }
   });
+
+  // Pie chart weighting toggle (by model count or hobby points)
+  wirePieModeToggle(container, () => renderDashboard());
 
   // Render pie charts
   requestAnimationFrame(() => {
