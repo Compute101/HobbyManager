@@ -9,7 +9,7 @@ import {
 import { showModal, closeModal, showConfirm, toast, progressBar, thresholdBadge, createDateInput, getDateValue, formatDate } from './ui.js';
 import { applyTheme, resetTheme, setCurrentSystem, resetCurrentSystem, getTerm } from './theme.js';
 import { showLogProgress, showModelDetail } from './models.js';
-import { renderListCompletionPie } from './charts.js';
+import { renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle } from './charts.js';
 import { showImportModal } from './import.js';
 
 let activeCollectionId = null;
@@ -240,7 +240,10 @@ function selectList(listId) {
       </div>
     </div>
     <div class="dash-card list-completion-chart">
-      <h3>Completion Breakdown</h3>
+      <div class="pile-card-header">
+        <h3>Completion Breakdown</h3>
+        ${pieModeToggleHtml()}
+      </div>
       <div class="chart-wrap"><canvas id="listCompletionPieChart"></canvas></div>
     </div>
     <div class="list-models-header">
@@ -299,6 +302,7 @@ function selectList(listId) {
       if (model) showSplitModal(model, listId);
     });
   });
+  wirePieModeToggle(main, () => selectList(listId));
   requestAnimationFrame(() => renderListCompletionPie('listCompletionPieChart', models));
 }
 

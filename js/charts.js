@@ -1,6 +1,6 @@
 // charts.js — all Chart.js rendering
 
-import { appData, GAME_SYSTEMS } from './data.js';
+import { appData, GAME_SYSTEMS, modelPoints, saveData } from './data.js';
 
 // Track chart instances so we can destroy before re-creating
 const _charts = {};
@@ -15,6 +15,41 @@ function accent() {
 
 function gridColor() { return '#2a2a3a'; }
 function tickColor() { return '#888'; }
+
+// ----------------------------------------------------------------
+// Completion pie weighting mode — by model count or by hobby points.
+// A single global, persisted setting shared by all completion pies.
+// ----------------------------------------------------------------
+export function getPieChartMode() {
+  return appData.config.pieChartMode === 'points' ? 'points' : 'count';
+}
+
+export function pieModeToggleHtml() {
+  const mode = getPieChartMode();
+  return `
+    <div class="pie-mode-toggle">
+      <button class="btn btn-xs pie-mode-btn ${mode === 'count' ? 'active' : ''}" data-pie-mode="count">📦 Models</button>
+      <button class="btn btn-xs pie-mode-btn ${mode === 'points' ? 'active' : ''}" data-pie-mode="points">⭐ Points</button>
+    </div>
+  `;
+}
+
+export function wirePieModeToggle(container, onChange) {
+  container.querySelectorAll('[data-pie-mode]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const newMode = btn.dataset.pieMode;
+      if (getPieChartMode() === newMode) return;
+      appData.config.pieChartMode = newMode;
+      saveData();
+      onChange();
+    });
+  });
+}
+
+// Weight of a model entry for completion pies: head count, or its total hobby points.
+function completionWeight(model, mode) {
+  return mode === 'points' ? modelPoints(model).total : model.quantity;
+}
 
 // ----------------------------------------------------------------
 // PIE: Collection composition by game system
@@ -100,16 +135,18 @@ export function renderCompletionPie(canvasId) {
   if (!canvas) return;
   destroyChart(canvasId);
 
+  const mode = getPieChartMode();
+  const unit = mode === 'points' ? 'pts' : 'models';
   let finished = 0, painted = 0, tableReady = 0, inProgress = 0, notStarted = 0;
 
   Object.values(appData.models).forEach(m => {
     const thresh = calcModelThreshold(m);
-    const qty = m.quantity;
-    if (thresh === 'finished')          finished    += qty;
-    else if (thresh === 'painted')      painted     += qty;
-    else if (thresh === 'table_ready')  tableReady  += qty;
-    else if (thresh === 'not_started')  notStarted  += qty;
-    else                                inProgress  += qty;
+    const weight = completionWeight(m, mode);
+    if (thresh === 'finished')          finished    += weight;
+    else if (thresh === 'painted')      painted     += weight;
+    else if (thresh === 'table_ready')  tableReady  += weight;
+    else if (thresh === 'not_started')  notStarted  += weight;
+    else                                inProgress  += weight;
   });
 
   const total = finished + painted + tableReady + inProgress + notStarted;
@@ -134,7 +171,7 @@ export function renderCompletionPie(canvasId) {
       maintainAspectRatio: false,
       plugins: {
         legend: { position: 'bottom', labels: { color: '#ccc', padding: 10, font: { size: 11 } } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/total*100)}%)` } }
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} ${unit} (${Math.round(ctx.parsed/total*100)}%)` } }
       }
     }
   });
@@ -148,15 +185,17 @@ export function renderListCompletionPie(canvasId, models) {
   if (!canvas) return;
   destroyChart(canvasId);
 
+  const mode = getPieChartMode();
+  const unit = mode === 'points' ? 'pts' : 'models';
   let finished = 0, painted = 0, tableReady = 0, inProgress = 0, notStarted = 0;
   models.forEach(m => {
     const thresh = calcModelThreshold(m);
-    const qty = m.quantity;
-    if (thresh === 'finished')          finished   += qty;
-    else if (thresh === 'painted')      painted    += qty;
-    else if (thresh === 'table_ready')  tableReady += qty;
-    else if (thresh === 'not_started')  notStarted += qty;
-    else                                inProgress += qty;
+    const weight = completionWeight(m, mode);
+    if (thresh === 'finished')          finished   += weight;
+    else if (thresh === 'painted')      painted    += weight;
+    else if (thresh === 'table_ready')  tableReady += weight;
+    else if (thresh === 'not_started')  notStarted += weight;
+    else                                inProgress += weight;
   });
 
   const total = finished + painted + tableReady + inProgress + notStarted;
@@ -181,7 +220,7 @@ export function renderListCompletionPie(canvasId, models) {
       maintainAspectRatio: false,
       plugins: {
         legend: { position: 'bottom', labels: { color: '#ccc', padding: 10, font: { size: 11 } } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} (${Math.round(ctx.parsed/total*100)}%)` } }
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} ${unit} (${Math.round(ctx.parsed/total*100)}%)` } }
       }
     }
   });
