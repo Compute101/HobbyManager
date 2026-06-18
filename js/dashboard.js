@@ -68,7 +68,10 @@ export function renderDashboard() {
 
       <!-- Collection composition pie -->
       <div class="dash-card dash-chart-card">
-        <h3>Collection by Game System</h3>
+        <div class="pile-card-header">
+          <h3>Collection by Game System</h3>
+          ${pieModeToggleHtml()}
+        </div>
         <div class="chart-wrap"><canvas id="compositionPie"></canvas></div>
       </div>
 
@@ -390,7 +393,10 @@ function armyCompletionSection() {
   if (!lists.length) return '';
   return `
     <div class="dash-card dash-army-breakdown">
-      <h3>Army Completion Breakdown</h3>
+      <div class="pile-card-header">
+        <h3>Army Completion Breakdown</h3>
+        ${pieModeToggleHtml()}
+      </div>
       <div class="army-pie-grid">
         ${lists.map(list => {
           const col = appData.collections[list.collectionId];

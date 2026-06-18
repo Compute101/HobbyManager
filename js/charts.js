@@ -17,8 +17,8 @@ function gridColor() { return '#2a2a3a'; }
 function tickColor() { return '#888'; }
 
 // ----------------------------------------------------------------
-// Completion pie weighting mode — by model count or by hobby points.
-// A single global, persisted setting shared by all completion pies.
+// Pie chart weighting mode — by model count or by hobby points.
+// A single global, persisted setting shared by all pool/army pies.
 // ----------------------------------------------------------------
 export function getPieChartMode() {
   return appData.config.pieChartMode === 'points' ? 'points' : 'count';
@@ -46,8 +46,8 @@ export function wirePieModeToggle(container, onChange) {
   });
 }
 
-// Weight of a model entry for completion pies: head count, or its total hobby points.
-function completionWeight(model, mode) {
+// Weight of a model entry for these pies: head count, or its total hobby points.
+function modelWeight(model, mode) {
   return mode === 'points' ? modelPoints(model).total : model.quantity;
 }
 
@@ -59,6 +59,8 @@ export function renderCompositionPie(canvasId) {
   if (!canvas) return;
   destroyChart(canvasId);
 
+  const mode = getPieChartMode();
+  const unit = mode === 'points' ? 'pts' : 'models';
   const systemCounts = {};
   let unassigned = 0;
 
@@ -74,14 +76,15 @@ export function renderCompositionPie(canvasId) {
     });
   });
 
-  // Count quantities per system (model counts in each system it belongs to)
+  // Weight (model count or hobby points) per system it belongs to
   Object.values(appData.models).forEach(m => {
     const systems = modelSystems[m.id];
+    const weight = modelWeight(m, mode);
     if (!systems || systems.size === 0) {
-      unassigned += m.quantity;
+      unassigned += weight;
     } else {
       systems.forEach(sysId => {
-        systemCounts[sysId] = (systemCounts[sysId] || 0) + m.quantity;
+        systemCounts[sysId] = (systemCounts[sysId] || 0) + weight;
       });
     }
   });
@@ -121,7 +124,7 @@ export function renderCompositionPie(canvasId) {
       maintainAspectRatio: false,
       plugins: {
         legend: { position: 'bottom', labels: { color: '#ccc', padding: 10, font: { size: 11 } } },
-        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} models` } }
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed} ${unit}` } }
       }
     }
   });
@@ -141,7 +144,7 @@ export function renderCompletionPie(canvasId) {
 
   Object.values(appData.models).forEach(m => {
     const thresh = calcModelThreshold(m);
-    const weight = completionWeight(m, mode);
+    const weight = modelWeight(m, mode);
     if (thresh === 'finished')          finished    += weight;
     else if (thresh === 'painted')      painted     += weight;
     else if (thresh === 'table_ready')  tableReady  += weight;
@@ -190,7 +193,7 @@ export function renderListCompletionPie(canvasId, models) {
   let finished = 0, painted = 0, tableReady = 0, inProgress = 0, notStarted = 0;
   models.forEach(m => {
     const thresh = calcModelThreshold(m);
-    const weight = completionWeight(m, mode);
+    const weight = modelWeight(m, mode);
     if (thresh === 'finished')          finished   += weight;
     else if (thresh === 'painted')      painted    += weight;
     else if (thresh === 'table_ready')  tableReady += weight;
