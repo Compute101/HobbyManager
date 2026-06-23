@@ -530,6 +530,63 @@ export function unstartedCount(model) {
   return Math.max(0, model.quantity - maxDone);
 }
 
+// Splits a unit's quantity across threshold tiers instead of bucketing the
+// whole unit by whether EVERY model in it has crossed a given tier — e.g. a
+// unit of 20 with 18 finished and 2 untouched reports {finished:18, ..., notStarted:2}
+// rather than treating the whole 20 as a single not-yet-finished blob.
+function thresholdBreakdown(stages, skipped, qty, doneAt) {
+  const activeStages = stages.filter(s => !skipped.includes(s.id));
+  const reachedThrough = idx => {
+    let min = qty;
+    for (let i = 0; i <= idx; i++) {
+      if (skipped.includes(stages[i].id)) continue;
+      min = Math.min(min, doneAt(stages[i]));
+    }
+    return min;
+  };
+  const maxStarted = activeStages.reduce((max, s) => Math.max(max, doneAt(s)), 0);
+
+  const hasThresholds = stages.some(s => s.threshold);
+  if (!hasThresholds) {
+    const finished = activeStages.length ? reachedThrough(stages.length - 1) : 0;
+    const inProgress = Math.max(0, maxStarted - finished);
+    const notStarted = Math.max(0, qty - finished - inProgress);
+    return { finished, painted: 0, tableReady: 0, inProgress, notStarted };
+  }
+
+  const counts = { finished: 0, painted: 0, tableReady: 0 };
+  let prevReached = 0;
+  ['finished', 'painted', 'table_ready'].forEach(thresh => {
+    const idx = stages.findIndex(s => s.threshold === thresh);
+    if (idx === -1) return;
+    const reached = reachedThrough(idx);
+    counts[thresh === 'table_ready' ? 'tableReady' : thresh] = Math.max(0, reached - prevReached);
+    prevReached = reached;
+  });
+
+  const inProgress = Math.max(0, maxStarted - prevReached);
+  const notStarted = Math.max(0, qty - prevReached - inProgress);
+  return { ...counts, inProgress, notStarted };
+}
+
+// Per-tier counts for a whole model entry (finished/painted/tableReady/inProgress/notStarted sum to model.quantity).
+export function modelThresholdBreakdown(model) {
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+  return thresholdBreakdown(stages, skipped, model.quantity, s => Math.min(model.progress[s.id]?.done || 0, model.quantity));
+}
+
+// Per-tier counts for a virtual slice of a model (most-finished-first ordering), mirroring splitModelThreshold.
+function splitThresholdBreakdown(model, splitSize, offset) {
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+  const doneAt = s => {
+    const rawDone = model.progress[s.id]?.done || 0;
+    return Math.max(0, Math.min(rawDone - offset, splitSize));
+  };
+  return thresholdBreakdown(stages, skipped, splitSize, doneAt);
+}
+
 export function modelPoints(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
@@ -558,25 +615,25 @@ export function listStats(list) {
       splits.forEach(split => {
         if (split.inList) {
           const pts = splitModelPoints(m, split.size, offset);
-          const thresh = splitModelThreshold(m, split.size, offset);
+          const b = splitThresholdBreakdown(m, split.size, offset);
           totalPts += pts.total;
           donePts += pts.done;
           total += split.size;
-          if (thresh === 'table_ready' || thresh === 'painted' || thresh === 'finished') tableReady += split.size;
-          if (thresh === 'painted' || thresh === 'finished') painted += split.size;
-          if (thresh === 'finished') finished += split.size;
+          tableReady += b.finished + b.painted + b.tableReady;
+          painted += b.finished + b.painted;
+          finished += b.finished;
         }
         offset += split.size;
       });
     } else {
       const pts = modelPoints(m);
+      const b = modelThresholdBreakdown(m);
       totalPts += pts.total;
       donePts += pts.done;
       total += m.quantity;
-      const thresh = modelThreshold(m);
-      if (thresh === 'table_ready' || thresh === 'painted' || thresh === 'finished') tableReady += m.quantity;
-      if (thresh === 'painted' || thresh === 'finished') painted += m.quantity;
-      if (thresh === 'finished') finished += m.quantity;
+      tableReady += b.finished + b.painted + b.tableReady;
+      painted += b.finished + b.painted;
+      finished += b.finished;
     }
   });
 
@@ -594,13 +651,13 @@ export function globalStats() {
 
   models.forEach(m => {
     const pts = modelPoints(m);
+    const b = modelThresholdBreakdown(m);
     totalPts += pts.total;
     donePts += pts.done;
     total += m.quantity;
-    const thresh = modelThreshold(m);
-    if (thresh === 'table_ready' || thresh === 'painted' || thresh === 'finished') tableReady += m.quantity;
-    if (thresh === 'painted' || thresh === 'finished') painted += m.quantity;
-    if (thresh === 'finished') finished += m.quantity;
+    tableReady += b.finished + b.painted + b.tableReady;
+    painted += b.finished + b.painted;
+    finished += b.finished;
   });
 
   return { total, tableReady, painted, finished, totalPts, donePts, pct: totalPts ? Math.round(donePts / totalPts * 100) : 0 };
