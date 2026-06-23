@@ -290,6 +290,8 @@ function showAddToQueue(queueId) {
   const alreadyInQueue = new Set(queue.entries.map(e => e.modelId));
   const allModels = Object.values(appData.models);
   const folders = Object.values(appData.folders || {}).sort((a, b) => a.name.localeCompare(b.name));
+  // Selections persist here so they survive the picker re-rendering on search/folder filter changes
+  const selected = new Set();
 
   const content = document.createElement('div');
 
@@ -306,7 +308,7 @@ function showAddToQueue(queueId) {
 
     return available.map(m => `
       <label class="pool-pick-item">
-        <input type="checkbox" value="${m.id}">
+        <input type="checkbox" value="${m.id}" ${selected.has(m.id) ? 'checked' : ''}>
         <span class="pool-pick-name">${m.name}</span>
         <span class="pool-pick-qty">×${m.quantity}</span>
         ${m.folderId && appData.folders?.[m.folderId] ? `<span class="pool-pick-folder">📁 ${appData.folders[m.folderId].name}</span>` : ''}
@@ -331,20 +333,28 @@ function showAddToQueue(queueId) {
     </div>
   `;
 
+  const picker = content.querySelector('#queuePicker');
+
   const updatePicker = () => {
-    content.querySelector('#queuePicker').innerHTML = renderPicker(
+    picker.innerHTML = renderPicker(
       content.querySelector('#queueSearch').value,
       content.querySelector('#queueFolderFilter').value
     );
   };
 
+  // Delegated listener: the picker's checkboxes get replaced on every filter change,
+  // so track checked state in `selected` rather than reading the DOM at save time.
+  picker.addEventListener('change', e => {
+    if (!e.target.matches('input[type="checkbox"]')) return;
+    if (e.target.checked) selected.add(e.target.value);
+    else selected.delete(e.target.value);
+  });
+
   content.querySelector('#queueSearch').addEventListener('input', updatePicker);
   content.querySelector('#queueFolderFilter').addEventListener('change', updatePicker);
 
   content.querySelector('#queuePickSave').addEventListener('click', () => {
-    content.querySelectorAll('#queuePicker input:checked').forEach(cb => {
-      addToQueue(queueId, cb.value);
-    });
+    selected.forEach(modelId => addToQueue(queueId, modelId));
     closeModal();
     renderQueues();
   });
