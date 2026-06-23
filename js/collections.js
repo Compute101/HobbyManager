@@ -524,6 +524,8 @@ function showAddModelToList(listId) {
   const allModels = Object.values(appData.models);
   const already = list.modelIds || [];
   const folders = Object.values(appData.folders).sort((a,b) => a.name.localeCompare(b.name));
+  // Selections persist here so they survive the picker re-rendering on search/folder filter changes
+  const selected = new Set();
 
   const content = document.createElement('div');
 
@@ -535,7 +537,7 @@ function showAddModelToList(listId) {
     });
     return filtered.map(m => `
       <label class="pool-pick-item ${already.includes(m.id) ? 'already-in' : ''}">
-        <input type="checkbox" value="${m.id}" ${already.includes(m.id) ? 'checked disabled' : ''}>
+        <input type="checkbox" value="${m.id}" ${already.includes(m.id) ? 'checked disabled' : (selected.has(m.id) ? 'checked' : '')}>
         <span class="pool-pick-name">${m.name}</span>
         <span class="pool-pick-qty">×${m.quantity}</span>
         ${m.folderId && appData.folders[m.folderId] ? `<span class="pool-pick-folder">📁 ${appData.folders[m.folderId].name}</span>` : ''}
@@ -561,9 +563,11 @@ function showAddModelToList(listId) {
     </div>
   `;
 
+  const picker = content.querySelector('#poolPicker');
+
   const updateSelectAllLabel = () => {
     const btn = content.querySelector('#poolSelectAll');
-    const checkboxes = content.querySelectorAll('#poolPicker input[type="checkbox"]:not(:disabled)');
+    const checkboxes = picker.querySelectorAll('input[type="checkbox"]:not(:disabled)');
     const allChecked = checkboxes.length > 0 && [...checkboxes].every(cb => cb.checked);
     btn.textContent = allChecked ? 'Deselect All' : 'Select All';
   };
@@ -571,24 +575,35 @@ function showAddModelToList(listId) {
   const updatePicker = () => {
     const filter = content.querySelector('#poolSearch').value;
     const folderId = content.querySelector('#poolFolderFilter').value;
-    content.querySelector('#poolPicker').innerHTML = renderPicker(filter, folderId);
+    picker.innerHTML = renderPicker(filter, folderId);
     updateSelectAllLabel();
   };
+
+  // Delegated listener: the picker's checkboxes get replaced on every filter change,
+  // so track checked state in `selected` rather than reading the DOM at save time.
+  picker.addEventListener('change', e => {
+    if (!e.target.matches('input[type="checkbox"]') || e.target.disabled) return;
+    if (e.target.checked) selected.add(e.target.value);
+    else selected.delete(e.target.value);
+    updateSelectAllLabel();
+  });
 
   content.querySelector('#poolSearch').addEventListener('input', updatePicker);
   content.querySelector('#poolFolderFilter').addEventListener('change', updatePicker);
 
   content.querySelector('#poolSelectAll').addEventListener('click', () => {
-    const checkboxes = content.querySelectorAll('#poolPicker input[type="checkbox"]:not(:disabled)');
-    const allChecked = [...checkboxes].every(cb => cb.checked);
-    checkboxes.forEach(cb => { cb.checked = !allChecked; });
+    const checkboxes = picker.querySelectorAll('input[type="checkbox"]:not(:disabled)');
+    const allChecked = checkboxes.length > 0 && [...checkboxes].every(cb => cb.checked);
+    checkboxes.forEach(cb => {
+      cb.checked = !allChecked;
+      if (cb.checked) selected.add(cb.value);
+      else selected.delete(cb.value);
+    });
     updateSelectAllLabel();
   });
 
   content.querySelector('#poolPickSave')?.addEventListener('click', () => {
-    content.querySelectorAll('#poolPicker input:checked:not(:disabled)').forEach(cb => {
-      addModelToList(listId, cb.value);
-    });
+    selected.forEach(modelId => addModelToList(listId, modelId));
     toast('Models added to list!', 'success');
     closeModal();
     selectList(listId);
