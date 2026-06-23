@@ -1,6 +1,6 @@
 // charts.js — all Chart.js rendering
 
-import { appData, GAME_SYSTEMS, modelPoints, saveData } from './data.js';
+import { appData, GAME_SYSTEMS, modelPoints, modelThresholdBreakdown, saveData } from './data.js';
 
 // Track chart instances so we can destroy before re-creating
 const _charts = {};
@@ -49,6 +49,13 @@ export function wirePieModeToggle(container, onChange) {
 // Weight of a model entry for these pies: head count, or its total hobby points.
 function modelWeight(model, mode) {
   return mode === 'points' ? modelPoints(model).total : model.quantity;
+}
+
+// Weight of `count` models out of a unit, for these pies: head count, or their share of hobby points.
+function tierWeight(model, count, mode) {
+  if (mode !== 'points') return count;
+  if (!model.quantity) return 0;
+  return count * (modelPoints(model).total / model.quantity);
 }
 
 // ----------------------------------------------------------------
@@ -143,13 +150,12 @@ export function renderCompletionPie(canvasId) {
   let finished = 0, painted = 0, tableReady = 0, inProgress = 0, notStarted = 0;
 
   Object.values(appData.models).forEach(m => {
-    const thresh = calcModelThreshold(m);
-    const weight = modelWeight(m, mode);
-    if (thresh === 'finished')          finished    += weight;
-    else if (thresh === 'painted')      painted     += weight;
-    else if (thresh === 'table_ready')  tableReady  += weight;
-    else if (thresh === 'not_started')  notStarted  += weight;
-    else                                inProgress  += weight;
+    const b = modelThresholdBreakdown(m);
+    finished   += tierWeight(m, b.finished, mode);
+    painted    += tierWeight(m, b.painted, mode);
+    tableReady += tierWeight(m, b.tableReady, mode);
+    inProgress += tierWeight(m, b.inProgress, mode);
+    notStarted += tierWeight(m, b.notStarted, mode);
   });
 
   const total = finished + painted + tableReady + inProgress + notStarted;
@@ -192,13 +198,12 @@ export function renderListCompletionPie(canvasId, models) {
   const unit = mode === 'points' ? 'pts' : 'models';
   let finished = 0, painted = 0, tableReady = 0, inProgress = 0, notStarted = 0;
   models.forEach(m => {
-    const thresh = calcModelThreshold(m);
-    const weight = modelWeight(m, mode);
-    if (thresh === 'finished')          finished   += weight;
-    else if (thresh === 'painted')      painted    += weight;
-    else if (thresh === 'table_ready')  tableReady += weight;
-    else if (thresh === 'not_started')  notStarted += weight;
-    else                                inProgress += weight;
+    const b = modelThresholdBreakdown(m);
+    finished   += tierWeight(m, b.finished, mode);
+    painted    += tierWeight(m, b.painted, mode);
+    tableReady += tierWeight(m, b.tableReady, mode);
+    inProgress += tierWeight(m, b.inProgress, mode);
+    notStarted += tierWeight(m, b.notStarted, mode);
   });
 
   const total = finished + painted + tableReady + inProgress + notStarted;
@@ -376,35 +381,6 @@ export function renderBurndown(canvasId, models, deadline) {
       }
     }
   });
-}
-
-// ----------------------------------------------------------------
-// Inline threshold helper (avoids circular import)
-// ----------------------------------------------------------------
-function calcModelThreshold(model) {
-  const stages = model.stages || appData.config.stages;
-  const skipped = model.skippedStages || [];
-  const activeStages = stages.filter(s => !skipped.includes(s.id));
-  const hasAnyProgress = activeStages.some(s => (model.progress[s.id]?.done || 0) > 0);
-
-  const hasThresholds = stages.some(s => s.threshold);
-  if (!hasThresholds) {
-    const allDone = activeStages.length > 0 &&
-      activeStages.every(s => (model.progress[s.id]?.done || 0) >= model.quantity);
-    if (allDone) return 'finished';
-    return hasAnyProgress ? null : 'not_started';
-  }
-
-  for (const thresh of ['finished', 'painted', 'table_ready']) {
-    const threshStageIdx = stages.findIndex(s => s.threshold === thresh);
-    if (threshStageIdx === -1) continue;
-    const allDone = stages.slice(0, threshStageIdx + 1).every(s => {
-      if (skipped.includes(s.id)) return true;
-      return (model.progress[s.id]?.done || 0) >= model.quantity;
-    });
-    if (allDone) return thresh;
-  }
-  return hasAnyProgress ? null : 'not_started';
 }
 
 export function destroyAllCharts() {
