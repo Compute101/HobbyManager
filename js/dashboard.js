@@ -531,7 +531,7 @@ function pileOfPotentialSection() {
       ${!withUnstarted.length
         ? `<p class="empty-text">Your pile of potential is empty — no models still on the sprue. Impressive!</p>`
         : `
-          <div class="pile-total">⬜ ${totalCount} model${totalCount !== 1 ? 's' : ''} still on the sprue</div>
+          <div class="pile-total">💀 ${totalCount} model${totalCount !== 1 ? 's' : ''} still on the sprue</div>
           <div class="pile-groups">${systemSections}</div>
         `
       }
@@ -572,7 +572,7 @@ function sharePileOfPotential() {
   }).join('\n\n');
 
   const text = [
-    `⬜ My Pile of Potential`,
+    `💀 My Pile of Potential`,
     `${'━'.repeat(24)}`,
     ``,
     `${totalCount} model${totalCount !== 1 ? 's' : ''} still on the sprue...`,
