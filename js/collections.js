@@ -737,7 +737,7 @@ function shareList(listId) {
     if (thresh === 'finished')     return '🏆 Finished';
     if (thresh === 'painted')      return '🎨 Painted';
     if (thresh === 'table_ready')  return '⚔️ Table Ready';
-    if (thresh === 'not_started')  return '⬜ Not Started';
+    if (thresh === 'not_started')  return '💀 Not Started';
     return '🔧 In Progress';
   };
 

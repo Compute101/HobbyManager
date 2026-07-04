@@ -167,7 +167,7 @@ export function renderCompletionPie(canvasId) {
   _charts[canvasId] = new Chart(canvas.getContext('2d'), {
     type: 'doughnut',
     data: {
-      labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress', '⬜ Not Started'],
+      labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress', '💀 Not Started'],
       datasets: [{
         data: [finished, painted, tableReady, inProgress, notStarted],
         backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#555570', '#1a1a2e'],
@@ -215,7 +215,7 @@ export function renderListCompletionPie(canvasId, models) {
   _charts[canvasId] = new Chart(canvas.getContext('2d'), {
     type: 'doughnut',
     data: {
-      labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress', '⬜ Not Started'],
+      labels: ['🏆 Finished', '🎨 Painted', '⚔️ Table Ready', '🔧 In Progress', '💀 Not Started'],
       datasets: [{
         data: [finished, painted, tableReady, inProgress, notStarted],
         backgroundColor: ['#c5a028', '#4a9d6f', '#8b7355', '#555570', '#1a1a2e'],
