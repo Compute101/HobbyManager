@@ -4,7 +4,7 @@ import {
   appData, createCollection, deleteCollection,
   createList, deleteList, addModelToList, removeModelFromList,
   setModelSplits, removeModelSplits, splitModelPoints, splitModelThreshold,
-  listStats, saveData, uid, GAME_SYSTEMS
+  listStats, saveData, uid, GAME_SYSTEMS, modelPoints, modelThreshold
 } from './data.js';
 import { showModal, closeModal, showConfirm, toast, progressBar, thresholdBadge, createDateInput, getDateValue, formatDate } from './ui.js';
 import { applyTheme, resetTheme, setCurrentSystem, resetCurrentSystem, getTerm } from './theme.js';
@@ -314,8 +314,8 @@ function listModelRow(model, listId) {
     return listModelRowSplit(model, listId, splits);
   }
 
-  const pts = calcModelPoints(model);
-  const thresh = calcModelThreshold(model);
+  const pts = modelPoints(model);
+  const thresh = modelThreshold(model);
   return `
     <div class="list-model-row" data-model-view="${model.id}">
       <div class="list-model-info">
@@ -381,43 +381,6 @@ function calcSplitPoints(model, splitSize, offset) {
 
 function calcSplitThreshold(model, splitSize, offset) {
   return splitModelThreshold(model, splitSize, offset);
-}
-
-function calcModelPoints(model) {
-  const stages = model.stages || appData.config.stages;
-  const skipped = model.skippedStages || [];
-  let total = 0, done = 0;
-  stages.forEach(s => {
-    if (skipped.includes(s.id)) return;
-    total += (s.points || 1) * model.quantity;
-    const prog = model.progress[s.id] || { done: 0 };
-    done += Math.min(prog.done, model.quantity) * (s.points || 1);
-  });
-  return { total, done, pct: total ? Math.round(done / total * 100) : 0 };
-}
-
-function calcModelThreshold(model) {
-  const stages = model.stages || appData.config.stages;
-  const skipped = model.skippedStages || [];
-  const activeStages = stages.filter(s => !skipped.includes(s.id));
-  const hasAnyProgress = activeStages.some(s => (model.progress[s.id]?.done || 0) > 0);
-  const hasThresholds = stages.some(s => s.threshold);
-  if (!hasThresholds) {
-    const allDone = activeStages.length > 0 &&
-      activeStages.every(s => (model.progress[s.id]?.done || 0) >= model.quantity);
-    if (allDone) return 'finished';
-    return hasAnyProgress ? null : 'not_started';
-  }
-  for (const thresh of ['finished', 'painted', 'table_ready']) {
-    const threshStageIdx = stages.findIndex(s => s.threshold === thresh);
-    if (threshStageIdx === -1) continue;
-    const allDone = stages.slice(0, threshStageIdx + 1).every(s => {
-      if (skipped.includes(s.id)) return true;
-      return (model.progress[s.id]?.done || 0) >= model.quantity;
-    });
-    if (allDone) return thresh;
-  }
-  return hasAnyProgress ? null : 'not_started';
 }
 
 function showSplitModal(model, listId) {
@@ -761,8 +724,8 @@ function shareList(listId) {
         return `• ${s.name} ×${s.size} — ${label}${extra}${notInList}`;
       }).join('\n');
     }
-    const thresh = calcModelThreshold(m);
-    const pts = calcModelPoints(m);
+    const thresh = modelThreshold(m);
+    const pts = modelPoints(m);
     const label = threshLabel(thresh);
     const extra = thresh === null ? ` (${pts.pct}%)` : '';
     return `• ${m.name} ×${m.quantity} — ${label}${extra}`;
