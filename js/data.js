@@ -129,13 +129,13 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'War Machine',
     builtIn: true,
     stages: [
-      { id: 's1', name: 'Assembly',  points: 12, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 6,  phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 12, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 6,  phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 6,  phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 12, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 6,  phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 6, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 6, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 3, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
