@@ -128,14 +128,27 @@ export const BUILTIN_MODEL_TYPES = [
     id: 'warmachine',
     name: 'War Machine',
     builtIn: true,
+    // Crew count varies per machine (2-3 typical), so crew stages are tagged
+    // group:'crew' and sized against the model's own crewQuantity instead of
+    // its quantity (which is always 1 machine per entry). Threshold tags sit
+    // on whichever stage — hull or crew — comes last within its phase, so
+    // reaching a milestone always requires both halves to be done.
+    defaultCrewQuantity: 3,
     stages: [
-      { id: 's1', name: 'Assembly',  points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 6, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 3, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 6, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 3, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 'h1', name: 'Assembly',       points: 6, phase: 'assembly', skippable: false, threshold: null },
+      { id: 'c1', name: 'Crew Assembly',  points: 2, phase: 'assembly', skippable: false, threshold: 'table_ready', group: 'crew' },
+      { id: 'h2', name: 'Prime',          points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 'c2', name: 'Crew Prime',     points: 1, phase: 'painting', skippable: false, threshold: null, group: 'crew' },
+      { id: 'h3', name: 'Basecoat',       points: 6, phase: 'painting', skippable: false, threshold: null },
+      { id: 'c3', name: 'Crew Basecoat',  points: 2, phase: 'painting', skippable: false, threshold: null, group: 'crew' },
+      { id: 'h4', name: 'Shade',          points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 'c4', name: 'Crew Shade',     points: 1, phase: 'painting', skippable: false, threshold: null, group: 'crew' },
+      { id: 'h5', name: 'Layer',          points: 3, phase: 'painting', skippable: true,  threshold: null },
+      { id: 'c5', name: 'Crew Layer',     points: 1, phase: 'painting', skippable: true,  threshold: null, group: 'crew' },
+      { id: 'h6', name: 'Highlight',      points: 6, phase: 'painting', skippable: true,  threshold: null },
+      { id: 'c6', name: 'Crew Highlight', points: 2, phase: 'painting', skippable: true,  threshold: 'painted', group: 'crew' },
+      { id: 'h7', name: 'Basing',         points: 3, phase: 'basing',   skippable: true,  threshold: null },
+      { id: 'c7', name: 'Crew Basing',    points: 1, phase: 'basing',   skippable: true,  threshold: 'finished', group: 'crew' },
     ]
   },
   {
@@ -452,7 +465,7 @@ export function getModel(id) { return appData.models[id]; }
 
 export function getAllModels() { return Object.values(appData.models); }
 
-export function createModel({ name, quantity = 1, notes = '', gameSystemId = null, stages = null, skippedStages = [], folderId = null, image = null, modelTypeId = null }) {
+export function createModel({ name, quantity = 1, notes = '', gameSystemId = null, stages = null, skippedStages = [], folderId = null, image = null, modelTypeId = null, crewQuantity = null }) {
   const id = uid();
   const modelStages = stages || appData.config.stages.map(s => ({ ...s }));
   appData.models[id] = {
@@ -460,12 +473,22 @@ export function createModel({ name, quantity = 1, notes = '', gameSystemId = nul
     stages: modelStages,
     skippedStages,
     modelTypeId,
+    crewQuantity,
     dateAdded: new Date().toISOString().slice(0, 10),
     progress: {},
     sessions: []
   };
   saveData();
   return id;
+}
+
+// The denominator a stage's progress is tracked against: a model's own
+// quantity normally, or its crewQuantity for stages tagged group:'crew'
+// (used by multi-part entries like War Machines, where crew count varies
+// independently of the 1 machine the entry otherwise represents).
+export function stageCap(stage, model) {
+  if (stage && stage.group === 'crew') return model.crewQuantity || 0;
+  return model.quantity;
 }
 
 export function updateModel(id, fields) {
@@ -486,8 +509,10 @@ export function deleteModel(id) {
 export function logProgress(modelId, stageId, done, date) {
   const model = appData.models[modelId];
   if (!model) return;
+  const stage = (model.stages || appData.config.stages).find(s => s.id === stageId);
+  const cap = stageCap(stage, model);
   if (!model.progress[stageId]) model.progress[stageId] = { done: 0, lastDate: null };
-  model.progress[stageId].done = Math.max(0, Math.min(done, model.quantity));
+  model.progress[stageId].done = Math.max(0, Math.min(done, cap));
   model.progress[stageId].lastDate = date;
   saveData();
 }
@@ -504,7 +529,7 @@ export function modelThreshold(model) {
   const hasThresholds = stages.some(s => s.threshold);
   if (!hasThresholds) {
     const allDone = activeStages.length > 0 &&
-      activeStages.every(s => (model.progress[s.id]?.done || 0) >= model.quantity);
+      activeStages.every(s => (model.progress[s.id]?.done || 0) >= stageCap(s, model));
     if (allDone) return 'finished';
     return hasAnyProgress ? null : 'not_started';
   }
@@ -515,7 +540,7 @@ export function modelThreshold(model) {
     if (threshStageIdx === -1) continue;
     const allDone = stages.slice(0, threshStageIdx + 1).every(s => {
       if (skipped.includes(s.id)) return true;
-      return (model.progress[s.id]?.done || 0) >= model.quantity;
+      return (model.progress[s.id]?.done || 0) >= stageCap(s, model);
     });
     if (allDone) return thresh;
   }
@@ -526,6 +551,12 @@ export function unstartedCount(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
   const activeStages = stages.filter(s => !skipped.includes(s.id));
+  if (stages.some(s => s.group === 'crew')) {
+    // Multi-part entries (e.g. War Machine + crew) are always exactly 1 unit —
+    // "on the sprue" just means nothing on either the hull or crew side has begun.
+    const hasAnyProgress = activeStages.some(s => (model.progress[s.id]?.done || 0) > 0);
+    return hasAnyProgress ? 0 : model.quantity;
+  }
   const maxDone = activeStages.reduce((max, s) => Math.max(max, model.progress[s.id]?.done || 0), 0);
   return Math.max(0, model.quantity - maxDone);
 }
@@ -573,6 +604,18 @@ function thresholdBreakdown(stages, skipped, qty, doneAt) {
 export function modelThresholdBreakdown(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
+  if (stages.some(s => s.group === 'crew')) {
+    // Mixed-denominator entries (hull qty vs crew qty) aren't a batch that can be
+    // bucketed fractionally — they're always 1 unit, gated all-or-nothing by modelThreshold.
+    const thresh = modelThreshold(model);
+    const counts = { finished: 0, painted: 0, tableReady: 0, inProgress: 0, notStarted: 0 };
+    if (thresh === 'finished') counts.finished = model.quantity;
+    else if (thresh === 'painted') counts.painted = model.quantity;
+    else if (thresh === 'table_ready') counts.tableReady = model.quantity;
+    else if (thresh === null) counts.inProgress = model.quantity;
+    else counts.notStarted = model.quantity;
+    return counts;
+  }
   return thresholdBreakdown(stages, skipped, model.quantity, s => Math.min(model.progress[s.id]?.done || 0, model.quantity));
 }
 
@@ -593,10 +636,11 @@ export function modelPoints(model) {
   let total = 0, done = 0;
   stages.forEach(s => {
     if (skipped.includes(s.id)) return;
-    const pts = (s.points || 1) * model.quantity;
+    const cap = stageCap(s, model);
+    const pts = (s.points || 1) * cap;
     const prog = model.progress[s.id] || { done: 0 };
     total += pts;
-    done += Math.min(prog.done, model.quantity) * (s.points || 1);
+    done += Math.min(prog.done, cap) * (s.points || 1);
   });
   return { total, done, pct: total ? Math.round(done / total * 100) : 0 };
 }

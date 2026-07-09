@@ -1,6 +1,6 @@
 // charts.js — all Chart.js rendering
 
-import { appData, GAME_SYSTEMS, modelPoints, modelThresholdBreakdown, saveData } from './data.js';
+import { appData, GAME_SYSTEMS, modelPoints, modelThresholdBreakdown, stageCap, saveData } from './data.js';
 
 // Track chart instances so we can destroy before re-creating
 const _charts = {};
@@ -254,9 +254,10 @@ export function renderStageBar(canvasId, models) {
   models.forEach(m => {
     (m.stages || appData.config.stages).forEach(s => {
       if ((m.skippedStages || []).includes(s.id) || !stageMap[s.id]) return;
-      stageMap[s.id].total += (s.points || 1) * m.quantity;
+      const cap = stageCap(s, m);
+      stageMap[s.id].total += (s.points || 1) * cap;
       const prog = m.progress[s.id] || { done: 0 };
-      stageMap[s.id].done += Math.min(prog.done, m.quantity) * (s.points || 1);
+      stageMap[s.id].done += Math.min(prog.done, cap) * (s.points || 1);
     });
   });
 
@@ -303,10 +304,11 @@ export function renderBurndown(canvasId, models, deadline) {
     const skipped = m.skippedStages || [];
     stages.forEach(s => {
       if (skipped.includes(s.id)) return;
-      totalPts += m.quantity * (s.points || 1);
+      const cap = stageCap(s, m);
+      totalPts += cap * (s.points || 1);
       const prog = m.progress[s.id];
       if (prog?.lastDate && prog.done > 0) {
-        const pts = Math.min(prog.done, m.quantity) * (s.points || 1);
+        const pts = Math.min(prog.done, cap) * (s.points || 1);
         byDay[prog.lastDate] = (byDay[prog.lastDate] || 0) + pts;
       }
     });

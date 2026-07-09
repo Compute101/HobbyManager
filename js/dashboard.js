@@ -618,6 +618,10 @@ function greyBrigadeCount(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
 
+  // This heuristic assumes a single ordered stage track; multi-part entries
+  // (hull + crew) don't map onto it, so skip them rather than report bogus counts.
+  if (stages.some(s => s.group === 'crew')) return 0;
+
   const assemblyStage = stages.find(s => s.threshold === 'table_ready');
   if (!assemblyStage) return 0;
 

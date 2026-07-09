@@ -2,7 +2,7 @@
 
 import {
   appData, createModel, updateModel, deleteModel,
-  logProgress, logSession, modelPoints, modelThreshold, uid, saveData,
+  logProgress, logSession, modelPoints, modelThreshold, stageCap, uid, saveData,
   getAllModelTypes, saveCustomModelType, deleteCustomModelType,
   saveModelTypeOverride, resetModelTypeOverride, BUILTIN_MODEL_TYPES,
   createFolder, updateFolder, deleteFolder, getAllFolders
@@ -271,6 +271,11 @@ export function renderModelPool(containerId = 'modelPool') {
   });
 }
 
+function qtyLabel(model) {
+  const hasCrew = (model.stages || appData.config.stages).some(s => s.group === 'crew');
+  return hasCrew ? `Qty: ${model.quantity} · Crew: ${model.crewQuantity || 0}` : `Qty: ${model.quantity}`;
+}
+
 function modelCard(model) {
   const pts = modelPoints(model);
 
@@ -282,7 +287,7 @@ function modelCard(model) {
         <div class="model-card-header">
           <div>
             <div class="model-card-name">${model.name}</div>
-            <div class="model-card-qty">Qty: ${model.quantity}</div>
+            <div class="model-card-qty">${qtyLabel(model)}</div>
           </div>
         </div>
         ${progressBar(pts.pct)}
@@ -300,7 +305,7 @@ function modelCard(model) {
       <div class="model-card-header">
         <div>
           <div class="model-card-name">${model.name}</div>
-          <div class="model-card-qty">Qty: ${model.quantity}</div>
+          <div class="model-card-qty">${qtyLabel(model)}</div>
         </div>
         ${badge}
       </div>
@@ -327,7 +332,7 @@ export function showModelDetail(modelId) {
   const skipped = model.skippedStages || [];
 
   const stagesHtml = stages.map(s =>
-    stageRow(s, model.progress[s.id], model.quantity, skipped)
+    stageRow(s, model.progress[s.id], stageCap(s, model), skipped)
   ).join('');
 
   const content = document.createElement('div');
@@ -335,7 +340,7 @@ export function showModelDetail(modelId) {
     ${model.image ? `<img class="detail-image" src="${model.image}" alt="${model.name}">` : ''}
     <div class="detail-header">
       <div>
-        <div class="detail-qty">Quantity: <b>${model.quantity}</b></div>
+        <div class="detail-qty">${qtyLabel(model)}</div>
         ${model.notes ? `<div class="detail-notes">${model.notes}</div>` : ''}
       </div>
       ${thresholdBadge(thresh)}
@@ -412,6 +417,8 @@ export function showModelForm(editId = null, defaultFolderId = null) {
   const stagesLabelHtml = hasType
     ? `Using <b>${selectedType.name}</b> stages`
     : `Hobby Stages <span class="form-hint">(edit points or toggle skipped)</span>`;
+  const hasCrew = stages.some(s => s.group === 'crew');
+  const initialCrewQty = model?.crewQuantity ?? selectedType?.defaultCrewQuantity ?? 3;
 
   const content = document.createElement('div');
   content.innerHTML = `
@@ -422,7 +429,8 @@ export function showModelForm(editId = null, defaultFolderId = null) {
     <div class="form-row-two">
       <div class="form-group">
         <label>Quantity</label>
-        <input id="mfQty" type="number" class="form-input" min="1" value="${model?.quantity || 1}">
+        <input id="mfQty" type="number" class="form-input" min="1" value="${hasCrew ? 1 : (model?.quantity || 1)}" ${hasCrew ? 'disabled' : ''}>
+        <span class="form-hint" id="mfQtyHint" style="${hasCrew ? '' : 'display:none'}">Multi-part entries (crew) are always 1 per entry</span>
       </div>
       <div class="form-group">
         <label>Folder</label>
@@ -432,6 +440,11 @@ export function showModelForm(editId = null, defaultFolderId = null) {
           <option value="__new__">+ New folder...</option>
         </select>
       </div>
+    </div>
+    <div class="form-group" id="mfCrewQtyGroup" style="${hasCrew ? '' : 'display:none'}">
+      <label>Crew Quantity</label>
+      <input id="mfCrewQty" type="number" class="form-input" min="0" value="${initialCrewQty}">
+      <span class="form-hint">How many crew this particular model has</span>
     </div>
     <div class="form-group">
       <label>Notes (optional)</label>
@@ -545,6 +558,29 @@ export function showModelForm(editId = null, defaultFolderId = null) {
     stagesToggle.textContent = isHidden ? '▲ Collapse' : '▶ Customize';
   });
 
+  function refreshCrewQtyUI(resetTo) {
+    const hasCrewNow = collectStages(content).some(s => s.group === 'crew');
+    const qtyInput = content.querySelector('#mfQty');
+    const qtyHint = content.querySelector('#mfQtyHint');
+    const crewGroup = content.querySelector('#mfCrewQtyGroup');
+    const crewInput = content.querySelector('#mfCrewQty');
+    if (hasCrewNow) {
+      qtyInput.value = 1;
+      qtyInput.disabled = true;
+      qtyHint.style.display = '';
+      crewGroup.style.display = '';
+      if (resetTo != null) crewInput.value = resetTo;
+    } else {
+      qtyInput.disabled = false;
+      qtyHint.style.display = 'none';
+      crewGroup.style.display = 'none';
+    }
+  }
+
+  content.querySelector('#mfStages').addEventListener('change', e => {
+    if (e.target.classList.contains('stage-cfg-crew-cb')) refreshCrewQtyUI();
+  });
+
   typeSelect.addEventListener('change', () => {
     const typeId = typeSelect.value;
     if (typeId) {
@@ -555,10 +591,12 @@ export function showModelForm(editId = null, defaultFolderId = null) {
       stagesBody.style.display = 'none';
       stagesToggle.textContent = '▶ Customize';
       stagesToggle.style.display = '';
+      refreshCrewQtyUI(preset.defaultCrewQuantity ?? 3);
     } else {
       stagesLabel.innerHTML = `Hobby Stages <span class="form-hint">(edit points or toggle skipped)</span>`;
       stagesBody.style.display = '';
       stagesToggle.style.display = 'none';
+      refreshCrewQtyUI();
     }
     updateTypeManage(content, typeId, allTypes);
   });
@@ -582,7 +620,7 @@ export function showModelForm(editId = null, defaultFolderId = null) {
   });
 
   content.querySelector('#mfAddStage').addEventListener('click', () => {
-    const s = { id: uid(), name: '', points: 1, skippable: true };
+    const s = { id: uid(), name: '', points: 1, phase: 'painting', skippable: true };
     const row = document.createElement('div');
     row.innerHTML = stageConfigRow(s, []);
     content.querySelector('#mfStages').appendChild(row.firstElementChild);
@@ -591,12 +629,12 @@ export function showModelForm(editId = null, defaultFolderId = null) {
   content.querySelector('#mfStages').addEventListener('click', e => {
     if (e.target.classList.contains('stage-cfg-del')) {
       e.target.closest('.stage-config-row').remove();
+      refreshCrewQtyUI();
     }
   });
 
   content.querySelector('#mfSave').addEventListener('click', () => {
     const name = content.querySelector('#mfName').value.trim();
-    const quantity = parseInt(content.querySelector('#mfQty').value) || 1;
     const notes = content.querySelector('#mfNotes').value.trim();
     const modelTypeId = typeSelect.value || null;
     let folderId = content.querySelector('#mfFolder').value || null;
@@ -605,12 +643,15 @@ export function showModelForm(editId = null, defaultFolderId = null) {
     if (!name) { toast('Please enter a name', 'error'); return; }
 
     const { stages: newStages, skipped: newSkipped } = collectStagesAndSkipped(content);
+    const hasCrewNow = newStages.some(s => s.group === 'crew');
+    const quantity = hasCrewNow ? 1 : (parseInt(content.querySelector('#mfQty').value) || 1);
+    const crewQuantity = hasCrewNow ? (parseInt(content.querySelector('#mfCrewQty').value) || 0) : null;
 
     if (editId) {
-      updateModel(editId, { name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped, image: currentImage });
+      updateModel(editId, { name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped, image: currentImage, crewQuantity });
       toast('Updated!', 'success');
     } else {
-      createModel({ name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped, image: currentImage });
+      createModel({ name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped, image: currentImage, crewQuantity });
       toast(`${getTerm('model')} added!`, 'success');
     }
 
@@ -629,12 +670,15 @@ function stageConfigRow(s, skipped) {
     { value: 'finished',    label: '🏆 Finished' },
   ];
   return `
-    <div class="stage-config-row" data-sid="${s.id}">
+    <div class="stage-config-row" data-sid="${s.id}" data-phase="${s.phase || 'painting'}" data-skippable="${s.skippable ?? true}">
       <input type="text" class="form-input stage-cfg-name" value="${s.name}" placeholder="Stage name">
       <input type="number" class="form-input stage-cfg-pts" value="${s.points || 1}" min="0" max="20" title="Hobby points for this stage (used for weekly goal tracking)">
       <select class="form-input stage-cfg-milestone" title="Milestone this stage completes">
         ${milestoneOptions.map(o => `<option value="${o.value}" ${(s.threshold || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
       </select>
+      <label class="stage-cfg-crew" title="Track this stage against crew count instead of quantity">
+        <input type="checkbox" class="stage-cfg-crew-cb" ${s.group === 'crew' ? 'checked' : ''}> Crew
+      </label>
       <label class="stage-cfg-skip" title="Skip this stage for this regiment">
         <input type="checkbox" class="stage-cfg-skipped" ${skipped.includes(s.id) ? 'checked' : ''}> Skip
       </label>
@@ -649,7 +693,13 @@ function collectStages(content) {
     const name = row.querySelector('.stage-cfg-name').value.trim();
     const pts = parseInt(row.querySelector('.stage-cfg-pts').value) || 1;
     const threshold = row.querySelector('.stage-cfg-milestone').value || null;
-    if (name) stages.push({ id: row.dataset.sid, name, points: pts, threshold });
+    const isCrew = row.querySelector('.stage-cfg-crew-cb')?.checked;
+    if (name) stages.push({
+      id: row.dataset.sid, name, points: pts, threshold,
+      phase: row.dataset.phase || 'painting',
+      skippable: row.dataset.skippable !== 'false',
+      ...(isCrew ? { group: 'crew' } : {})
+    });
   });
   return stages;
 }
@@ -662,8 +712,14 @@ function collectStagesAndSkipped(content) {
     const pts = parseInt(row.querySelector('.stage-cfg-pts').value) || 1;
     const threshold = row.querySelector('.stage-cfg-milestone').value || null;
     const skip = row.querySelector('.stage-cfg-skipped').checked;
+    const isCrew = row.querySelector('.stage-cfg-crew-cb')?.checked;
     if (name) {
-      stages.push({ id: row.dataset.sid, name, points: pts, threshold });
+      stages.push({
+        id: row.dataset.sid, name, points: pts, threshold,
+        phase: row.dataset.phase || 'painting',
+        skippable: row.dataset.skippable !== 'false',
+        ...(isCrew ? { group: 'crew' } : {})
+      });
       if (skip) skipped.push(row.dataset.sid);
     }
   });
@@ -708,12 +764,16 @@ export function showLogProgress(modelId) {
   if (!model) return;
 
   const stages = (model.stages || appData.config.stages).filter(s => !(model.skippedStages || []).includes(s.id));
+  const hasCrew = (model.stages || appData.config.stages).some(s => s.group === 'crew');
 
   const content = document.createElement('div');
-  const isSingle = model.quantity === 1;
+
+  const qtyLabelText = hasCrew
+    ? `(1 model, ${model.crewQuantity || 0} crew)`
+    : `(${model.quantity} model${model.quantity > 1 ? 's' : ''})`;
 
   content.innerHTML = `
-    <div class="log-model-name">${model.name} <span class="log-qty">(${model.quantity} model${model.quantity > 1 ? 's' : ''})</span></div>
+    <div class="log-model-name">${model.name} <span class="log-qty">${qtyLabelText}</span></div>
     <div class="form-row-two">
       <div class="form-group">
         <label>Date</label>
@@ -737,25 +797,27 @@ export function showLogProgress(modelId) {
       </div>
       <div class="log-stages" id="lpStages">
         ${stages.map(s => {
+          const cap = stageCap(s, model);
           const prog = model.progress[s.id] || { done: 0 };
-          const isDone = prog.done >= model.quantity;
-          if (isSingle) {
+          const isDone = cap > 0 && prog.done >= cap;
+          const crewTag = s.group === 'crew' ? ' <span class="stage-opt">crew</span>' : '';
+          if (cap <= 1) {
             return `
               <label class="log-stage-check ${isDone ? 'is-done' : ''}">
                 <input type="checkbox" class="stage-checkbox" id="lp_${s.id}" data-sid="${s.id}" ${isDone ? 'checked' : ''}>
-                <span class="log-stage-name">${s.name}</span>
+                <span class="log-stage-name">${s.name}${crewTag}</span>
               </label>
             `;
           }
           return `
             <div class="log-stage-row${isDone ? ' stage-done' : ''}">
-              <div class="log-stage-name">${s.name}${isDone ? ' <span class="stage-done-badge">✓</span>' : ''}</div>
+              <div class="log-stage-name">${s.name}${crewTag}${isDone ? ' <span class="stage-done-badge">✓</span>' : ''}</div>
               <div class="log-stage-input">
                 <button class="btn btn-sm qty-dec" data-sid="${s.id}">−</button>
                 <input type="number" class="form-input qty-input" id="lp_${s.id}"
-                  data-sid="${s.id}" min="0" max="${model.quantity}" value="${prog.done}">
-                <button class="btn btn-sm qty-inc" data-sid="${s.id}" data-max="${model.quantity}">+</button>
-                <span class="qty-max">/ ${model.quantity}</span>
+                  data-sid="${s.id}" min="0" max="${cap}" value="${prog.done}">
+                <button class="btn btn-sm qty-inc" data-sid="${s.id}" data-max="${cap}">+</button>
+                <span class="qty-max">/ ${cap}</span>
               </div>
             </div>
           `;
@@ -773,7 +835,7 @@ export function showLogProgress(modelId) {
     const sid = e.target.dataset.sid;
     if (!sid) return;
     const input = content.querySelector(`#lp_${sid}`);
-    const max = parseInt(e.target.dataset.max || model.quantity);
+    const max = parseInt(e.target.dataset.max || 0);
     if (e.target.classList.contains('qty-inc')) {
       input.value = Math.min(max, parseInt(input.value || 0) + 1);
     }
@@ -784,31 +846,25 @@ export function showLogProgress(modelId) {
 
   // All Done — set every stage to full quantity / tick all checkboxes
   content.querySelector('#lpAllDone').addEventListener('click', () => {
-    if (isSingle) {
-      content.querySelectorAll('.stage-checkbox').forEach(cb => {
-        cb.checked = true;
-        cb.closest('.log-stage-check').classList.add('is-done');
-      });
-    } else {
-      content.querySelectorAll('.qty-input').forEach(input => {
-        input.value = model.quantity;
-      });
-    }
+    content.querySelectorAll('.stage-checkbox').forEach(cb => {
+      cb.checked = true;
+      cb.closest('.log-stage-check').classList.add('is-done');
+    });
+    content.querySelectorAll('.qty-input').forEach(input => {
+      input.value = input.max;
+    });
   });
 
   // Reset All — zero everything out
   content.querySelector('#lpReset').addEventListener('click', () => {
     if (!confirm('Reset all stage progress to zero? This cannot be undone.')) return;
-    if (isSingle) {
-      content.querySelectorAll('.stage-checkbox').forEach(cb => {
-        cb.checked = false;
-        cb.closest('.log-stage-check').classList.remove('is-done');
-      });
-    } else {
-      content.querySelectorAll('.qty-input').forEach(input => {
-        input.value = 0;
-      });
-    }
+    content.querySelectorAll('.stage-checkbox').forEach(cb => {
+      cb.checked = false;
+      cb.closest('.log-stage-check').classList.remove('is-done');
+    });
+    content.querySelectorAll('.qty-input').forEach(input => {
+      input.value = 0;
+    });
   });
 
   // Live duration hint update
@@ -855,13 +911,14 @@ export function showLogProgress(modelId) {
 
     const modelEntries = [];
     stages.forEach(s => {
+      const cap = stageCap(s, model);
       let done;
-      if (isSingle) {
+      if (cap <= 1) {
         const cb = content.querySelector(`#lp_${s.id}`);
         done = cb?.checked ? 1 : 0;
       } else {
         const input = content.querySelector(`#lp_${s.id}`);
-        done = Math.min(parseInt(input?.value) || 0, model.quantity);
+        done = Math.min(parseInt(input?.value) || 0, cap);
       }
       const prev = model.progress[s.id]?.done || 0;
       if (done !== prev) modelEntries.push({ modelId, stageId: s.id, qty: done - prev });
@@ -900,6 +957,9 @@ function stageTemplateRow(s) {
       <select class="form-input stage-cfg-milestone" title="Milestone this stage completes">
         ${milestoneOptions.map(o => `<option value="${o.value}" ${(s.threshold || '') === o.value ? 'selected' : ''}>${o.label}</option>`).join('')}
       </select>
+      <label class="stage-cfg-crew" title="Track this stage against a per-entry crew count instead of quantity">
+        <input type="checkbox" class="stage-cfg-crew-cb" ${s.group === 'crew' ? 'checked' : ''}> Crew
+      </label>
       <button class="btn btn-xs btn-danger stage-cfg-del" title="Remove stage">✕</button>
     </div>
   `;
@@ -911,13 +971,15 @@ function collectTemplateStages(container) {
     const name = row.querySelector('.stage-cfg-name').value.trim();
     const pts = parseInt(row.querySelector('.stage-cfg-pts').value) || 1;
     const threshold = row.querySelector('.stage-cfg-milestone').value || null;
+    const isCrew = row.querySelector('.stage-cfg-crew-cb')?.checked;
     if (name) stages.push({
       id: row.dataset.sid,
       name,
       points: pts,
       threshold,
       phase: row.dataset.phase || 'painting',
-      skippable: row.dataset.skippable !== 'false'
+      skippable: row.dataset.skippable !== 'false',
+      ...(isCrew ? { group: 'crew' } : {})
     });
   });
   return stages;
