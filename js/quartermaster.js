@@ -356,17 +356,29 @@ function renderRequisitionForm(body, container, editId) {
 }
 
 function renderLedger(body) {
-  const budget = appData.config.monthlyBudgetGBP || 0;
+  const monthlyBudget = appData.config.monthlyBudgetGBP || 0;
+  const period = appData.config.budgetPeriod || 'monthly';
+  const displayAmount = period === 'annual' ? monthlyBudget * 12 : monthlyBudget;
   const timeline = monthlySpendTimeline();
 
   body.innerHTML = `
     <div class="queue-header">
       <h2 class="queue-name">Ledger</h2>
     </div>
-    <div class="form-group">
-      <label>Monthly Budget (£)</label>
-      <input id="qmBudgetInput" type="number" class="form-input" min="0" step="0.01" value="${budget || ''}" style="max-width:200px">
+    <div class="form-row-two" style="max-width:360px">
+      <div class="form-group">
+        <label>Budget (£)</label>
+        <input id="qmBudgetInput" type="number" class="form-input" min="0" step="0.01" value="${displayAmount || ''}">
+      </div>
+      <div class="form-group">
+        <label>Per</label>
+        <select id="qmBudgetPeriod" class="form-input">
+          <option value="monthly" ${period === 'monthly' ? 'selected' : ''}>Month</option>
+          <option value="annual" ${period === 'annual' ? 'selected' : ''}>Year</option>
+        </select>
+      </div>
     </div>
+    ${monthlyBudget ? `<p class="form-hint">= £${monthlyBudget.toFixed(2)}/month for rectitude</p>` : ''}
     ${timeline.length === 0 ? `
       <div class="empty-state">
         <p>No spend history or planned purchases yet.</p>
@@ -383,9 +395,21 @@ function renderLedger(body) {
     `}
   `;
 
+  // Amount changes reinterpret the figure under whichever period is currently
+  // selected; switching the period alone just converts the displayed figure
+  // (via re-render) without changing the underlying monthly budget.
   body.querySelector('#qmBudgetInput').addEventListener('change', e => {
-    appData.config.monthlyBudgetGBP = parseFloat(e.target.value) || 0;
+    const amount = parseFloat(e.target.value) || 0;
+    const selectedPeriod = body.querySelector('#qmBudgetPeriod').value;
+    appData.config.monthlyBudgetGBP = selectedPeriod === 'annual' ? amount / 12 : amount;
     saveData();
     toast('Budget updated', 'success');
+    renderLedger(body);
+  });
+
+  body.querySelector('#qmBudgetPeriod').addEventListener('change', e => {
+    appData.config.budgetPeriod = e.target.value;
+    saveData();
+    renderLedger(body);
   });
 }

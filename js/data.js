@@ -355,7 +355,8 @@ export let appData = {
     weeklyGoal: 0,
     imageSize: 'small',
     pieChartMode: 'count',
-    monthlyBudgetGBP: 0
+    monthlyBudgetGBP: 0,
+    budgetPeriod: 'monthly' // 'monthly' | 'annual' — display/input preference; monthlyBudgetGBP stays the source of truth
   },
   folders: {}, // id -> { id, name, collapsed }
   queues: {},  // id -> { id, name, entries: [{id, modelId, note}] }
@@ -408,7 +409,8 @@ export function loadData() {
           weeklyGoal: parsed.config?.weeklyGoal || 0,
           imageSize: parsed.config?.imageSize || 'small',
           pieChartMode: parsed.config?.pieChartMode || 'count',
-          monthlyBudgetGBP: parsed.config?.monthlyBudgetGBP || 0
+          monthlyBudgetGBP: parsed.config?.monthlyBudgetGBP || 0,
+          budgetPeriod: parsed.config?.budgetPeriod || 'monthly'
         }
       };
     }
@@ -453,7 +455,8 @@ export function replaceData(parsed) {
       weeklyGoal: parsed.config?.weeklyGoal || 0,
       imageSize: parsed.config?.imageSize || 'small',
       pieChartMode: parsed.config?.pieChartMode || 'count',
-      monthlyBudgetGBP: parsed.config?.monthlyBudgetGBP || 0
+      monthlyBudgetGBP: parsed.config?.monthlyBudgetGBP || 0,
+      budgetPeriod: parsed.config?.budgetPeriod || 'monthly'
     }
   };
   saveData();
