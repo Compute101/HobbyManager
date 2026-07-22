@@ -1007,6 +1007,7 @@
     .list-completion-chart .chart-wrap { height: 220px; }
 
     .dash-pile { grid-column: 1 / -1; }
+    .dash-pile-burndown { grid-column: 1 / -1; }
     .dash-grey-brigade { grid-column: 1 / -1; }
     .pile-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75em; }
     .pile-card-header h3 { margin-bottom: 0; }
@@ -1021,6 +1022,13 @@
     .pile-item:last-child { border-bottom: none; }
     .pile-item-name { flex: 1; }
     .pile-item-qty { color: var(--text-muted); font-size: 0.88em; margin-left: 0.5em; }
+
+    /* Quartermaster's Office */
+    .qm-sys-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .qm-sys-card { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3em; }
+    .qm-rect-figure { font-size: 1.8em; font-weight: 700; font-family: var(--font-display); }
+    .qm-rect-positive { color: var(--accent); }
+    .qm-rect-negative { color: var(--danger); }
     .pile-shame-badge { display: inline-block; font-size: 0.7em; padding: 0.1em 0.45em; border-radius: 3px; margin-left: 0.5em; font-family: var(--font-ui); white-space: nowrap; vertical-align: middle; }
     .shame-fresh { background: color-mix(in srgb, var(--text-muted) 20%, transparent); color: var(--text-muted); }
     .shame-dusty { background: color-mix(in srgb, var(--warning) 25%, transparent); color: var(--warning); }
@@ -1951,6 +1959,7 @@
       <button class="btn btn-sm" id="exportBtn" title="Export">💾</button>
       <button class="btn btn-sm" id="importBtn" title="Import">📂</button>
       <button class="btn btn-sm" id="settingsBtn" title="Settings">⚙️</button>
+      <button class="btn btn-sm" id="quartermasterBtn" title="Quartermaster's Office">🎖️</button>
       <input type="file" id="importFile" accept=".json" style="display:none">
     </div>
   </header>
@@ -2029,7 +2038,8 @@
   import { renderQueues } from './js/queue.js';
   import { renderActivity } from './js/activity.js';
   import { loadSavedTheme, applyTheme } from './js/theme.js';
-  import { toast, showModal, closeModal } from './js/ui.js';
+  import { toast, showModal, closeModal, showConfirm } from './js/ui.js';
+  import { renderQuartermaster, pileCount, pileWorth, rectitudePct } from './js/quartermaster.js';
 
   // --- Boot ---
   loadData();
@@ -2076,6 +2086,24 @@
     showModal({ title: '⚙️ Settings', content, wide: false });
     renderSettings(content);
   });
+  // --- Quartermaster's Office (modal, not a tab — always reminds before entering) ---
+  document.getElementById('quartermasterBtn').addEventListener('click', () => {
+    const count = pileCount();
+    const worth = pileWorth();
+    const rect = rectitudePct();
+    showConfirm({
+      message: `You currently have <b>${count}</b> model${count !== 1 ? 's' : ''} on the pile, worth <b>£${worth.toFixed(0)}</b>.` +
+        (rect === null ? '' : ` Rectitude: <b>${Math.round(rect)}%</b>.`),
+      confirmLabel: 'Enter',
+      onConfirm: () => {
+        const content = document.createElement('div');
+        content.id = 'qmView';
+        showModal({ title: "🎖️ Quartermaster's Office", content, wide: true });
+        renderQuartermaster(content);
+      }
+    });
+  });
+
   document.getElementById('addModelBtn').addEventListener('click', () => showModelForm());
   document.getElementById('addFolderBtn').addEventListener('click', () => {
     const name = prompt('Folder name:');

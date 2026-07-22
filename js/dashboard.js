@@ -2,7 +2,7 @@
 
 import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount } from './data.js';
 import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
-import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle } from './charts.js';
+import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle, renderPileBurndown, pileBurndownStats } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
 
 export function renderDashboard() {
@@ -99,6 +99,9 @@ export function renderDashboard() {
       <!-- Pile of Potential -->
       ${pileOfPotentialSection()}
 
+      <!-- Pile burndown -->
+      ${pileBurndownSection()}
+
       <!-- Grey Brigade -->
       ${greyBrigadeSection()}
 
@@ -138,7 +141,28 @@ export function renderDashboard() {
       const models = (list.modelIds || []).map(id => appData.models[id]).filter(Boolean);
       renderListCompletionPie(`armyPie_${list.id}`, models);
     });
+    renderPileBurndown('pileBurndownChart');
   });
+}
+
+// --- Pile burndown ---
+
+function pileBurndownSection() {
+  const { pileRemainingPoints, velocity, daysToClear, clearDate } = pileBurndownStats();
+  let summary;
+  if (!pileRemainingPoints) {
+    summary = `<p class="empty-text">Nothing left on the pile to burn down. Impressive!</p>`;
+  } else if (!daysToClear) {
+    summary = `<p class="empty-text">${pileRemainingPoints} points remain on the pile — log some progress to start projecting a clear date.</p>`;
+  } else {
+    summary = `<div class="pile-total">At ${velocity.toFixed(1)} pts/day (last 30 days), the pile clears in ~${daysToClear} days (${formatDate(clearDate, { month: 'short', day: 'numeric', year: 'numeric' })}).</div>`;
+  }
+  return `
+    <div class="dash-card dash-chart-card dash-pile-burndown">
+      <h3>Pile Burndown</h3>
+      ${summary}
+      <div class="chart-wrap"><canvas id="pileBurndownChart"></canvas></div>
+    </div>`;
 }
 
 function getWeekBounds() {
@@ -416,7 +440,7 @@ function armyCompletionSection() {
 
 // --- Pile of Potential ---
 
-function resolveGameSystemId(model) {
+export function resolveGameSystemId(model) {
   if (model.gameSystemId) return model.gameSystemId;
   // For manually created models, infer from whichever list they belong to
   for (const list of Object.values(appData.lists)) {

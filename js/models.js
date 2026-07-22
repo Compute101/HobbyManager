@@ -446,6 +446,18 @@ export function showModelForm(editId = null, defaultFolderId = null) {
       <input id="mfCrewQty" type="number" class="form-input" min="0" value="${initialCrewQty}">
       <span class="form-hint">How many crew this particular model has</span>
     </div>
+    <div class="form-row-two">
+      <div class="form-group">
+        <label>Worth (£, optional)</label>
+        <input id="mfWorth" type="number" class="form-input" min="0" step="0.01" value="${model?.worth ?? ''}">
+        <span class="form-hint">What it cost you to buy — set once, doesn't rise with painting</span>
+      </div>
+      <div class="form-group">
+        <label>Sentiment (1-5, optional)</label>
+        <input id="mfSentiment" type="number" class="form-input" min="1" max="5" value="${model?.sentimentLove ?? ''}">
+        <span class="form-hint">How much you'd miss it — not a £ value</span>
+      </div>
+    </div>
     <div class="form-group">
       <label>Notes (optional)</label>
       <textarea id="mfNotes" class="form-input" rows="2">${model?.notes || ''}</textarea>
@@ -639,6 +651,8 @@ export function showModelForm(editId = null, defaultFolderId = null) {
     const modelTypeId = typeSelect.value || null;
     let folderId = content.querySelector('#mfFolder').value || null;
     if (folderId === '__new__') folderId = null;
+    const worth = parseFloat(content.querySelector('#mfWorth').value);
+    const sentimentLove = parseInt(content.querySelector('#mfSentiment').value);
 
     if (!name) { toast('Please enter a name', 'error'); return; }
 
@@ -648,10 +662,10 @@ export function showModelForm(editId = null, defaultFolderId = null) {
     const crewQuantity = hasCrewNow ? (parseInt(content.querySelector('#mfCrewQty').value) || 0) : null;
 
     if (editId) {
-      updateModel(editId, { name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped, image: currentImage, crewQuantity });
+      updateModel(editId, { name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped, image: currentImage, crewQuantity, worth: isNaN(worth) ? null : worth, sentimentLove: isNaN(sentimentLove) ? null : sentimentLove });
       toast('Updated!', 'success');
     } else {
-      createModel({ name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped, image: currentImage, crewQuantity });
+      createModel({ name, quantity, notes, modelTypeId, folderId, stages: newStages, skippedStages: newSkipped, image: currentImage, crewQuantity, worth: isNaN(worth) ? null : worth, sentimentLove: isNaN(sentimentLove) ? null : sentimentLove });
       toast(`${getTerm('model')} added!`, 'success');
     }
 
