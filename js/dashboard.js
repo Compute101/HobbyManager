@@ -478,6 +478,24 @@ function shameLabel(model) {
   return { text: 'Never started', cls: 'shame-fresh' };
 }
 
+const PICTO_CAP = 100;
+
+function pictoRowHtml(name, count, cls) {
+  const shown = Math.min(count, PICTO_CAP);
+  let figs = '';
+  for (let i = 0; i < shown; i++) {
+    figs += `<svg class="fig ${cls}" width="11" height="15"><title>${name}</title><use href="#miniFig"></use></svg>`;
+  }
+  if (count > PICTO_CAP) {
+    figs += `<span class="picto-overflow" title="${name} — ${count} total">+${count - PICTO_CAP}</span>`;
+  }
+  return `
+    <div class="picto-row">
+      <div class="picto-row-label"><span class="name">${name}</span><span class="count">${count}</span></div>
+      <div class="picto-figs">${figs}</div>
+    </div>`;
+}
+
 function pileOfPotentialSection() {
   const withUnstarted = Object.values(appData.models)
     .map(m => ({ model: m, unstarted: unstartedCount(m) }))
@@ -519,8 +537,12 @@ function pileOfPotentialSection() {
               </div>`;
           }).join('')}
         </div>
+        <hr class="pictograph-divider">
+        ${entries.map(({ model: m, unstarted }) => pictoRowHtml(m.name, unstarted, 'fig-unstarted')).join('')}
       </div>`;
   }).join('');
+
+  const isShameHeavy = withUnstarted.some(({ model }) => shameLabel(model)?.cls === 'shame-ancient');
 
   return `
     <div class="dash-card dash-pile">
@@ -531,8 +553,9 @@ function pileOfPotentialSection() {
       ${!withUnstarted.length
         ? `<p class="empty-text">Your pile of potential is empty — no models still on the sprue. Impressive!</p>`
         : `
-          <div class="pile-total">💀 ${totalCount} model${totalCount !== 1 ? 's' : ''} still on the sprue</div>
+          <div class="pile-total${isShameHeavy ? ' shame-heavy' : ''}">💀 ${totalCount} model${totalCount !== 1 ? 's' : ''} still on the sprue</div>
           <div class="pile-groups">${systemSections}</div>
+          <div class="pictograph-legend"><svg class="fig fig-unstarted" width="13" height="18"><use href="#miniFig"></use></svg> = 1 model still boxed</div>
         `
       }
     </div>`;
@@ -684,8 +707,12 @@ function greyBrigadeSection() {
               <span class="pile-item-qty">×${greyCount}</span>
             </div>`).join('')}
         </div>
+        <hr class="pictograph-divider">
+        ${entries.map(({ model: m, greyCount }) => pictoRowHtml(m.name, greyCount, 'fig-grey')).join('')}
       </div>`;
   }).join('');
+
+  const isShameHeavy = totalCount >= 15;
 
   return `
     <div class="dash-card dash-grey-brigade">
@@ -696,8 +723,9 @@ function greyBrigadeSection() {
       ${!withGrey.length
         ? `<p class="empty-text">No models in the Grey Brigade — everything is either still on the sprue or has had paint applied. Nothing languishing in the middle!</p>`
         : `
-          <div class="pile-total">🩶 ${totalCount} model${totalCount !== 1 ? 's' : ''} assembled or primed, awaiting paint</div>
+          <div class="pile-total${isShameHeavy ? ' shame-heavy' : ''}">🩶 ${totalCount} model${totalCount !== 1 ? 's' : ''} assembled or primed, awaiting paint</div>
           <div class="pile-groups">${systemSections}</div>
+          <div class="pictograph-legend"><svg class="fig fig-grey" width="13" height="18"><use href="#miniFig"></use></svg> = 1 model assembled/primed, unpainted</div>
         `
       }
     </div>`;

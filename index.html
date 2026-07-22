@@ -37,6 +37,10 @@
       --chart-remain: #2a2a40;
       --header-bg:    linear-gradient(135deg, #0f3460 0%, #16213e 100%);
       --tab-active-bg:#1e2140;
+      --fig-unstarted-fill:   #f2f1f8;
+      --fig-unstarted-stroke: #4a4a70;
+      --fig-grey-fill:        #9a9aa8;
+      --fig-grey-stroke:      #5c5c6e;
     }
 
     /* ================================================================
@@ -1027,6 +1031,22 @@
     .shame-veteran { background: color-mix(in srgb, var(--danger) 25%, transparent); color: var(--danger); }
     .shame-ancient { background: color-mix(in srgb, var(--danger) 40%, transparent); color: var(--danger); font-weight: 600; }
 
+    .pile-total.shame-heavy { color: var(--danger); font-weight: 600; }
+
+    .pictograph-divider { border: none; border-top: 1px dashed var(--border); margin: 0.75em 0 0.7em; }
+    .picto-row { margin-bottom: 0.7em; }
+    .picto-row:last-child { margin-bottom: 0; }
+    .picto-row-label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.8em; margin-bottom: 0.3em; }
+    .picto-row-label .count { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .picto-figs { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; }
+    .picto-figs .fig:nth-child(10n) { margin-right: 7px; }
+    .fig { display: block; overflow: visible; cursor: default; flex-shrink: 0; stroke-width: 1; }
+    .fig-unstarted { fill: var(--fig-unstarted-fill); stroke: var(--fig-unstarted-stroke); }
+    .fig-grey { fill: var(--fig-grey-fill); stroke: var(--fig-grey-stroke); }
+    .fig:hover { stroke: var(--accent); stroke-width: 1.4; }
+    .picto-overflow { font-size: 0.72em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; padding: 0.15em 0.4em; align-self: center; }
+    .pictograph-legend { display: flex; align-items: center; gap: 0.4em; font-size: 0.78em; color: var(--text-muted); margin-top: 0.85em; }
+
     .session-list { display: flex; flex-direction: column; gap: 0.5em; }
     .session-item { padding: 0.5em; background: var(--surface2); border-radius: var(--radius); font-size: 0.85em; }
     .session-date { font-weight: 700; color: var(--accent); }
@@ -1943,6 +1963,20 @@
   </style>
 </head>
 <body class="theme-default">
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="miniFig" viewBox="0 0 24 32">
+    <ellipse cx="12" cy="27.6" rx="7.4" ry="2.1"></ellipse>
+    <path d="M12 3.2 a3.4 3.4 0 1 1 -0.01 0 Z
+             M7.4 14.2
+             C7.4 10.5 9.6 8.6 12 8.6
+             C14.4 8.6 16.6 10.5 16.6 14.2
+             L16.6 21.6
+             C16.6 22.6 15.7 23.2 14.6 23.4
+             L14.6 26.1 L12.9 26.1 L12.9 24.1 L11.1 24.1 L11.1 26.1 L9.4 26.1
+             L9.4 23.4
+             C8.3 23.2 7.4 22.6 7.4 21.6 Z"></path>
+  </symbol>
+</svg>
 <div id="app">
 
   <header>
