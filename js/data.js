@@ -354,10 +354,14 @@ export let appData = {
     modelTypeOverrides: {},
     weeklyGoal: 0,
     imageSize: 'small',
-    pieChartMode: 'count'
+    pieChartMode: 'count',
+    monthlyBudgetGBP: 0,
+    budgetPeriod: 'monthly' // 'monthly' | 'annual' — display/input preference; monthlyBudgetGBP stays the source of truth
   },
   folders: {}, // id -> { id, name, collapsed }
-  queues: {}   // id -> { id, name, entries: [{id, modelId, note}] }
+  queues: {},  // id -> { id, name, entries: [{id, modelId, note}] }
+  // id -> { id, name, gameSystemId, worth, reason, plannedMonth, collectionId, status, promotedModelId }
+  purchaseQueue: {}
 };
 
 // Convert a UTC date string (YYYY-MM-DD) to the equivalent local date string.
@@ -395,6 +399,7 @@ export function loadData() {
         sessions: (parsed.sessions || []).map(s => s.date ? { ...s, date: utcToLocal(s.date) } : s),
         folders: parsed.folders || {},
         queues: parsed.queues || {},
+        purchaseQueue: parsed.purchaseQueue || {},
         config: {
           stages: parsed.config?.stages || [...DEFAULT_STAGES],
           deadline: parsed.config?.deadline || null,
@@ -403,7 +408,9 @@ export function loadData() {
           modelTypeOverrides: parsed.config?.modelTypeOverrides || {},
           weeklyGoal: parsed.config?.weeklyGoal || 0,
           imageSize: parsed.config?.imageSize || 'small',
-          pieChartMode: parsed.config?.pieChartMode || 'count'
+          pieChartMode: parsed.config?.pieChartMode || 'count',
+          monthlyBudgetGBP: parsed.config?.monthlyBudgetGBP || 0,
+          budgetPeriod: parsed.config?.budgetPeriod || 'monthly'
         }
       };
     }
@@ -438,6 +445,7 @@ export function replaceData(parsed) {
     sessions: (parsed.sessions || []).map(s => s.date ? { ...s, date: utcToLocal(s.date) } : s),
     folders: parsed.folders || {},
     queues: parsed.queues || {},
+    purchaseQueue: parsed.purchaseQueue || {},
     config: {
       stages: parsed.config?.stages || [...DEFAULT_STAGES],
       deadline: parsed.config?.deadline || null,
@@ -446,7 +454,9 @@ export function replaceData(parsed) {
       modelTypeOverrides: parsed.config?.modelTypeOverrides || {},
       weeklyGoal: parsed.config?.weeklyGoal || 0,
       imageSize: parsed.config?.imageSize || 'small',
-      pieChartMode: parsed.config?.pieChartMode || 'count'
+      pieChartMode: parsed.config?.pieChartMode || 'count',
+      monthlyBudgetGBP: parsed.config?.monthlyBudgetGBP || 0,
+      budgetPeriod: parsed.config?.budgetPeriod || 'monthly'
     }
   };
   saveData();
@@ -465,7 +475,7 @@ export function getModel(id) { return appData.models[id]; }
 
 export function getAllModels() { return Object.values(appData.models); }
 
-export function createModel({ name, quantity = 1, notes = '', gameSystemId = null, stages = null, skippedStages = [], folderId = null, image = null, modelTypeId = null, crewQuantity = null }) {
+export function createModel({ name, quantity = 1, notes = '', gameSystemId = null, stages = null, skippedStages = [], folderId = null, image = null, modelTypeId = null, crewQuantity = null, worth = null, sentimentLove = null, purchaseDate = null, resaleValue = null }) {
   const id = uid();
   const modelStages = stages || appData.config.stages.map(s => ({ ...s }));
   appData.models[id] = {
@@ -474,6 +484,10 @@ export function createModel({ name, quantity = 1, notes = '', gameSystemId = nul
     skippedStages,
     modelTypeId,
     crewQuantity,
+    worth,
+    sentimentLove,
+    purchaseDate,
+    resaleValue,
     dateAdded: new Date().toISOString().slice(0, 10),
     progress: {},
     sessions: []

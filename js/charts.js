@@ -1,6 +1,6 @@
 // charts.js — all Chart.js rendering
 
-import { appData, GAME_SYSTEMS, modelPoints, modelThresholdBreakdown, stageCap, saveData } from './data.js';
+import { appData, GAME_SYSTEMS, modelPoints, modelThresholdBreakdown, stageCap, saveData, unstartedCount } from './data.js';
 
 // Track chart instances so we can destroy before re-creating
 const _charts = {};
@@ -377,6 +377,129 @@ export function renderBurndown(canvasId, models, deadline) {
         },
         y: {
           min: 0, max: totalPts || 10,
+          ticks: { color: tickColor() }, grid: { color: gridColor() },
+          title: { display: true, text: 'Points', color: tickColor() }
+        }
+      }
+    }
+  });
+}
+
+// ----------------------------------------------------------------
+// LINE: Global pile burndown — historical painting velocity (across all
+// models) projected forward to estimate when the current pile of unstarted
+// models would clear at the current rate.
+// ----------------------------------------------------------------
+
+// Trailing-window velocity + projected clear date, computed once and shared
+// by the chart and its text summary so they never disagree.
+export function pileBurndownStats() {
+  const byDay = {};
+  Object.values(appData.models).forEach(m => {
+    const stages = m.stages || appData.config.stages;
+    const skipped = m.skippedStages || [];
+    stages.forEach(s => {
+      if (skipped.includes(s.id)) return;
+      const cap = stageCap(s, m);
+      const prog = m.progress[s.id];
+      if (prog?.lastDate && prog.done > 0) {
+        const pts = Math.min(prog.done, cap) * (s.points || 1);
+        byDay[prog.lastDate] = (byDay[prog.lastDate] || 0) + pts;
+      }
+    });
+  });
+
+  const pileRemainingPoints = Object.values(appData.models)
+    .filter(m => unstartedCount(m) > 0)
+    .reduce((sum, m) => {
+      const pts = modelPoints(m);
+      return sum + Math.max(0, pts.total - pts.done);
+    }, 0);
+
+  const sortedDates = Object.keys(byDay).sort();
+  const todayStr = new Date().toISOString().split('T')[0];
+  const windowStart = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+  const recentPts = sortedDates.filter(d => d >= windowStart).reduce((sum, d) => sum + byDay[d], 0);
+  const velocity = recentPts / 30;
+
+  let daysToClear = null, clearDate = null;
+  if (velocity > 0 && pileRemainingPoints > 0) {
+    daysToClear = Math.ceil(pileRemainingPoints / velocity);
+    clearDate = new Date(Date.now() + daysToClear * 86400000).toISOString().split('T')[0];
+  }
+
+  return { byDay, sortedDates, todayStr, pileRemainingPoints, velocity, daysToClear, clearDate };
+}
+
+export function renderPileBurndown(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  destroyChart(canvasId);
+
+  const { byDay, sortedDates, todayStr, pileRemainingPoints, daysToClear, clearDate } = pileBurndownStats();
+
+  let cum = 0;
+  const cumulativeDates = sortedDates.map(d => { cum += byDay[d]; return { d, cum }; });
+  const totalDone = cum;
+
+  const allDates = new Set([...sortedDates, todayStr]);
+  const dateRange = [...allDates].sort();
+
+  let cumSoFar = 0;
+  const actualData = [];
+  dateRange.forEach(d => {
+    const entry = cumulativeDates.find(e => e.d === d);
+    if (entry) cumSoFar = entry.cum;
+    if (d <= todayStr) actualData.push({ x: d, y: cumSoFar });
+  });
+
+  const datasets = [{
+    label: 'Points Done',
+    data: actualData,
+    borderColor: accent(),
+    backgroundColor: accent() + '26',
+    pointRadius: 3,
+    tension: 0.3,
+    fill: true
+  }];
+
+  if (daysToClear && clearDate) {
+    datasets.push({
+      label: 'Projected pile clear',
+      data: [
+        { x: todayStr, y: totalDone },
+        { x: clearDate, y: totalDone + pileRemainingPoints }
+      ],
+      borderColor: '#c8962a',
+      borderDash: [6, 4],
+      pointRadius: 0,
+      tension: 0,
+      fill: false
+    });
+  }
+
+  _charts[canvasId] = new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: '#ccc' } },
+        tooltip: { mode: 'index', intersect: false }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: {
+            tooltipFormat: 'yyyy-MM-dd',
+            displayFormats: { day: 'MMM d', week: 'MMM d', month: 'MMM yyyy' }
+          },
+          ticks: { color: tickColor(), maxTicksLimit: 8 },
+          grid: { color: gridColor() }
+        },
+        y: {
+          min: 0,
           ticks: { color: tickColor() }, grid: { color: gridColor() },
           title: { display: true, text: 'Points', color: tickColor() }
         }
