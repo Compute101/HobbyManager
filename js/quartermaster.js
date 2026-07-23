@@ -8,11 +8,24 @@ import { toast, today } from './ui.js';
 
 // --- Data helpers ---
 
-export function createPurchaseItem({ name, gameSystemId = null, worth = 0, reason = '', plannedMonth = '', collectionId = null }) {
+// Requisition item types. 'model' promotes into a real model in the pool
+// (and so joins the pile / weighs on rectitude). The rest — gifts, codices,
+// sundries — are ledger-only: they're real spend for budgeting purposes,
+// but promoting them never creates a model, so they never touch the pile
+// or compromise rectitude. Promoting one of these just marks it purchased
+// and it disappears from the Requisitions list into the Ledger's spend history.
+export const PURCHASE_ITEM_TYPES = {
+  model: { id: 'model', label: 'Model / Miniature', addsToPile: true },
+  gift: { id: 'gift', label: 'Gift', addsToPile: false },
+  codex: { id: 'codex', label: 'Codex / Rulebook', addsToPile: false },
+  sundry: { id: 'sundry', label: 'Sundry / Supplies', addsToPile: false }
+};
+
+export function createPurchaseItem({ name, gameSystemId = null, worth = 0, reason = '', plannedMonth = '', collectionId = null, itemType = 'model' }) {
   const id = uid();
   appData.purchaseQueue[id] = {
-    id, name, gameSystemId, worth, reason, plannedMonth, collectionId,
-    status: 'queued', promotedModelId: null
+    id, name, gameSystemId, worth, reason, plannedMonth, collectionId, itemType,
+    status: 'queued', promotedModelId: null, purchaseDate: null
   };
   saveData();
   return id;
@@ -29,15 +42,22 @@ export function deletePurchaseItem(id) {
   saveData();
 }
 
-// Converts a queued requisition into a real model: stamps its planned worth
-// and today's date, then keeps the requisition (marked 'purchased') so it
-// still shows up in the spend timeline.
+// Converts a queued requisition into spent budget. Model-type items become
+// a real model (stamped with today's purchase date), which joins the pile.
+// Gifts, codices and sundries skip model creation entirely — they're
+// stamped purchased with today's date and just drop off the Requisitions
+// list, landing only in the Ledger's spend history.
 export function promoteToModel(id) {
   const item = appData.purchaseQueue[id];
   if (!item) return null;
+  const type = PURCHASE_ITEM_TYPES[item.itemType] || PURCHASE_ITEM_TYPES.model;
+  if (!type.addsToPile) {
+    updatePurchaseItem(id, { status: 'purchased', purchaseDate: today() });
+    return null;
+  }
   const modelId = createModel({ name: item.name, gameSystemId: item.gameSystemId, quantity: 1, worth: item.worth });
   updateModel(modelId, { purchaseDate: today() });
-  updatePurchaseItem(id, { status: 'purchased', promotedModelId: modelId });
+  updatePurchaseItem(id, { status: 'purchased', promotedModelId: modelId, purchaseDate: today() });
   return modelId;
 }
 
@@ -89,7 +109,7 @@ export function monthlySpendTimeline() {
   Object.values(appData.purchaseQueue).forEach(item => {
     if (item.status === 'purchased') {
       const model = item.promotedModelId ? appData.models[item.promotedModelId] : null;
-      const month = (model?.purchaseDate || '').slice(0, 7);
+      const month = (item.purchaseDate || model?.purchaseDate || '').slice(0, 7);
       if (month) ensure(month).actualSpend += item.worth || 0;
     } else if (item.plannedMonth) {
       ensure(item.plannedMonth).plannedSpend += item.worth || 0;
@@ -218,9 +238,14 @@ function renderRequisitions(body, container) {
   body.querySelectorAll('[data-qm-promote]').forEach(btn => {
     btn.addEventListener('click', () => {
       const item = appData.purchaseQueue[btn.dataset.qmPromote];
-      if (!item || !confirm(`Promote "${item.name}" to a real model? This adds it to your pile.`)) return;
+      if (!item) return;
+      const type = PURCHASE_ITEM_TYPES[item.itemType] || PURCHASE_ITEM_TYPES.model;
+      const confirmMsg = type.addsToPile
+        ? `Promote "${item.name}" to a real model? This adds it to your pile.`
+        : `Mark "${item.name}" as purchased? As a ${type.label.toLowerCase()}, it goes on the ledger but won't join your pile or affect rectitude.`;
+      if (!confirm(confirmMsg)) return;
       promoteToModel(item.id);
-      toast(`${item.name} promoted to your model pool!`, 'success');
+      toast(type.addsToPile ? `${item.name} promoted to your model pool!` : `${item.name} logged as purchased.`, 'success');
       renderRequisitions(body, container);
     });
   });
@@ -235,6 +260,7 @@ function renderRequisitions(body, container) {
 
 function requisitionCard(item) {
   const sys = item.gameSystemId ? GAME_SYSTEMS[item.gameSystemId] : null;
+  const type = PURCHASE_ITEM_TYPES[item.itemType] || PURCHASE_ITEM_TYPES.model;
   return `
     <div class="queue-entry" data-item-id="${item.id}">
       <div class="queue-entry-main">
@@ -242,11 +268,12 @@ function requisitionCard(item) {
           <div class="queue-entry-name">${item.name}</div>
           <div class="queue-entry-qty">£${(item.worth || 0).toFixed(0)}</div>
           ${sys ? `<span class="sys-tag ${sys.theme}">${sys.shortLabel}</span>` : ''}
+          ${!type.addsToPile ? `<span class="sys-tag theme-default">${type.label}</span>` : ''}
         </div>
         ${item.reason ? `<div class="queue-entry-note">📌 ${item.reason}</div>` : ''}
         ${item.plannedMonth ? `<div class="queue-entry-note">🗓️ ${item.plannedMonth}</div>` : ''}
         <div class="queue-entry-actions">
-          <button class="btn btn-sm btn-primary" data-qm-promote="${item.id}">✅ Promote</button>
+          <button class="btn btn-sm btn-primary" data-qm-promote="${item.id}">${type.addsToPile ? '✅ Promote' : '✅ Log Purchase'}</button>
           <button class="btn btn-sm" data-qm-edit="${item.id}">✏️ Edit</button>
           <button class="btn btn-sm btn-danger" data-qm-delete="${item.id}">✕</button>
         </div>
@@ -284,26 +311,33 @@ function renderRequisitionForm(body, container, editId) {
         <input id="qmWorth" type="number" class="form-input" min="0" step="0.01" value="${item?.worth ?? ''}">
       </div>
       <div class="form-group">
+        <label>Type</label>
+        <select id="qmItemType" class="form-input">
+          ${Object.values(PURCHASE_ITEM_TYPES).map(t => `<option value="${t.id}" ${(item?.itemType || 'model') === t.id ? 'selected' : ''}>${t.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row-two">
+      <div class="form-group">
         <label>Game System</label>
         <select id="qmGameSystem" class="form-input">
           <option value="">— None —</option>
           ${Object.values(GAME_SYSTEMS).map(s => `<option value="${s.id}" ${item?.gameSystemId === s.id ? 'selected' : ''}>${s.shortLabel}</option>`).join('')}
         </select>
       </div>
-    </div>
-    <div class="form-row-two">
       <div class="form-group">
         <label>Planned Month</label>
         <input id="qmMonth" type="month" class="form-input" value="${item?.plannedMonth || ''}">
       </div>
-      <div class="form-group">
-        <label>Army (optional)</label>
-        <select id="qmCollection" class="form-input">
-          <option value="">— None —</option>
-          ${collections.map(c => `<option value="${c.id}" ${item?.collectionId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
-        </select>
-      </div>
     </div>
+    <div class="form-group">
+      <label>Army (optional)</label>
+      <select id="qmCollection" class="form-input">
+        <option value="">— None —</option>
+        ${collections.map(c => `<option value="${c.id}" ${item?.collectionId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+      </select>
+    </div>
+    <p class="form-hint" id="qmTypeHint"></p>
     <div class="form-group">
       <label>Reason (optional)</label>
       <textarea id="qmReason" class="form-input" rows="2">${item?.reason || ''}</textarea>
@@ -316,9 +350,18 @@ function renderRequisitionForm(body, container, editId) {
   `;
 
   const worthInput = body.querySelector('#qmWorth');
+  const typeSelect = body.querySelector('#qmItemType');
   const deltaEl = body.querySelector('#qmDeltaPreview');
+  const typeHintEl = body.querySelector('#qmTypeHint');
 
   function updateDelta() {
+    const type = PURCHASE_ITEM_TYPES[typeSelect.value] || PURCHASE_ITEM_TYPES.model;
+    if (!type.addsToPile) {
+      deltaEl.textContent = '';
+      typeHintEl.textContent = `${type.label} items go on the ledger but never join the pile — rectitude is unaffected.`;
+      return;
+    }
+    typeHintEl.textContent = '';
     const draftWorth = parseFloat(worthInput.value) || 0;
     const newWorth = currentWorth + draftWorth;
     if (!budget) {
@@ -329,6 +372,7 @@ function renderRequisitionForm(body, container, editId) {
     deltaEl.innerHTML = `If promoted: pile worth £${currentWorth.toFixed(0)} → £${newWorth.toFixed(0)}. Rectitude ${fmtPct(rectitudePct())} → <span class="${rectClass(newRect)}">${fmtPct(newRect)}</span>`;
   }
   worthInput.addEventListener('input', updateDelta);
+  typeSelect.addEventListener('change', updateDelta);
   updateDelta();
 
   if (budget && rectitudePct() < 0) {
@@ -344,6 +388,7 @@ function renderRequisitionForm(body, container, editId) {
     const fields = {
       name,
       worth: parseFloat(body.querySelector('#qmWorth').value) || 0,
+      itemType: body.querySelector('#qmItemType').value || 'model',
       gameSystemId: body.querySelector('#qmGameSystem').value || null,
       plannedMonth: body.querySelector('#qmMonth').value || '',
       collectionId: body.querySelector('#qmCollection').value || null,
