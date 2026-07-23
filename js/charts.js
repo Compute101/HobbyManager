@@ -393,20 +393,24 @@ export function renderBurndown(canvasId, models, deadline) {
 
 // Trailing-window velocity + projected clear date, computed once and shared
 // by the chart and its text summary so they never disagree.
+//
+// byDay is built from logged sessions (qty logged per stage that day × the
+// stage's hobby points), same convention as renderWeeklySummary/the activity
+// calendar — NOT from model.progress[stageId].done/lastDate, which is a
+// cumulative snapshot attributed entirely to whichever date a stage was last
+// touched (so partial progress logged earlier gets silently swallowed into
+// the most recent date, badly distorting day-to-day velocity).
 export function pileBurndownStats() {
   const byDay = {};
-  Object.values(appData.models).forEach(m => {
-    const stages = m.stages || appData.config.stages;
-    const skipped = m.skippedStages || [];
-    stages.forEach(s => {
-      if (skipped.includes(s.id)) return;
-      const cap = stageCap(s, m);
-      const prog = m.progress[s.id];
-      if (prog?.lastDate && prog.done > 0) {
-        const pts = Math.min(prog.done, cap) * (s.points || 1);
-        byDay[prog.lastDate] = (byDay[prog.lastDate] || 0) + pts;
-      }
-    });
+  (appData.sessions || []).forEach(s => {
+    if (!s.date) return;
+    const pts = (s.modelEntries || []).reduce((acc, e) => {
+      const model = appData.models[e.modelId];
+      if (!model) return acc;
+      const stage = (model.stages || appData.config.stages).find(st => st.id === e.stageId);
+      return acc + (stage?.points || 1) * (e.qty || 0);
+    }, 0);
+    byDay[s.date] = (byDay[s.date] || 0) + pts;
   });
 
   const pileRemainingPoints = Object.values(appData.models)
