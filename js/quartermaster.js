@@ -118,6 +118,17 @@ export function monthlySpendTimeline() {
   return Object.values(months).sort((a, b) => a.month.localeCompare(b.month));
 }
 
+// This calendar month's budget minus what's already spent and what's
+// planned to be spent this month — i.e. the uncommitted headroom left.
+export function budgetRemainingThisMonth() {
+  const budget = appData.config.monthlyBudgetGBP || 0;
+  const thisMonth = today().slice(0, 7);
+  const entry = monthlySpendTimeline().find(m => m.month === thisMonth);
+  const spent = entry?.actualSpend || 0;
+  const planned = entry?.plannedSpend || 0;
+  return { budget, spent, planned, remaining: budget - spent - planned };
+}
+
 function rectClass(pct) {
   if (pct === null) return '';
   return pct >= 0 ? 'qm-rect-positive' : 'qm-rect-negative';
@@ -405,6 +416,7 @@ function renderLedger(body) {
   const period = appData.config.budgetPeriod || 'monthly';
   const displayAmount = period === 'annual' ? monthlyBudget * 12 : monthlyBudget;
   const timeline = monthlySpendTimeline();
+  const remain = budgetRemainingThisMonth();
 
   body.innerHTML = `
     <div class="queue-header">
@@ -424,6 +436,13 @@ function renderLedger(body) {
       </div>
     </div>
     ${monthlyBudget ? `<p class="form-hint">= £${monthlyBudget.toFixed(2)}/month for rectitude</p>` : ''}
+    ${monthlyBudget ? `
+      <div class="dash-card">
+        <h3>Remaining This Month</h3>
+        <div class="qm-rect-figure ${rectClass(remain.remaining)}">£${remain.remaining.toFixed(0)}</div>
+        <div class="pile-total">£${remain.spent.toFixed(0)} spent${remain.planned ? ` + £${remain.planned.toFixed(0)} planned` : ''} of £${remain.budget.toFixed(0)} budget</div>
+      </div>
+    ` : ''}
     ${timeline.length === 0 ? `
       <div class="empty-state">
         <p>No spend history or planned purchases yet.</p>
