@@ -360,7 +360,8 @@ export let appData = {
   },
   folders: {}, // id -> { id, name, collapsed }
   queues: {},  // id -> { id, name, entries: [{id, modelId, note}] }
-  // id -> { id, name, gameSystemId, worth, reason, plannedMonth, collectionId, status, promotedModelId }
+  // id -> { id, name, gameSystemId, worth, reason, plannedMonth, collectionId, itemType, status, promotedModelId, purchaseDate }
+  // itemType: 'model' (joins the pile on promotion) | 'gift' | 'codex' | 'sundry' (ledger-only, never joins the pile)
   purchaseQueue: {}
 };
 
