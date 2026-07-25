@@ -103,16 +103,24 @@ export function costToFinish(collectionId) {
 // Single timeline merging actual past spend (promoted items, grouped by the
 // model's purchaseDate) with planned future spend (queued items, grouped by
 // plannedMonth) — serves both the budget calendar and the monthly report.
+// Each month also keeps the individual items behind it (actualItems /
+// plannedItems) so the Ledger can itemize, not just show a monthly total.
 export function monthlySpendTimeline() {
   const months = {};
-  const ensure = m => months[m] || (months[m] = { month: m, actualSpend: 0, plannedSpend: 0 });
+  const ensure = m => months[m] || (months[m] = { month: m, actualSpend: 0, plannedSpend: 0, actualItems: [], plannedItems: [] });
   Object.values(appData.purchaseQueue).forEach(item => {
     if (item.status === 'purchased') {
       const model = item.promotedModelId ? appData.models[item.promotedModelId] : null;
       const month = (item.purchaseDate || model?.purchaseDate || '').slice(0, 7);
-      if (month) ensure(month).actualSpend += item.worth || 0;
+      if (month) {
+        const entry = ensure(month);
+        entry.actualSpend += item.worth || 0;
+        entry.actualItems.push(item);
+      }
     } else if (item.plannedMonth) {
-      ensure(item.plannedMonth).plannedSpend += item.worth || 0;
+      const entry = ensure(item.plannedMonth);
+      entry.plannedSpend += item.worth || 0;
+      entry.plannedItems.push(item);
     }
   });
   return Object.values(months).sort((a, b) => a.month.localeCompare(b.month));
@@ -127,6 +135,26 @@ export function budgetRemainingThisMonth() {
   const spent = entry?.actualSpend || 0;
   const planned = entry?.plannedSpend || 0;
   return { budget, spent, planned, remaining: budget - spent - planned };
+}
+
+// All-time actual (purchased) spend, broken down by requisition type —
+// how much has gone to models vs. gifts vs. codices vs. sundries.
+export function spendByType() {
+  const totals = {};
+  Object.values(appData.purchaseQueue).forEach(item => {
+    if (item.status !== 'purchased') return;
+    const t = item.itemType || 'model';
+    totals[t] = (totals[t] || 0) + (item.worth || 0);
+  });
+  return totals;
+}
+
+// Actual spend across the given calendar year (defaults to this year).
+export function yearToDateSpend(year = new Date().getFullYear()) {
+  const prefix = `${year}-`;
+  return monthlySpendTimeline()
+    .filter(m => m.month.startsWith(prefix))
+    .reduce((sum, m) => sum + m.actualSpend, 0);
 }
 
 function rectClass(pct) {
@@ -411,12 +439,47 @@ function renderRequisitionForm(body, container, editId) {
   });
 }
 
+// A month's summary row from monthlySpendTimeline(), expandable (via native
+// <details>) into its individual purchased/planned items when there are any.
+function monthRow(m) {
+  const summaryInner = `
+    <div class="pile-item">
+      <span class="pile-item-name">${m.month}</span>
+      <span class="pile-item-qty">${m.actualSpend ? `£${m.actualSpend.toFixed(0)} spent` : ''}${m.actualSpend && m.plannedSpend ? ' · ' : ''}${m.plannedSpend ? `£${m.plannedSpend.toFixed(0)} planned` : ''}</span>
+    </div>
+  `;
+  const items = [...m.actualItems.map(i => itemRow(i, 'spent')), ...m.plannedItems.map(i => itemRow(i, 'planned'))];
+  if (items.length === 0) return summaryInner;
+  return `
+    <details>
+      <summary style="cursor:pointer">${summaryInner}</summary>
+      <div style="padding-left:1.2em">${items.join('')}</div>
+    </details>
+  `;
+}
+
+function itemRow(item, kind) {
+  const type = PURCHASE_ITEM_TYPES[item.itemType] || PURCHASE_ITEM_TYPES.model;
+  return `
+    <div class="pile-item" style="font-size:0.85em">
+      <span class="pile-item-name">${item.name} <span class="form-hint" style="display:inline">${type.label}</span></span>
+      <span class="pile-item-qty">£${(item.worth || 0).toFixed(0)} ${kind}</span>
+    </div>
+  `;
+}
+
 function renderLedger(body) {
   const monthlyBudget = appData.config.monthlyBudgetGBP || 0;
   const period = appData.config.budgetPeriod || 'monthly';
   const displayAmount = period === 'annual' ? monthlyBudget * 12 : monthlyBudget;
   const timeline = monthlySpendTimeline();
   const remain = budgetRemainingThisMonth();
+  const currentYear = new Date().getFullYear();
+  const ytd = yearToDateSpend(currentYear);
+  const byType = spendByType();
+  const typeRows = Object.values(PURCHASE_ITEM_TYPES)
+    .map(t => ({ ...t, total: byType[t.id] || 0 }))
+    .filter(t => t.total > 0);
 
   body.innerHTML = `
     <div class="queue-header">
@@ -443,18 +506,25 @@ function renderLedger(body) {
         <div class="pile-total">£${remain.spent.toFixed(0)} spent${remain.planned ? ` + £${remain.planned.toFixed(0)} planned` : ''} of £${remain.budget.toFixed(0)} budget</div>
       </div>
     ` : ''}
+    <div class="dash-card">
+      <h3>Year to Date (${currentYear})</h3>
+      <div class="pile-total">£${ytd.toFixed(0)} spent${monthlyBudget ? ` vs £${(monthlyBudget * 12).toFixed(0)} annual budget` : ''}</div>
+    </div>
+    ${typeRows.length > 0 ? `
+      <div class="dash-card">
+        <h3>Spend by Type</h3>
+        <div class="pile-items">
+          ${typeRows.map(t => `<div class="pile-item"><span class="pile-item-name">${t.label}</span><span class="pile-item-qty">£${t.total.toFixed(0)}</span></div>`).join('')}
+        </div>
+      </div>
+    ` : ''}
     ${timeline.length === 0 ? `
       <div class="empty-state">
         <p>No spend history or planned purchases yet.</p>
       </div>
     ` : `
       <div class="pile-items">
-        ${timeline.map(m => `
-          <div class="pile-item">
-            <span class="pile-item-name">${m.month}</span>
-            <span class="pile-item-qty">${m.actualSpend ? `£${m.actualSpend.toFixed(0)} spent` : ''}${m.actualSpend && m.plannedSpend ? ' · ' : ''}${m.plannedSpend ? `£${m.plannedSpend.toFixed(0)} planned` : ''}</span>
-          </div>
-        `).join('')}
+        ${timeline.map(m => monthRow(m)).join('')}
       </div>
     `}
   `;
