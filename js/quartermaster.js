@@ -126,15 +126,31 @@ export function monthlySpendTimeline() {
   return Object.values(months).sort((a, b) => a.month.localeCompare(b.month));
 }
 
-// This calendar month's budget minus what's already spent and what's
-// planned to be spent this month — i.e. the uncommitted headroom left.
-export function budgetRemainingThisMonth() {
-  const budget = appData.config.monthlyBudgetGBP || 0;
+// Uncommitted headroom left against the budget, scoped to whichever period
+// the budget is actually managed in (appData.config.budgetPeriod): this
+// calendar month's budget minus this month's spend when managed monthly,
+// or this calendar year's budget minus this year's spend when managed
+// annually — comparing an annual budget against only one month's spend
+// would be meaningless.
+export function budgetRemaining() {
+  const monthlyBudget = appData.config.monthlyBudgetGBP || 0;
+  const period = appData.config.budgetPeriod || 'monthly';
+  const timeline = monthlySpendTimeline();
+
+  if (period === 'annual') {
+    const year = new Date().getFullYear();
+    const yearEntries = timeline.filter(m => m.month.startsWith(`${year}-`));
+    const budget = monthlyBudget * 12;
+    const spent = yearEntries.reduce((sum, m) => sum + m.actualSpend, 0);
+    const planned = yearEntries.reduce((sum, m) => sum + m.plannedSpend, 0);
+    return { period, budget, spent, planned, remaining: budget - spent - planned };
+  }
+
   const thisMonth = today().slice(0, 7);
-  const entry = monthlySpendTimeline().find(m => m.month === thisMonth);
+  const entry = timeline.find(m => m.month === thisMonth);
   const spent = entry?.actualSpend || 0;
   const planned = entry?.plannedSpend || 0;
-  return { budget, spent, planned, remaining: budget - spent - planned };
+  return { period, budget: monthlyBudget, spent, planned, remaining: monthlyBudget - spent - planned };
 }
 
 // All-time actual (purchased) spend, broken down by requisition type —
@@ -473,7 +489,7 @@ function renderLedger(body) {
   const period = appData.config.budgetPeriod || 'monthly';
   const displayAmount = period === 'annual' ? monthlyBudget * 12 : monthlyBudget;
   const timeline = monthlySpendTimeline();
-  const remain = budgetRemainingThisMonth();
+  const remain = budgetRemaining();
   const currentYear = new Date().getFullYear();
   const ytd = yearToDateSpend(currentYear);
   const byType = spendByType();
@@ -501,15 +517,17 @@ function renderLedger(body) {
     ${monthlyBudget ? `<p class="form-hint">= £${monthlyBudget.toFixed(2)}/month for rectitude</p>` : ''}
     ${monthlyBudget ? `
       <div class="dash-card">
-        <h3>Remaining This Month</h3>
+        <h3>Remaining This ${period === 'annual' ? 'Year' : 'Month'}</h3>
         <div class="qm-rect-figure ${rectClass(remain.remaining)}">£${remain.remaining.toFixed(0)}</div>
         <div class="pile-total">£${remain.spent.toFixed(0)} spent${remain.planned ? ` + £${remain.planned.toFixed(0)} planned` : ''} of £${remain.budget.toFixed(0)} budget</div>
       </div>
     ` : ''}
-    <div class="dash-card">
-      <h3>Year to Date (${currentYear})</h3>
-      <div class="pile-total">£${ytd.toFixed(0)} spent${monthlyBudget ? ` vs £${(monthlyBudget * 12).toFixed(0)} annual budget` : ''}</div>
-    </div>
+    ${period === 'monthly' ? `
+      <div class="dash-card">
+        <h3>Year to Date (${currentYear})</h3>
+        <div class="pile-total">£${ytd.toFixed(0)} spent${monthlyBudget ? ` vs £${(monthlyBudget * 12).toFixed(0)} annual budget` : ''}</div>
+      </div>
+    ` : ''}
     ${typeRows.length > 0 ? `
       <div class="dash-card">
         <h3>Spend by Type</h3>
