@@ -3,7 +3,7 @@
 import {
   appData, saveData, uid, unstartedCount, createModel, updateModel, GAME_SYSTEMS
 } from './data.js';
-import { resolveGameSystemId } from './dashboard.js';
+import { resolveGameSystemId, greyBrigadeCount } from './dashboard.js';
 import { toast, today, formatDate } from './ui.js';
 
 // --- Data helpers ---
@@ -65,18 +65,25 @@ export function promoteToModel(id) {
 
 function pileModels(gameSystemId = null) {
   return Object.values(appData.models).filter(m => {
-    if (unstartedCount(m) <= 0) return false;
+    if (unstartedCount(m) <= 0 && greyBrigadeCount(m) <= 0) return false;
     if (gameSystemId && resolveGameSystemId(m) !== gameSystemId) return false;
     return true;
   });
 }
 
 export function pileCount(gameSystemId = null) {
-  return pileModels(gameSystemId).reduce((sum, m) => sum + unstartedCount(m), 0);
+  return pileModels(gameSystemId).reduce((sum, m) => sum + unstartedCount(m) + greyBrigadeCount(m), 0);
 }
 
+// Grey Brigade models (assembled/primed but not yet painted) weigh on
+// rectitude too, just at half the rate of the still-on-the-sprue pile — a
+// model only counts once, at the higher of the two weights it qualifies for.
 export function pileWorth(gameSystemId = null) {
-  return pileModels(gameSystemId).reduce((sum, m) => sum + (m.worth || 0), 0);
+  return pileModels(gameSystemId).reduce((sum, m) => {
+    if (unstartedCount(m) > 0) return sum + (m.worth || 0);
+    if (greyBrigadeCount(m) > 0) return sum + (m.worth || 0) * 0.5;
+    return sum;
+  }, 0);
 }
 
 export function backlogScoreMonths(gameSystemId = null) {
@@ -223,7 +230,7 @@ function renderQMOverview(body) {
 
   const systemIds = [...new Set(
     Object.values(appData.models)
-      .filter(m => unstartedCount(m) > 0)
+      .filter(m => unstartedCount(m) > 0 || greyBrigadeCount(m) > 0)
       .map(m => resolveGameSystemId(m))
       .filter(Boolean)
   )];

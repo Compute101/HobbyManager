@@ -753,7 +753,7 @@ function showPileShareFallback(text) {
 
 // --- Grey Brigade ---
 
-function greyBrigadeCount(model) {
+export function greyBrigadeCount(model) {
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
 
