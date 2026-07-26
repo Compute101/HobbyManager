@@ -523,6 +523,7 @@ const ICON_CONFIG = {
   large_skimmer:       { symbol: 'miniSkimmer', aspect: 15 / 34, mult: 1.9  },
   super_heavy_skimmer: { symbol: 'miniSkimmer', aspect: 15 / 34, mult: 2.4  },
   cavalry:             { symbol: 'miniCavalry', aspect: 28 / 34, mult: 1.15 },
+  character_horse:     { symbol: 'miniCavalry', aspect: 28 / 34, mult: 1.15 },
   walker:              { symbol: 'miniWalker',  aspect: 28 / 26, mult: 1.2  },
 };
 
