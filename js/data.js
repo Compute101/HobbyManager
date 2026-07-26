@@ -300,6 +300,28 @@ export function getModelType(id) {
   return getAllModelTypes().find(t => t.id === id) || null;
 }
 
+// Broad visual/organizational groupings of model types, used to color-code
+// pictograms so different kinds of models are distinguishable at a glance.
+export const TYPE_GROUPS = {
+  'Infantry-scale': ['infantry', 'swarm'],
+  'Mounted':        ['cavalry', 'monstrous_cavalry', 'jetbike', 'chariot'],
+  'Large':          ['monster', 'walker', 'behemoth'],
+  'Characters':     ['character', 'character_horse', 'character_monster'],
+  'Vehicles':       ['warmachine', 'vehicle'],
+  'Special':        ['terrain'],
+};
+
+export const MODEL_GROUP_ORDER = [...Object.keys(TYPE_GROUPS), 'Custom', 'Other'];
+
+export function resolveModelGroup(model) {
+  const type = getModelType(model.modelTypeId);
+  if (!type) return 'Other';
+  for (const [group, ids] of Object.entries(TYPE_GROUPS)) {
+    if (ids.includes(type.id)) return group;
+  }
+  return type.builtIn ? 'Other' : 'Custom';
+}
+
 export function saveModelTypeOverride(typeId, stages) {
   if (!appData.config.modelTypeOverrides) appData.config.modelTypeOverrides = {};
   appData.config.modelTypeOverrides[typeId] = stages;

@@ -37,10 +37,16 @@
       --chart-remain: #2a2a40;
       --header-bg:    linear-gradient(135deg, #0f3460 0%, #16213e 100%);
       --tab-active-bg:#1e2140;
-      --fig-unstarted-fill:   #f2f1f8;
-      --fig-unstarted-stroke: #4a4a70;
-      --fig-grey-fill:        #9a9aa8;
-      --fig-grey-stroke:      #5c5c6e;
+      /* Pictogram model-group colors — fixed categorical order, validated for
+         CVD-safe adjacent contrast against this app's dark surfaces. */
+      --grp-infantry:   #3987e5;
+      --grp-mounted:    #d95926;
+      --grp-large:      #199e70;
+      --grp-characters: #c98500;
+      --grp-vehicles:   #d55181;
+      --grp-special:    #008300;
+      --grp-custom:     #9085e9;
+      --grp-other:      #e66767;
     }
 
     /* ================================================================
@@ -1054,18 +1060,25 @@
     .ledger-row-planned { opacity: 0.75; }
 
     .pictograph-divider { border: none; border-top: 1px dashed var(--border); margin: 0.75em 0 0.7em; }
-    .picto-row { margin-bottom: 0.7em; }
-    .picto-row:last-child { margin-bottom: 0; }
-    .picto-row-label { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.8em; margin-bottom: 0.3em; }
-    .picto-row-label .count { color: var(--text-muted); font-variant-numeric: tabular-nums; }
-    .picto-figs { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; }
-    .picto-figs .fig:nth-child(10n) { margin-right: 7px; }
-    .fig { display: block; overflow: visible; cursor: default; flex-shrink: 0; stroke-width: 1; }
-    .fig-unstarted { fill: var(--fig-unstarted-fill); stroke: var(--fig-unstarted-stroke); }
-    .fig-grey { fill: var(--fig-grey-fill); stroke: var(--fig-grey-stroke); }
-    .fig:hover { stroke: var(--accent); stroke-width: 1.4; }
+    .picto-figs { display: flex; flex-wrap: wrap; gap: 3px; align-items: flex-end; }
+    .fig { display: block; overflow: visible; cursor: pointer; flex-shrink: 0; stroke-width: 1; transition: transform 0.1s ease; }
+    .fig:hover { stroke: var(--accent); stroke-width: 1.6; transform: translateY(-1px); }
+    .fig:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    /* Grey Brigade figures keep the same group-color fill as Pile of Potential,
+       just washed out, so the two piles still read as visually distinct. */
+    .fig-grey { opacity: 0.62; }
+    .fig-grp-infantry   { fill: var(--grp-infantry);   stroke: color-mix(in srgb, var(--grp-infantry) 55%, black); }
+    .fig-grp-mounted    { fill: var(--grp-mounted);    stroke: color-mix(in srgb, var(--grp-mounted) 55%, black); }
+    .fig-grp-large      { fill: var(--grp-large);      stroke: color-mix(in srgb, var(--grp-large) 55%, black); }
+    .fig-grp-characters { fill: var(--grp-characters); stroke: color-mix(in srgb, var(--grp-characters) 55%, black); }
+    .fig-grp-vehicles   { fill: var(--grp-vehicles);   stroke: color-mix(in srgb, var(--grp-vehicles) 55%, black); }
+    .fig-grp-special    { fill: var(--grp-special);    stroke: color-mix(in srgb, var(--grp-special) 55%, black); }
+    .fig-grp-custom     { fill: var(--grp-custom);     stroke: color-mix(in srgb, var(--grp-custom) 55%, black); }
+    .fig-grp-other      { fill: var(--grp-other);      stroke: color-mix(in srgb, var(--grp-other) 55%, black); }
     .picto-overflow { font-size: 0.72em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; padding: 0.15em 0.4em; align-self: center; }
-    .pictograph-legend { display: flex; align-items: center; gap: 0.4em; font-size: 0.78em; color: var(--text-muted); margin-top: 0.85em; }
+    .pictograph-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6em; font-size: 0.78em; color: var(--text-muted); margin-top: 0.85em; }
+    .picto-legend-item { display: inline-flex; align-items: center; gap: 0.3em; }
+    .picto-legend-size-note { font-style: italic; }
 
     .session-list { display: flex; flex-direction: column; gap: 0.5em; }
     .session-item { padding: 0.5em; background: var(--surface2); border-radius: var(--radius); font-size: 0.85em; }

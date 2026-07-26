@@ -4,7 +4,7 @@ import {
   appData, createModel, updateModel, deleteModel,
   logProgress, logSession, modelPoints, modelThreshold, stageCap, uid, saveData,
   getAllModelTypes, saveCustomModelType, deleteCustomModelType,
-  saveModelTypeOverride, resetModelTypeOverride, BUILTIN_MODEL_TYPES,
+  saveModelTypeOverride, resetModelTypeOverride, BUILTIN_MODEL_TYPES, TYPE_GROUPS,
   createFolder, updateFolder, deleteFolder, getAllFolders
 } from './data.js';
 import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue, createTimeInput } from './ui.js';
@@ -367,15 +367,6 @@ export function showModelDetail(modelId) {
 }
 
 // --- Model form (create / edit) ---
-
-const TYPE_GROUPS = {
-  'Infantry-scale': ['infantry', 'swarm'],
-  'Mounted':        ['cavalry', 'monstrous_cavalry', 'jetbike', 'chariot'],
-  'Large':          ['monster', 'walker', 'behemoth'],
-  'Characters':     ['character', 'character_horse', 'character_monster'],
-  'Vehicles':       ['warmachine', 'vehicle'],
-  'Special':        ['terrain'],
-};
 
 function renderTypeOptions(allTypes, selectedId) {
   const builtIn = allTypes.filter(t => t.builtIn);

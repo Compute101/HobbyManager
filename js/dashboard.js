@@ -1,6 +1,6 @@
 // dashboard.js — dashboard with pie charts and deadline cards
 
-import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount } from './data.js';
+import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, modelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER } from './data.js';
 import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
 import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle, renderPileBurndown, pileBurndownStats } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
@@ -118,6 +118,9 @@ export function renderDashboard() {
 
   // Grey Brigade share button
   document.getElementById('shareGreyBtn')?.addEventListener('click', shareGreyBrigade);
+
+  // Pictogram figures: click/Enter/Space reveals model name + type
+  wirePictoFigs(container);
 
   // Weekly goal button
   document.getElementById('setWeeklyGoalBtn')?.addEventListener('click', () => {
@@ -502,22 +505,86 @@ function shameLabel(model) {
   return { text: 'Never started', cls: 'shame-fresh' };
 }
 
-const PICTO_CAP = 100;
+const PICTO_CAP = 150;
+const FIG_MIN_W = 8;
+const FIG_MAX_W = 22;
+const FIG_ASPECT = 32 / 24; // matches the #miniFig symbol's viewBox (0 0 24 32)
 
-function pictoRowHtml(name, count, cls) {
-  const shown = Math.min(count, PICTO_CAP);
-  let figs = '';
-  for (let i = 0; i < shown; i++) {
-    figs += `<svg class="fig ${cls}" width="11" height="15"><title>${name}</title><use href="#miniFig"></use></svg>`;
+const GROUP_CLASS = {
+  'Infantry-scale': 'fig-grp-infantry',
+  'Mounted':        'fig-grp-mounted',
+  'Large':          'fig-grp-large',
+  'Characters':     'fig-grp-characters',
+  'Vehicles':       'fig-grp-vehicles',
+  'Special':        'fig-grp-special',
+  'Custom':         'fig-grp-custom',
+  'Other':          'fig-grp-other',
+};
+
+// Relative sizing is scaled against the spread of hobby points across the
+// whole collection, so a model's figure size reflects how big it is next to
+// everything else the user owns, not an absolute point value.
+function modelPointsRange() {
+  const totals = Object.values(appData.models).map(m => modelPoints(m).total || 1);
+  if (!totals.length) return { min: 1, max: 1 };
+  return { min: Math.min(...totals), max: Math.max(...totals) };
+}
+
+function figSize(pts, minPts, maxPts) {
+  if (maxPts <= minPts) return FIG_MIN_W;
+  const t = Math.sqrt(Math.max(0, Math.min(1, (pts - minPts) / (maxPts - minPts))));
+  return Math.round((FIG_MIN_W + t * (FIG_MAX_W - FIG_MIN_W)) * 10) / 10;
+}
+
+function escAttr(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// Renders every model in `entries` as one merged, flowing pile (rather than a
+// separate row per model) so figures for the same game system sit together;
+// color encodes the model group, size encodes hobby-point "bigness", and each
+// figure is clickable/focusable to reveal which model + type it represents.
+function pictoPileHtml(entries, sectionCls, minPts, maxPts) {
+  let figsHtml = '';
+  let shown = 0;
+  let totalCount = 0;
+  entries.forEach(({ model: m, count }) => {
+    totalCount += count;
+    const groupCls = GROUP_CLASS[resolveModelGroup(m)] || GROUP_CLASS.Other;
+    const type = getModelType(m.modelTypeId);
+    const name = escAttr(m.name);
+    const typeName = escAttr(type ? type.name : 'Unknown type');
+    const w = figSize(modelPoints(m).total || 1, minPts, maxPts);
+    const h = Math.round(w * FIG_ASPECT * 10) / 10;
+    for (let i = 0; i < count; i++) {
+      if (shown >= PICTO_CAP) return;
+      shown++;
+      figsHtml += `<svg class="fig ${sectionCls} ${groupCls}" width="${w}" height="${h}" tabindex="0" role="button" data-model-name="${name}" data-type-name="${typeName}"><title>${name} — ${typeName}</title><use href="#miniFig"></use></svg>`;
+    }
+  });
+  if (totalCount > PICTO_CAP) {
+    figsHtml += `<span class="picto-overflow" title="${totalCount - PICTO_CAP} more">+${totalCount - PICTO_CAP}</span>`;
   }
-  if (count > PICTO_CAP) {
-    figs += `<span class="picto-overflow" title="${name} — ${count} total">+${count - PICTO_CAP}</span>`;
-  }
-  return `
-    <div class="picto-row">
-      <div class="picto-row-label"><span class="name">${name}</span><span class="count">${count}</span></div>
-      <div class="picto-figs">${figs}</div>
-    </div>`;
+  return `<div class="picto-figs">${figsHtml}</div>`;
+}
+
+function pictoLegendHtml(entries) {
+  const present = new Set(entries.map(({ model: m }) => resolveModelGroup(m)));
+  const items = MODEL_GROUP_ORDER.filter(g => present.has(g)).map(g => `
+    <span class="picto-legend-item"><svg class="fig ${GROUP_CLASS[g]}" width="10" height="13"><use href="#miniFig"></use></svg>${g}</span>`).join('');
+  return `<div class="pictograph-legend">${items}<span class="picto-legend-size-note">larger figure = more hobby points</span></div>`;
+}
+
+// Wire click/keyboard activation on pictogram figures to reveal the model
+// name + type, since the merged pile no longer has a per-model text label.
+function wirePictoFigs(container) {
+  container.querySelectorAll('.fig[data-model-name]').forEach(fig => {
+    const reveal = () => toast(`${fig.dataset.modelName} — ${fig.dataset.typeName}`, 'info', 3200);
+    fig.addEventListener('click', reveal);
+    fig.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); reveal(); }
+    });
+  });
 }
 
 function pileOfPotentialSection() {
@@ -539,6 +606,8 @@ function pileOfPotentialSection() {
   const sortedSystems = Object.entries(bySystem)
     .map(([sysId, entries]) => ({ sysId, entries, maxScore: entries[0].score }))
     .sort((a, b) => b.maxScore - a.maxScore);
+
+  const { min: minPts, max: maxPts } = modelPointsRange();
 
   const systemSections = sortedSystems.map(({ sysId, entries }) => {
     const sys = GAME_SYSTEMS[sysId];
@@ -562,7 +631,7 @@ function pileOfPotentialSection() {
           }).join('')}
         </div>
         <hr class="pictograph-divider">
-        ${entries.map(({ model: m, unstarted }) => pictoRowHtml(m.name, unstarted, 'fig-unstarted')).join('')}
+        ${pictoPileHtml(entries.map(({ model, unstarted }) => ({ model, count: unstarted })), 'fig-unstarted', minPts, maxPts)}
       </div>`;
   }).join('');
 
@@ -579,7 +648,7 @@ function pileOfPotentialSection() {
         : `
           <div class="pile-total${isShameHeavy ? ' shame-heavy' : ''}">💀 ${totalCount} model${totalCount !== 1 ? 's' : ''} still on the sprue</div>
           <div class="pile-groups">${systemSections}</div>
-          <div class="pictograph-legend"><svg class="fig fig-unstarted" width="13" height="18"><use href="#miniFig"></use></svg> = 1 model still boxed</div>
+          ${pictoLegendHtml(withUnstarted)}
         `
       }
     </div>`;
@@ -713,6 +782,8 @@ function greyBrigadeSection() {
     }))
     .sort((a, b) => b.total - a.total);
 
+  const { min: minPts, max: maxPts } = modelPointsRange();
+
   const systemSections = sortedSystems.map(({ sysId, entries }) => {
     const sys = GAME_SYSTEMS[sysId];
     const sysCount = entries.reduce((a, { greyCount }) => a + greyCount, 0);
@@ -732,7 +803,7 @@ function greyBrigadeSection() {
             </div>`).join('')}
         </div>
         <hr class="pictograph-divider">
-        ${entries.map(({ model: m, greyCount }) => pictoRowHtml(m.name, greyCount, 'fig-grey')).join('')}
+        ${pictoPileHtml(entries.map(({ model, greyCount }) => ({ model, count: greyCount })), 'fig-grey', minPts, maxPts)}
       </div>`;
   }).join('');
 
@@ -749,7 +820,7 @@ function greyBrigadeSection() {
         : `
           <div class="pile-total${isShameHeavy ? ' shame-heavy' : ''}">🩶 ${totalCount} model${totalCount !== 1 ? 's' : ''} assembled or primed, awaiting paint</div>
           <div class="pile-groups">${systemSections}</div>
-          <div class="pictograph-legend"><svg class="fig fig-grey" width="13" height="18"><use href="#miniFig"></use></svg> = 1 model assembled/primed, unpainted</div>
+          ${pictoLegendHtml(withGrey)}
         `
       }
     </div>`;
