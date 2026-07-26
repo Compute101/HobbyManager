@@ -8,7 +8,7 @@ function detectModelType(name, section) {
 
   if (/swarm|rippers?/.test(n)) return 'swarm';
 
-  if (/baneblade|banehammer|banesword|doomhammer|hellhammer|shadowsword|stormlord|stormsword|fellblade|typhon|falchion|mastodon|gorgon|thunderhawk|stormsurge|ta'?unar|stompa|gargant|great gargant|mega.?dread|lord of skulls|brass scorpion|warhound|reaver titan|warlord titan/.test(n)) return 'large_vehicle';
+  if (/baneblade|banehammer|banesword|doomhammer|hellhammer|shadowsword|stormlord|stormsword|fellblade|typhon|falchion|mastodon|gorgon|thunderhawk|stormsurge|ta'?unar|stompa|gargant|great gargant|mega.?dread|lord of skulls|brass scorpion|warhound|reaver titan|warlord titan/.test(n)) return 'super_heavy_vehicle';
 
   if (/dreadnought|sentinel|armiger|knight|titan|killa kan|deff dread|gorkanaut|morkanaut/.test(n)) return 'walker';
 

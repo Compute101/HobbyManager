@@ -153,7 +153,7 @@ export const BUILTIN_MODEL_TYPES = [
   },
   {
     id: 'vehicle',
-    name: 'Vehicle',
+    name: 'Light Vehicle',
     builtIn: true,
     stages: [
       { id: 's1', name: 'Assembly',  points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
@@ -167,11 +167,10 @@ export const BUILTIN_MODEL_TYPES = [
   },
   {
     id: 'large_vehicle',
-    name: 'Large Vehicle / Super-Heavy',
+    name: 'Large Vehicle',
     builtIn: true,
-    // Super-heavy tanks, titans, and gargants — double the surface area of a
-    // standard Vehicle, so stage points scale up proportionally rather than
-    // just being an arbitrary round number.
+    // Double the surface area of a Light Vehicle — stage points scale up
+    // proportionally rather than being an arbitrary round number.
     stages: [
       { id: 's1', name: 'Assembly',  points: 12, phase: 'assembly', skippable: false, threshold: 'table_ready' },
       { id: 's2', name: 'Prime',     points: 6,  phase: 'painting', skippable: false, threshold: null },
@@ -180,6 +179,22 @@ export const BUILTIN_MODEL_TYPES = [
       { id: 's5', name: 'Layer',     points: 6,  phase: 'painting', skippable: true,  threshold: null },
       { id: 's6', name: 'Highlight', points: 8,  phase: 'painting', skippable: true,  threshold: 'painted' },
       { id: 's7', name: 'Basing',    points: 4,  phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'super_heavy_vehicle',
+    name: 'Super-Heavy Vehicle',
+    builtIn: true,
+    // Baneblade-chassis tanks, gargants, and titans — triple a Light
+    // Vehicle's stage points (25 → 75).
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 18, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 9,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 15, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 6,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 9,  phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 12, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 6,  phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -355,7 +370,7 @@ export const TYPE_GROUPS = {
   'Mounted':        ['cavalry', 'monstrous_cavalry', 'jetbike', 'chariot'],
   'Large':          ['monster', 'walker', 'behemoth'],
   'Characters':     ['character', 'character_horse', 'character_monster'],
-  'Vehicles':       ['warmachine', 'vehicle', 'skimmer', 'large_vehicle'],
+  'Vehicles':       ['warmachine', 'vehicle', 'skimmer', 'large_vehicle', 'super_heavy_vehicle'],
   'Special':        ['terrain'],
 };
 
