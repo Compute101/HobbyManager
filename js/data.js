@@ -300,6 +300,28 @@ export function getModelType(id) {
   return getAllModelTypes().find(t => t.id === id) || null;
 }
 
+// Broad visual/organizational groupings of model types, used to color-code
+// pictograms so different kinds of models are distinguishable at a glance.
+export const TYPE_GROUPS = {
+  'Infantry-scale': ['infantry', 'swarm'],
+  'Mounted':        ['cavalry', 'monstrous_cavalry', 'jetbike', 'chariot'],
+  'Large':          ['monster', 'walker', 'behemoth'],
+  'Characters':     ['character', 'character_horse', 'character_monster'],
+  'Vehicles':       ['warmachine', 'vehicle'],
+  'Special':        ['terrain'],
+};
+
+export const MODEL_GROUP_ORDER = [...Object.keys(TYPE_GROUPS), 'Custom', 'Other'];
+
+export function resolveModelGroup(model) {
+  const type = getModelType(model.modelTypeId);
+  if (!type) return 'Other';
+  for (const [group, ids] of Object.entries(TYPE_GROUPS)) {
+    if (ids.includes(type.id)) return group;
+  }
+  return type.builtIn ? 'Other' : 'Custom';
+}
+
 export function saveModelTypeOverride(typeId, stages) {
   if (!appData.config.modelTypeOverrides) appData.config.modelTypeOverrides = {};
   appData.config.modelTypeOverrides[typeId] = stages;
@@ -658,6 +680,23 @@ export function modelPoints(model) {
     done += Math.min(prog.done, cap) * (s.points || 1);
   });
   return { total, done, pct: total ? Math.round(done / total * 100) : 0 };
+}
+
+// Hobby points for a single copy of this model's type — unlike modelPoints(),
+// this ignores model.quantity (a squad's batch size), so a 20-strong infantry
+// entry and a lone infantry model score the same "how big is one of these".
+// Crew stages still scale by crewQuantity, since the crew is intrinsic to one
+// war machine, not a batch of separate models.
+export function singleModelPoints(model) {
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+  let total = 0;
+  stages.forEach(s => {
+    if (skipped.includes(s.id)) return;
+    const cap = s.group === 'crew' ? (model.crewQuantity || 0) : 1;
+    total += (s.points || 1) * cap;
+  });
+  return total;
 }
 
 export function listStats(list) {
