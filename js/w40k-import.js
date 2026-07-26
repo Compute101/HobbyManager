@@ -10,7 +10,7 @@ function detectModelType(name, section) {
 
   if (/dreadnought|sentinel|armiger|knight|titan|killa kan|deff dread|gorkanaut|morkanaut/.test(n)) return 'walker';
 
-  if (/rhino|predator|land raider|repulsor|gladiator|impulsor|vindicator|razorback|chimera|hellhound|leman russ|basilisk|manticore|deathstrike|wave serpent|falcon|hammerhead|devilfish|broadside|ghostkeel|defiler|forgefiend|maulerfiend|skorpius|dunecrawler/.test(n)) return 'vehicle';
+  if (/rhino|predator|land raider|repulsor|gladiator|impulsor|vindicator|razorback|chimera|hellhound|leman russ|basilisk|manticore|deathstrike|wave serpent|falcon|hammerhead|devilfish|broadside|ghostkeel|defiler|forgefiend|maulerfiend|skorpius|dunecrawler|\braider\b|\bravager\b|venom|razorwing|voidraven|tantalus/.test(n)) return 'vehicle';
 
   if (/tyrannofex|screamer.killer|hive tyrant|carnifex|tervigon|trygon|mawloc|haruspex|exocrine|maleceptor|toxicrene|psychophage|norn emissary|daemon prince|great unclean|bloodthirster|lord of change|keeper of secrets|neurotyrant/.test(n)) return 'monster';
 
