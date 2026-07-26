@@ -520,6 +520,8 @@ const ICON_CONFIG = {
   large_vehicle:       { symbol: 'miniTank',    aspect: 20 / 34, mult: 2.0  },
   super_heavy_vehicle: { symbol: 'miniTank',    aspect: 20 / 34, mult: 2.6  },
   skimmer:             { symbol: 'miniSkimmer', aspect: 15 / 34, mult: 1.5  },
+  large_skimmer:       { symbol: 'miniSkimmer', aspect: 15 / 34, mult: 1.9  },
+  super_heavy_skimmer: { symbol: 'miniSkimmer', aspect: 15 / 34, mult: 2.4  },
   cavalry:             { symbol: 'miniCavalry', aspect: 28 / 34, mult: 1.15 },
   walker:              { symbol: 'miniWalker',  aspect: 28 / 26, mult: 1.2  },
 };

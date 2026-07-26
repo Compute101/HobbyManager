@@ -199,11 +199,11 @@ export const BUILTIN_MODEL_TYPES = [
   },
   {
     id: 'skimmer',
-    name: 'Skimmer',
+    name: 'Light Skimmer',
     builtIn: true,
-    // Functionally identical to Vehicle — same painting workload — this is
-    // purely a distinct type so anti-grav vehicles get the skimmer icon
-    // instead of the tracked-tank icon in the pile pictogram.
+    // Functionally identical to Light Vehicle — same painting workload —
+    // this is purely a distinct type so anti-grav vehicles get the skimmer
+    // icon instead of the tracked-tank icon in the pile pictogram.
     stages: [
       { id: 's1', name: 'Assembly',  points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
       { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
@@ -212,6 +212,38 @@ export const BUILTIN_MODEL_TYPES = [
       { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
       { id: 's6', name: 'Highlight', points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
       { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'large_skimmer',
+    name: 'Large Skimmer',
+    builtIn: true,
+    // Double the surface area of a Light Skimmer, mirroring the Light/Large/
+    // Super-Heavy split used for tracked Vehicles.
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 12, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 6,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 10, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 4,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 6,  phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 8,  phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 4,  phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'super_heavy_skimmer',
+    name: 'Super-Heavy Skimmer',
+    builtIn: true,
+    // Superheavy flyers/grav-tanks (e.g. Tau Manta) — triple a Light
+    // Skimmer's stage points (25 → 75).
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 18, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 9,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 15, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 6,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 9,  phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 12, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 6,  phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -370,7 +402,7 @@ export const TYPE_GROUPS = {
   'Mounted':        ['cavalry', 'monstrous_cavalry', 'jetbike', 'chariot'],
   'Large':          ['monster', 'walker', 'behemoth'],
   'Characters':     ['character', 'character_horse', 'character_monster'],
-  'Vehicles':       ['warmachine', 'vehicle', 'skimmer', 'large_vehicle', 'super_heavy_vehicle'],
+  'Vehicles':       ['warmachine', 'vehicle', 'skimmer', 'large_vehicle', 'super_heavy_vehicle', 'large_skimmer', 'super_heavy_skimmer'],
   'Special':        ['terrain'],
 };
 
