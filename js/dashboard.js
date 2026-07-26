@@ -508,9 +508,19 @@ function shameLabel(model) {
 const PICTO_CAP = 150;
 const FIG_MIN_W = 8;
 const FIG_MAX_W = 22;
-const FIG_ASPECT = 32 / 24; // matches the #miniFig symbol's viewBox (0 0 24 32)
-const VEHICLE_ASPECT = 20 / 34; // matches the #miniTank symbol's viewBox (0 0 34 20)
-const VEHICLE_SIZE_MULT = 1.6; // vehicles read as a hull silhouette, not a standing figure — scale up so they visibly dwarf infantry at the same hobby-point score
+const FIG_ASPECT = 32 / 24; // matches the #miniFig symbol's viewBox (0 0 24 32) — default for any type without its own icon
+
+// Model types with a dedicated silhouette instead of the default standing
+// figure, keyed by model type id (not group — Vehicle and Skimmer share a
+// color group but get different shapes). `mult` scales the figure up beyond
+// its points-driven size so hardware/mounts read as visibly bigger than a
+// same-scoring infantry model, not just a bigger person.
+const ICON_CONFIG = {
+  vehicle: { symbol: 'miniTank',    aspect: 20 / 34, mult: 1.6  },
+  skimmer: { symbol: 'miniSkimmer', aspect: 15 / 34, mult: 1.5  },
+  cavalry: { symbol: 'miniCavalry', aspect: 28 / 34, mult: 1.15 },
+  walker:  { symbol: 'miniWalker',  aspect: 28 / 26, mult: 1.2  },
+};
 
 const GROUP_CLASS = {
   'Infantry-scale': 'fig-grp-infantry',
@@ -553,16 +563,15 @@ function pictoPileHtml(entries, sectionCls, minPts, maxPts) {
   let totalCount = 0;
   entries.forEach(({ model: m, count }) => {
     totalCount += count;
-    const group = resolveModelGroup(m);
-    const groupCls = GROUP_CLASS[group] || GROUP_CLASS.Other;
-    const isVehicle = group === 'Vehicles';
-    const symbolId = isVehicle ? 'miniTank' : 'miniFig';
+    const groupCls = GROUP_CLASS[resolveModelGroup(m)] || GROUP_CLASS.Other;
     const type = getModelType(m.modelTypeId);
+    const icon = ICON_CONFIG[type?.id];
+    const symbolId = icon ? icon.symbol : 'miniFig';
     const name = escAttr(m.name);
     const typeName = escAttr(type ? type.name : 'Unknown type');
     let w = figSize(singleModelPoints(m) || 1, minPts, maxPts);
-    if (isVehicle) w = Math.round(w * VEHICLE_SIZE_MULT * 10) / 10;
-    const h = Math.round(w * (isVehicle ? VEHICLE_ASPECT : FIG_ASPECT) * 10) / 10;
+    if (icon) w = Math.round(w * icon.mult * 10) / 10;
+    const h = Math.round(w * (icon ? icon.aspect : FIG_ASPECT) * 10) / 10;
     for (let i = 0; i < count; i++) {
       if (shown >= PICTO_CAP) return;
       shown++;
@@ -575,13 +584,16 @@ function pictoPileHtml(entries, sectionCls, minPts, maxPts) {
   return `<div class="picto-figs">${figsHtml}</div>`;
 }
 
+// Vehicles group uses the tank shape as its representative swatch even
+// though Skimmer (also in that group) renders differently in the pile itself
+// — the legend communicates color-to-group, not every shape variant within it.
 function pictoLegendHtml(entries) {
   const present = new Set(entries.map(({ model: m }) => resolveModelGroup(m)));
   const items = MODEL_GROUP_ORDER.filter(g => present.has(g)).map(g => {
-    const isVehicle = g === 'Vehicles';
-    const w = isVehicle ? 15 : 10;
-    const h = isVehicle ? Math.round(w * VEHICLE_ASPECT * 10) / 10 : 13;
-    return `<span class="picto-legend-item"><svg class="fig ${GROUP_CLASS[g]}" width="${w}" height="${h}"><use href="#${isVehicle ? 'miniTank' : 'miniFig'}"></use></svg>${g}</span>`;
+    const icon = g === 'Vehicles' ? ICON_CONFIG.vehicle : null;
+    const w = icon ? 15 : 10;
+    const h = icon ? Math.round(w * icon.aspect * 10) / 10 : 13;
+    return `<span class="picto-legend-item"><svg class="fig ${GROUP_CLASS[g]}" width="${w}" height="${h}"><use href="#${icon ? icon.symbol : 'miniFig'}"></use></svg>${g}</span>`;
   }).join('');
   return `<div class="pictograph-legend">${items}<span class="picto-legend-size-note">larger figure = more hobby points</span></div>`;
 }

@@ -166,6 +166,23 @@ export const BUILTIN_MODEL_TYPES = [
     ]
   },
   {
+    id: 'skimmer',
+    name: 'Skimmer',
+    builtIn: true,
+    // Functionally identical to Vehicle — same painting workload — this is
+    // purely a distinct type so anti-grav vehicles get the skimmer icon
+    // instead of the tracked-tank icon in the pile pictogram.
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 5, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
     id: 'monstrous_infantry',
     name: 'Monstrous / Heavy Infantry',
     builtIn: true,
@@ -321,7 +338,7 @@ export const TYPE_GROUPS = {
   'Mounted':        ['cavalry', 'monstrous_cavalry', 'jetbike', 'chariot'],
   'Large':          ['monster', 'walker', 'behemoth'],
   'Characters':     ['character', 'character_horse', 'character_monster'],
-  'Vehicles':       ['warmachine', 'vehicle'],
+  'Vehicles':       ['warmachine', 'vehicle', 'skimmer'],
   'Special':        ['terrain'],
 };
 
