@@ -33,6 +33,7 @@ const TYPE_LABELS = {
   chariot: 'Chariot',
   swarm: 'Swarm',
   vehicle: 'Vehicle',
+  large_vehicle: 'Large Vehicle',
   walker: 'Walker',
 };
 

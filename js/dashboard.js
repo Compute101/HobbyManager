@@ -516,10 +516,11 @@ const FIG_ASPECT = 32 / 24; // matches the #miniFig symbol's viewBox (0 0 24 32)
 // its points-driven size so hardware/mounts read as visibly bigger than a
 // same-scoring infantry model, not just a bigger person.
 const ICON_CONFIG = {
-  vehicle: { symbol: 'miniTank',    aspect: 20 / 34, mult: 1.6  },
-  skimmer: { symbol: 'miniSkimmer', aspect: 15 / 34, mult: 1.5  },
-  cavalry: { symbol: 'miniCavalry', aspect: 28 / 34, mult: 1.15 },
-  walker:  { symbol: 'miniWalker',  aspect: 28 / 26, mult: 1.2  },
+  vehicle:       { symbol: 'miniTank',    aspect: 20 / 34, mult: 1.6  },
+  large_vehicle: { symbol: 'miniTank',    aspect: 20 / 34, mult: 2.2  },
+  skimmer:       { symbol: 'miniSkimmer', aspect: 15 / 34, mult: 1.5  },
+  cavalry:       { symbol: 'miniCavalry', aspect: 28 / 34, mult: 1.15 },
+  walker:        { symbol: 'miniWalker',  aspect: 28 / 26, mult: 1.2  },
 };
 
 const GROUP_CLASS = {
