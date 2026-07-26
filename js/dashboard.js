@@ -1,6 +1,6 @@
 // dashboard.js — dashboard with pie charts and deadline cards
 
-import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, modelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER } from './data.js';
+import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, singleModelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER } from './data.js';
 import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
 import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle, renderPileBurndown, pileBurndownStats } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
@@ -521,11 +521,12 @@ const GROUP_CLASS = {
   'Other':          'fig-grp-other',
 };
 
-// Relative sizing is scaled against the spread of hobby points across the
-// whole collection, so a model's figure size reflects how big it is next to
-// everything else the user owns, not an absolute point value.
+// Relative sizing is scaled against the spread of per-model hobby points
+// across the whole collection (a single model of each type, not a squad's
+// batch total), so a Dragon-sized entry dwarfs an Ogre, which in turn dwarfs
+// a rank-and-file infantry model — regardless of how many are in the unit.
 function modelPointsRange() {
-  const totals = Object.values(appData.models).map(m => modelPoints(m).total || 1);
+  const totals = Object.values(appData.models).map(m => singleModelPoints(m) || 1);
   if (!totals.length) return { min: 1, max: 1 };
   return { min: Math.min(...totals), max: Math.max(...totals) };
 }
@@ -554,7 +555,7 @@ function pictoPileHtml(entries, sectionCls, minPts, maxPts) {
     const type = getModelType(m.modelTypeId);
     const name = escAttr(m.name);
     const typeName = escAttr(type ? type.name : 'Unknown type');
-    const w = figSize(modelPoints(m).total || 1, minPts, maxPts);
+    const w = figSize(singleModelPoints(m) || 1, minPts, maxPts);
     const h = Math.round(w * FIG_ASPECT * 10) / 10;
     for (let i = 0; i < count; i++) {
       if (shown >= PICTO_CAP) return;

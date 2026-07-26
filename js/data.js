@@ -682,6 +682,23 @@ export function modelPoints(model) {
   return { total, done, pct: total ? Math.round(done / total * 100) : 0 };
 }
 
+// Hobby points for a single copy of this model's type — unlike modelPoints(),
+// this ignores model.quantity (a squad's batch size), so a 20-strong infantry
+// entry and a lone infantry model score the same "how big is one of these".
+// Crew stages still scale by crewQuantity, since the crew is intrinsic to one
+// war machine, not a batch of separate models.
+export function singleModelPoints(model) {
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+  let total = 0;
+  stages.forEach(s => {
+    if (skipped.includes(s.id)) return;
+    const cap = s.group === 'crew' ? (model.crewQuantity || 0) : 1;
+    total += (s.points || 1) * cap;
+  });
+  return total;
+}
+
 export function listStats(list) {
   const modelSplits = list.modelSplits || {};
   let totalPts = 0, donePts = 0;
