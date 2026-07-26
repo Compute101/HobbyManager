@@ -65,6 +65,24 @@ export const BUILTIN_MODEL_TYPES = [
     ]
   },
   {
+    id: 'jump_infantry',
+    name: 'Jump Pack / Flying Infantry',
+    builtIn: true,
+    // Same shape as Infantry, but wings/jump packs add extra surface and
+    // fiddly detail (feathers, exhaust vents, harness straps), so the
+    // hands-on-model stages step up a notch. Prime and Basing are unchanged
+    // since priming coverage and the base itself aren't affected.
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 3, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 1, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 3, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 1, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
     id: 'cavalry',
     name: 'Cavalry',
     builtIn: true,
@@ -398,7 +416,7 @@ export function getModelType(id) {
 // Broad visual/organizational groupings of model types, used to color-code
 // pictograms so different kinds of models are distinguishable at a glance.
 export const TYPE_GROUPS = {
-  'Infantry-scale': ['infantry', 'swarm', 'monstrous_infantry'],
+  'Infantry-scale': ['infantry', 'swarm', 'monstrous_infantry', 'jump_infantry'],
   'Mounted':        ['cavalry', 'monstrous_cavalry', 'jetbike', 'chariot'],
   'Large':          ['monster', 'walker', 'behemoth'],
   'Characters':     ['character', 'character_horse', 'character_monster'],
