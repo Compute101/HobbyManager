@@ -155,14 +155,16 @@ export const BUILTIN_MODEL_TYPES = [
     id: 'vehicle',
     name: 'Light Vehicle',
     builtIn: true,
+    // No Basing stage — tanks and skimmers sit on the table (or a flight
+    // stand) rather than a scenic base, so Highlight is the final stage and
+    // carries the 'finished' threshold directly.
     stages: [
       { id: 's1', name: 'Assembly',  points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
       { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
       { id: 's3', name: 'Basecoat',  points: 5, phase: 'painting', skippable: false, threshold: null },
       { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
       { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's6', name: 'Highlight', points: 6, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -170,15 +172,15 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Large Vehicle',
     builtIn: true,
     // Double the surface area of a Light Vehicle — stage points scale up
-    // proportionally rather than being an arbitrary round number.
+    // proportionally rather than being an arbitrary round number. No Basing
+    // stage — see Light Vehicle.
     stages: [
       { id: 's1', name: 'Assembly',  points: 12, phase: 'assembly', skippable: false, threshold: 'table_ready' },
       { id: 's2', name: 'Prime',     points: 6,  phase: 'painting', skippable: false, threshold: null },
       { id: 's3', name: 'Basecoat',  points: 10, phase: 'painting', skippable: false, threshold: null },
       { id: 's4', name: 'Shade',     points: 4,  phase: 'painting', skippable: false, threshold: null },
       { id: 's5', name: 'Layer',     points: 6,  phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 8,  phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 4,  phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's6', name: 'Highlight', points: 12, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -186,15 +188,14 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Super-Heavy Vehicle',
     builtIn: true,
     // Baneblade-chassis tanks, gargants, and titans — triple a Light
-    // Vehicle's stage points (25 → 75).
+    // Vehicle's stage points (25 → 75). No Basing stage — see Light Vehicle.
     stages: [
       { id: 's1', name: 'Assembly',  points: 18, phase: 'assembly', skippable: false, threshold: 'table_ready' },
       { id: 's2', name: 'Prime',     points: 9,  phase: 'painting', skippable: false, threshold: null },
       { id: 's3', name: 'Basecoat',  points: 15, phase: 'painting', skippable: false, threshold: null },
       { id: 's4', name: 'Shade',     points: 6,  phase: 'painting', skippable: false, threshold: null },
       { id: 's5', name: 'Layer',     points: 9,  phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 12, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 6,  phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's6', name: 'Highlight', points: 18, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -203,15 +204,15 @@ export const BUILTIN_MODEL_TYPES = [
     builtIn: true,
     // Functionally identical to Light Vehicle — same painting workload —
     // this is purely a distinct type so anti-grav vehicles get the skimmer
-    // icon instead of the tracked-tank icon in the pile pictogram.
+    // icon instead of the tracked-tank icon in the pile pictogram. No Basing
+    // stage — skimmers mount on a flight stand instead of a scenic base.
     stages: [
       { id: 's1', name: 'Assembly',  points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
       { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
       { id: 's3', name: 'Basecoat',  points: 5, phase: 'painting', skippable: false, threshold: null },
       { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
       { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's6', name: 'Highlight', points: 6, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -219,15 +220,15 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Large Skimmer',
     builtIn: true,
     // Double the surface area of a Light Skimmer, mirroring the Light/Large/
-    // Super-Heavy split used for tracked Vehicles.
+    // Super-Heavy split used for tracked Vehicles. No Basing stage — see
+    // Light Skimmer.
     stages: [
       { id: 's1', name: 'Assembly',  points: 12, phase: 'assembly', skippable: false, threshold: 'table_ready' },
       { id: 's2', name: 'Prime',     points: 6,  phase: 'painting', skippable: false, threshold: null },
       { id: 's3', name: 'Basecoat',  points: 10, phase: 'painting', skippable: false, threshold: null },
       { id: 's4', name: 'Shade',     points: 4,  phase: 'painting', skippable: false, threshold: null },
       { id: 's5', name: 'Layer',     points: 6,  phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 8,  phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 4,  phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's6', name: 'Highlight', points: 12, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -235,15 +236,14 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Super-Heavy Skimmer',
     builtIn: true,
     // Superheavy flyers/grav-tanks (e.g. Tau Manta) — triple a Light
-    // Skimmer's stage points (25 → 75).
+    // Skimmer's stage points (25 → 75). No Basing stage — see Light Skimmer.
     stages: [
       { id: 's1', name: 'Assembly',  points: 18, phase: 'assembly', skippable: false, threshold: 'table_ready' },
       { id: 's2', name: 'Prime',     points: 9,  phase: 'painting', skippable: false, threshold: null },
       { id: 's3', name: 'Basecoat',  points: 15, phase: 'painting', skippable: false, threshold: null },
       { id: 's4', name: 'Shade',     points: 6,  phase: 'painting', skippable: false, threshold: null },
       { id: 's5', name: 'Layer',     points: 9,  phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 12, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 6,  phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's6', name: 'Highlight', points: 18, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
