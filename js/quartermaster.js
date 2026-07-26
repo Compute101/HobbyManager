@@ -4,7 +4,7 @@ import {
   appData, saveData, uid, unstartedCount, createModel, updateModel, GAME_SYSTEMS
 } from './data.js';
 import { resolveGameSystemId } from './dashboard.js';
-import { toast, today } from './ui.js';
+import { toast, today, formatDate } from './ui.js';
 
 // --- Data helpers ---
 
@@ -194,6 +194,7 @@ export function renderQuartermaster(container) {
           <button class="queue-tab-btn ${activeSection === 'overview' ? 'active' : ''}" data-qm-section="overview">Overview</button>
           <button class="queue-tab-btn ${activeSection === 'requisitions' ? 'active' : ''}" data-qm-section="requisitions">Requisitions</button>
           <button class="queue-tab-btn ${activeSection === 'ledger' ? 'active' : ''}" data-qm-section="ledger">Ledger</button>
+          <button class="queue-tab-btn ${activeSection === 'budget' ? 'active' : ''}" data-qm-section="budget">Budget</button>
         </div>
       </div>
       <div class="queue-body" id="qmBody"></div>
@@ -210,7 +211,8 @@ export function renderQuartermaster(container) {
   const body = container.querySelector('#qmBody');
   if (activeSection === 'overview') renderQMOverview(body);
   else if (activeSection === 'requisitions') renderRequisitions(body, container);
-  else renderLedger(body);
+  else if (activeSection === 'ledger') renderLedger(body);
+  else renderBudget(body);
 }
 
 function renderQMOverview(body) {
@@ -250,7 +252,7 @@ function renderQMOverview(body) {
       ${budget ? `
         <div class="qm-rect-figure ${rectClass(globalRect)}">${fmtPct(globalRect)}</div>
         <div class="pile-total">£${globalWorth.toFixed(0)} worth across ${globalCount} model${globalCount !== 1 ? 's' : ''} on the pile, vs £${budget.toFixed(0)}/month budget</div>
-      ` : `<p class="empty-text">Set a monthly budget in the Ledger to calculate rectitude.</p>`}
+      ` : `<p class="empty-text">Set a monthly budget in the Budget tab to calculate rectitude.</p>`}
     </div>
     ${systemCards ? `<div class="dashboard-grid qm-sys-grid">${systemCards}</div>` : ''}
     ${collectionRows ? `
@@ -420,7 +422,7 @@ function renderRequisitionForm(body, container, editId) {
     const draftWorth = parseFloat(worthInput.value) || 0;
     const newWorth = currentWorth + draftWorth;
     if (!budget) {
-      deltaEl.textContent = 'Set a monthly budget in the Ledger to see rectitude impact.';
+      deltaEl.textContent = 'Set a monthly budget in the Budget tab to see rectitude impact.';
       return;
     }
     const newRect = Math.min(100, (budget - newWorth) / budget * 100);
@@ -455,40 +457,64 @@ function renderRequisitionForm(body, container, editId) {
   });
 }
 
-// A month's summary row from monthlySpendTimeline(), expandable (via native
-// <details>) into its individual purchased/planned items when there are any.
-function monthRow(m) {
-  const summaryInner = `
-    <div class="pile-item">
-      <span class="pile-item-name">${m.month}</span>
-      <span class="pile-item-qty">${m.actualSpend ? `£${m.actualSpend.toFixed(0)} spent` : ''}${m.actualSpend && m.plannedSpend ? ' · ' : ''}${m.plannedSpend ? `£${m.plannedSpend.toFixed(0)} planned` : ''}</span>
-    </div>
-  `;
-  const items = [...m.actualItems.map(i => itemRow(i, 'spent')), ...m.plannedItems.map(i => itemRow(i, 'planned'))];
-  if (items.length === 0) return summaryInner;
-  return `
-    <details>
-      <summary style="cursor:pointer">${summaryInner}</summary>
-      <div style="padding-left:1.2em">${items.join('')}</div>
-    </details>
-  `;
+function monthLabel(month) {
+  const [y, mo] = month.split('-').map(Number);
+  return new Date(y, mo - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 }
 
-function itemRow(item, kind) {
+// One line per transaction: a real date for purchased items, "planned" for
+// queued items (which only carry a target month, not a day).
+function ledgerRow(item, kind) {
   const type = PURCHASE_ITEM_TYPES[item.itemType] || PURCHASE_ITEM_TYPES.model;
+  const dateLabel = kind === 'spent' ? formatDate(item.purchaseDate, { day: 'numeric', month: 'short' }) : '—';
   return `
-    <div class="pile-item" style="font-size:0.85em">
-      <span class="pile-item-name">${item.name} <span class="form-hint" style="display:inline">${type.label}</span></span>
-      <span class="pile-item-qty">£${(item.worth || 0).toFixed(0)} ${kind}</span>
+    <div class="ledger-row ${kind === 'planned' ? 'ledger-row-planned' : ''}">
+      <span class="ledger-row-date">${dateLabel}</span>
+      <span class="ledger-row-name">${item.name}<span class="sys-tag theme-default ledger-row-type">${type.label}</span></span>
+      <span class="ledger-row-amount">£${(item.worth || 0).toFixed(0)}${kind === 'planned' ? ' <em>planned</em>' : ''}</span>
     </div>
   `;
 }
 
+// A month's worth of transactions, grouped under a plain (non-collapsing)
+// header with the month's subtotal — every line item is visible up front,
+// not tucked behind a click.
+function ledgerMonthGroup(m) {
+  const items = [...m.actualItems.map(i => ledgerRow(i, 'spent')), ...m.plannedItems.map(i => ledgerRow(i, 'planned'))];
+  return `
+    <div class="ledger-month-group">
+      <div class="ledger-month-header">
+        <span>${monthLabel(m.month)}</span>
+        <span>${m.actualSpend ? `£${m.actualSpend.toFixed(0)} spent` : ''}${m.actualSpend && m.plannedSpend ? ' · ' : ''}${m.plannedSpend ? `£${m.plannedSpend.toFixed(0)} planned` : ''}</span>
+      </div>
+      ${items.join('')}
+    </div>
+  `;
+}
+
+// The Ledger tab is just the transaction record: every purchased/planned
+// item, grouped by month, oldest first. Budget settings and the
+// remaining/YTD/spend-by-type stats live on the separate Budget tab so
+// this stays a quick, dense read rather than a stats dashboard.
 function renderLedger(body) {
+  const timeline = monthlySpendTimeline();
+
+  body.innerHTML = `
+    <div class="queue-header">
+      <h2 class="queue-name">Ledger</h2>
+    </div>
+    ${timeline.length === 0 ? `
+      <div class="empty-state">
+        <p>No spend history or planned purchases yet.</p>
+      </div>
+    ` : timeline.map(m => ledgerMonthGroup(m)).join('')}
+  `;
+}
+
+function renderBudget(body) {
   const monthlyBudget = appData.config.monthlyBudgetGBP || 0;
   const period = appData.config.budgetPeriod || 'monthly';
   const displayAmount = period === 'annual' ? monthlyBudget * 12 : monthlyBudget;
-  const timeline = monthlySpendTimeline();
   const remain = budgetRemaining();
   const currentYear = new Date().getFullYear();
   const ytd = yearToDateSpend(currentYear);
@@ -499,7 +525,7 @@ function renderLedger(body) {
 
   body.innerHTML = `
     <div class="queue-header">
-      <h2 class="queue-name">Ledger</h2>
+      <h2 class="queue-name">Budget</h2>
     </div>
     <div class="form-row-two" style="max-width:360px">
       <div class="form-group">
@@ -536,15 +562,6 @@ function renderLedger(body) {
         </div>
       </div>
     ` : ''}
-    ${timeline.length === 0 ? `
-      <div class="empty-state">
-        <p>No spend history or planned purchases yet.</p>
-      </div>
-    ` : `
-      <div class="pile-items">
-        ${timeline.map(m => monthRow(m)).join('')}
-      </div>
-    `}
   `;
 
   // Amount changes reinterpret the figure under whichever period is currently
@@ -556,12 +573,12 @@ function renderLedger(body) {
     appData.config.monthlyBudgetGBP = selectedPeriod === 'annual' ? amount / 12 : amount;
     saveData();
     toast('Budget updated', 'success');
-    renderLedger(body);
+    renderBudget(body);
   });
 
   body.querySelector('#qmBudgetPeriod').addEventListener('change', e => {
     appData.config.budgetPeriod = e.target.value;
     saveData();
-    renderLedger(body);
+    renderBudget(body);
   });
 }

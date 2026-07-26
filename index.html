@@ -1041,6 +1041,18 @@
 
     .pile-total.shame-heavy { color: var(--danger); font-weight: 600; }
 
+    /* Ledger tab: a dense transaction record, grouped by month */
+    .ledger-month-group { margin-bottom: 1em; }
+    .ledger-month-header { display: flex; justify-content: space-between; font-size: 0.8em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); padding-bottom: 0.25em; margin-bottom: 0.2em; border-bottom: 1px solid var(--border); }
+    .ledger-row { display: flex; align-items: baseline; gap: 0.6em; font-size: 0.88em; padding: 0.22em 0; border-bottom: 1px solid var(--border); }
+    .ledger-row:last-child { border-bottom: none; }
+    .ledger-row-date { flex: 0 0 3.6em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .ledger-row-name { flex: 1; }
+    .ledger-row-type { margin-left: 0.5em; font-size: 0.82em; vertical-align: middle; }
+    .ledger-row-amount { flex: 0 0 auto; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+    .ledger-row-amount em { color: var(--text-muted); font-style: italic; font-size: 0.85em; margin-left: 0.25em; }
+    .ledger-row-planned { opacity: 0.75; }
+
     .pictograph-divider { border: none; border-top: 1px dashed var(--border); margin: 0.75em 0 0.7em; }
     .picto-row { margin-bottom: 0.7em; }
     .picto-row:last-child { margin-bottom: 0; }
