@@ -1066,6 +1066,12 @@
     .pictograph-divider { border: none; border-top: 1px dashed var(--border); margin: 0.75em 0 0.7em; }
     .picto-figs { display: flex; flex-wrap: wrap; gap: 3px; align-items: flex-end; }
     .fig { display: block; overflow: visible; cursor: pointer; flex-shrink: 0; stroke-width: 1; transition: transform 0.1s ease; }
+    /* On touch devices, figures packed 3px apart are too close to tap
+       precisely — widen the gap so each figure gets its own tappable space,
+       without changing the tight desktop pile look for mouse/trackpad use. */
+    @media (pointer: coarse) {
+      .picto-figs { gap: 9px 7px; }
+    }
     .fig:hover { stroke: var(--accent); stroke-width: 1.6; transform: translateY(-1px); }
     .fig:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
     /* Grey Brigade figures keep the same group-color fill as Pile of Potential,
