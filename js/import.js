@@ -32,7 +32,12 @@ const TYPE_LABELS = {
   warmachine: 'War Machine',
   chariot: 'Chariot',
   swarm: 'Swarm',
-  vehicle: 'Vehicle',
+  vehicle: 'Light Vehicle',
+  large_vehicle: 'Large Vehicle',
+  super_heavy_vehicle: 'Super-Heavy Vehicle',
+  skimmer: 'Light Skimmer',
+  large_skimmer: 'Large Skimmer',
+  super_heavy_skimmer: 'Super-Heavy Skimmer',
   walker: 'Walker',
 };
 
