@@ -12,6 +12,10 @@ function detectModelType(name, section) {
 
   if (/rhino|predator|land raider|repulsor|gladiator|impulsor|vindicator|razorback|chimera|hellhound|leman russ|basilisk|manticore|deathstrike|wave serpent|falcon|hammerhead|devilfish|broadside|ghostkeel|defiler|forgefiend|maulerfiend|skorpius|dunecrawler/.test(n)) return 'vehicle';
 
+  // Anti-grav skimmers (checked after the tracked-vehicle list above so
+  // "Land Raider" still matches that list's own "land raider" entry first).
+  if (/\braider\b|\bravager\b|venom|razorwing|voidraven|tantalus/.test(n)) return 'skimmer';
+
   if (/tyrannofex|screamer.killer|hive tyrant|carnifex|tervigon|trygon|mawloc|haruspex|exocrine|maleceptor|toxicrene|psychophage|norn emissary|daemon prince|great unclean|bloodthirster|lord of change|keeper of secrets|neurotyrant/.test(n)) return 'monster';
 
   return 'infantry';
