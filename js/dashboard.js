@@ -526,6 +526,7 @@ const ICON_CONFIG = {
   character_horse:     { symbol: 'miniCavalry', aspect: 28 / 34, mult: 1.15 },
   jetbike:             { symbol: 'miniJetbike', aspect: 28 / 34, mult: 1.3  },
   walker:              { symbol: 'miniWalker',  aspect: 28 / 26, mult: 1.2  },
+  jump_infantry:       { symbol: 'miniFigWinged', aspect: 32 / 32, mult: 1.05 },
 };
 
 const GROUP_CLASS = {
