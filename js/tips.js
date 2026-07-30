@@ -3,7 +3,7 @@
 // unused (or a situation where it would help) so people who already lean on
 // a feature stop getting nagged about it — the tip simply stops matching.
 
-import { appData, saveData, getAllModels, getAllModelTypes, modelThreshold, GAME_SYSTEMS } from './data.js';
+import { appData, saveData, getAllModels, getAllModelTypes, modelThreshold, GAME_SYSTEMS, getRoadmapLists } from './data.js';
 import { isConfigured, wasConnected } from './gdrive.js';
 import { showModal, today } from './ui.js';
 
@@ -88,6 +88,12 @@ const TIP_DEFINITIONS = [
     text: "Add a photo to a model's entry to visually track your collection at a glance.",
     condition: ctx => ctx.modelCount >= 5 && !ctx.hasAnyImage
   },
+  {
+    id: 'roadmap',
+    icon: '🗺️',
+    text: "Pool feeling overwhelming? Mark an army list as active on the Roadmap tab — its models rise to the top of the Model Pool, and everything else settles into the Backlog.",
+    condition: ctx => ctx.roadmapListCount === 0 && ctx.listsWithModels >= 1 && ctx.modelCount >= 8
+  },
 ];
 
 function buildContext() {
@@ -109,6 +115,7 @@ function buildContext() {
   const hasAnyProgress = models.some(m => Object.values(m.progress || {}).some(p => (p?.done || 0) > 0));
   const hasAnyImage = models.some(m => !!m.image);
   const nonCustomCollectionCount = collections.filter(c => c.gameSystemId && c.gameSystemId !== 'custom' && GAME_SYSTEMS[c.gameSystemId]).length;
+  const roadmapListCount = getRoadmapLists().length;
 
   return {
     modelCount: models.length,
@@ -125,6 +132,7 @@ function buildContext() {
     hasAnyProgress,
     hasAnyImage,
     nonCustomCollectionCount,
+    roadmapListCount,
   };
 }
 
