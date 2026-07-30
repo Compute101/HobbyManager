@@ -1843,11 +1843,6 @@
     .folder-empty { font-size: 0.85em; color: var(--text-muted); font-style: italic; padding: 0.25em 0; }
     .folder-unfiled .folder-header { background: var(--bg2); }
 
-    /* Roadmap group / backlog wrapper (reuse folder-section chrome) */
-    .pool-section-label { font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 0.2em 0 0.5em; }
-    .folder-section.roadmap-group { border-color: var(--accent); }
-    .folder-section.backlog-section { margin-top: 1em; }
-
     /* ================================================================
        ROADMAP TAB
     ================================================================ */
@@ -1866,6 +1861,16 @@
     .roadmap-available-row { display: flex; align-items: center; gap: 0.6em; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5em 0.75em; flex-wrap: wrap; }
     .roadmap-available-name { font-weight: 600; }
     .roadmap-available-count { font-size: 0.8em; color: var(--text-muted); margin-left: auto; }
+
+    .roadmap-campaign-models { margin-top: 0.75em; padding-top: 0.6em; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.4em; }
+    .roadmap-model-row { display: flex; align-items: center; gap: 0.6em; cursor: pointer; padding: 0.3em 0; }
+    .roadmap-model-row:hover .roadmap-model-name { color: var(--accent); }
+    .roadmap-model-name { flex: 0 0 auto; font-size: 0.88em; }
+    .roadmap-model-qty { color: var(--text-muted); font-size: 0.85em; }
+    .roadmap-model-row .prog-bar { flex: 1; }
+    .roadmap-finished-toggle { align-self: flex-start; background: none; border: none; color: var(--text-muted); padding: 0.2em 0; }
+    .roadmap-finished-toggle:hover { color: var(--text); }
+    .roadmap-finished-list { display: flex; flex-direction: column; gap: 0.4em; opacity: 0.75; }
 
     /* ================================================================
        POOL SELECT MODE / MASS MOVE
