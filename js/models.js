@@ -5,7 +5,7 @@ import {
   logProgress, logSession, modelPoints, modelThreshold, stageCap, uid, saveData,
   getAllModelTypes, saveCustomModelType, deleteCustomModelType,
   saveModelTypeOverride, resetModelTypeOverride, BUILTIN_MODEL_TYPES, TYPE_GROUPS,
-  createFolder, updateFolder, deleteFolder, getAllFolders
+  createFolder, updateFolder, deleteFolder, getAllFolders, getRoadmapLists
 } from './data.js';
 import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue, createTimeInput } from './ui.js';
 import { getTerm } from './theme.js';
@@ -14,6 +14,10 @@ import { compressImageToBase64, IMAGE_SIZE_PRESETS } from './imageUtils.js';
 // Select mode state for mass move
 let _selectMode = false;
 let _selectedIds = new Set();
+
+// Backlog section collapse state — defaults to collapsed once the roadmap is
+// actually in use, so first-time users still see everything at a glance.
+let _backlogCollapsed = null;
 
 // Lazy import to avoid circular dependency
 async function pruneQueues() {
@@ -66,10 +70,17 @@ export function renderModelPool(containerId = 'modelPool') {
     return;
   }
 
-  // Group models by folder
+  const hasLists = Object.keys(appData.lists || {}).length > 0;
+  const roadmapLists = getRoadmapLists();
+  const roadmapModelIds = new Set();
+  roadmapLists.forEach(l => (l.modelIds || []).forEach(id => roadmapModelIds.add(id)));
+  const backlogModels = allModels.filter(m => !roadmapModelIds.has(m.id));
+
+  // Group backlog models by folder — roadmap models are pulled out into their
+  // own section above, regardless of which folder they happen to be filed in.
   const byFolder = {};
   const unfiled = [];
-  allModels.forEach(m => {
+  backlogModels.forEach(m => {
     if (m.folderId && appData.folders[m.folderId]) {
       if (!byFolder[m.folderId]) byFolder[m.folderId] = [];
       byFolder[m.folderId].push(m);
@@ -78,57 +89,105 @@ export function renderModelPool(containerId = 'modelPool') {
     }
   });
 
-  const hasLists = Object.keys(appData.lists || {}).length > 0;
   let html = '';
 
-  // Render each folder
-  folders.forEach(folder => {
-    const models = byFolder[folder.id] || [];
-    const collapsed = folder.collapsed;
-    html += `
-      <div class="folder-section" data-folder-id="${folder.id}">
-        <div class="folder-header">
-          <button class="folder-toggle" data-toggle-folder="${folder.id}">
-            <span class="folder-chevron">${collapsed ? '▶' : '▼'}</span>
-            <span class="folder-icon">📁</span>
-            <span class="folder-name">${folder.name}</span>
-            <span class="folder-count">${models.length}</span>
-          </button>
-          <div class="folder-actions">
-            <button class="btn btn-xs btn-primary" data-add-in-folder="${folder.id}">+</button>
-            <button class="btn btn-xs" data-rename-folder="${folder.id}">✏️</button>
-            <button class="btn btn-xs btn-danger" data-delete-folder="${folder.id}">🗑️</button>
+  // --- On the Roadmap ---
+  if (roadmapLists.length) {
+    const groups = roadmapLists.map(list => {
+      const models = (list.modelIds || []).map(id => appData.models[id]).filter(Boolean);
+      if (!models.length) return '';
+      return `
+        <div class="folder-section roadmap-group">
+          <div class="folder-header">
+            <div class="folder-toggle">
+              <span class="folder-icon">🗺️</span>
+              <span class="folder-name">${list.name}</span>
+              <span class="folder-count">${models.length}</span>
+            </div>
           </div>
-        </div>
-        ${collapsed ? '' : `
           <div class="folder-models">
-            ${models.length ? `<div class="model-grid">${models.map(modelCard).join('')}</div>` : `<p class="folder-empty">No models in this folder.</p>`}
-          </div>
-        `}
-      </div>
-    `;
-  });
-
-  // Unfiled models
-  if (unfiled.length > 0) {
-    html += `
-      <div class="folder-section folder-unfiled">
-        <div class="folder-header">
-          <div class="folder-toggle">
-            <span class="folder-icon">📂</span>
-            <span class="folder-name">Unfiled</span>
-            <span class="folder-count">${unfiled.length}</span>
+            <div class="model-grid">${models.map(modelCard).join('')}</div>
           </div>
         </div>
-        <div class="folder-models">
-          <div class="model-grid">${unfiled.map(modelCard).join('')}</div>
-        </div>
+      `;
+    }).join('');
+    if (groups) html += `<div class="pool-section-label">🗺️ On the Roadmap</div>${groups}`;
+  } else if (hasLists) {
+    html += `<div class="army-nudge roadmap-nudge">
+      <span class="army-nudge-icon">🗺️</span>
+      <div class="army-nudge-body">
+        <b>Nothing on the roadmap yet</b>
+        <span>Mark an army list active in the Roadmap tab to pull it out of the backlog and keep it top of mind.</span>
       </div>
-    `;
+      <button class="btn btn-sm btn-primary" id="nudgeRoadmapBtn">Roadmap →</button>
+    </div>`;
   }
 
-  if (!html) {
-    html = `<div class="empty-state"><p>No models yet. Use the + button to add one.</p></div>`;
+  // --- Backlog / Future Work (everything not on the roadmap) ---
+  // Until the user has manually toggled it, default to collapsed as soon as the
+  // roadmap has any active campaigns (recomputed live so it isn't stuck at
+  // whatever the roadmap looked like the first time a backlog existed).
+  const backlogCollapsed = _backlogCollapsed === null ? roadmapLists.length > 0 : _backlogCollapsed;
+
+  if (backlogModels.length > 0 || folders.length > 0) {
+    let backlogInner = '';
+    folders.forEach(folder => {
+      const models = byFolder[folder.id] || [];
+      const collapsed = folder.collapsed;
+      backlogInner += `
+        <div class="folder-section" data-folder-id="${folder.id}">
+          <div class="folder-header">
+            <button class="folder-toggle" data-toggle-folder="${folder.id}">
+              <span class="folder-chevron">${collapsed ? '▶' : '▼'}</span>
+              <span class="folder-icon">📁</span>
+              <span class="folder-name">${folder.name}</span>
+              <span class="folder-count">${models.length}</span>
+            </button>
+            <div class="folder-actions">
+              <button class="btn btn-xs btn-primary" data-add-in-folder="${folder.id}">+</button>
+              <button class="btn btn-xs" data-rename-folder="${folder.id}">✏️</button>
+              <button class="btn btn-xs btn-danger" data-delete-folder="${folder.id}">🗑️</button>
+            </div>
+          </div>
+          ${collapsed ? '' : `
+            <div class="folder-models">
+              ${models.length ? `<div class="model-grid">${models.map(modelCard).join('')}</div>` : `<p class="folder-empty">No models in this folder.</p>`}
+            </div>
+          `}
+        </div>
+      `;
+    });
+
+    if (unfiled.length > 0) {
+      backlogInner += `
+        <div class="folder-section folder-unfiled">
+          <div class="folder-header">
+            <div class="folder-toggle">
+              <span class="folder-icon">📂</span>
+              <span class="folder-name">Unfiled</span>
+              <span class="folder-count">${unfiled.length}</span>
+            </div>
+          </div>
+          <div class="folder-models">
+            <div class="model-grid">${unfiled.map(modelCard).join('')}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    html += `
+      <div class="folder-section backlog-section">
+        <div class="folder-header">
+          <button class="folder-toggle" id="backlogToggle">
+            <span class="folder-chevron">${backlogCollapsed ? '▶' : '▼'}</span>
+            <span class="folder-icon">📦</span>
+            <span class="folder-name">Backlog / Future Work</span>
+            <span class="folder-count">${backlogModels.length}</span>
+          </button>
+        </div>
+        ${backlogCollapsed ? '' : `<div class="folder-models">${backlogInner}</div>`}
+      </div>
+    `;
   }
 
   if (!hasLists) {
@@ -173,6 +232,15 @@ export function renderModelPool(containerId = 'modelPool') {
 
   container.querySelector('#nudgeArmiesBtn')?.addEventListener('click', () => {
     document.querySelector('.nav-tab[data-tab="collections"]')?.click();
+  });
+
+  container.querySelector('#nudgeRoadmapBtn')?.addEventListener('click', () => {
+    document.querySelector('.nav-tab[data-tab="roadmap"]')?.click();
+  });
+
+  container.querySelector('#backlogToggle')?.addEventListener('click', () => {
+    _backlogCollapsed = !backlogCollapsed;
+    renderModelPool(containerId);
   });
 
   // Select mode controls

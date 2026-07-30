@@ -900,7 +900,7 @@ export function deleteCollection(id) {
 
 export function createList({ name, collectionId }) {
   const id = uid();
-  appData.lists[id] = { id, name, collectionId, modelIds: [] };
+  appData.lists[id] = { id, name, collectionId, modelIds: [], onRoadmap: false, roadmapOrder: 0 };
   const col = appData.collections[collectionId];
   if (col) col.listIds.push(id);
   saveData();
@@ -995,6 +995,47 @@ export function splitModelThreshold(model, splitSize, offset) {
     if (allDone) return thresh;
   }
   return hasAnyProgress ? null : 'not_started';
+}
+
+// --- Roadmap helpers ---
+// A List "on the roadmap" is treated as active/current work; everything else
+// (including all models not attached to a roadmap list) is backlog/future work.
+
+export function getRoadmapLists() {
+  return Object.values(appData.lists)
+    .filter(l => l.onRoadmap)
+    .sort((a, b) => (a.roadmapOrder || 0) - (b.roadmapOrder || 0));
+}
+
+export function addListToRoadmap(listId) {
+  const list = appData.lists[listId];
+  if (!list || list.onRoadmap) return;
+  const maxOrder = getRoadmapLists().reduce((max, l) => Math.max(max, l.roadmapOrder || 0), 0);
+  list.onRoadmap = true;
+  list.roadmapOrder = maxOrder + 1;
+  saveData();
+}
+
+export function removeListFromRoadmap(listId) {
+  const list = appData.lists[listId];
+  if (!list) return;
+  list.onRoadmap = false;
+  saveData();
+}
+
+export function moveRoadmapList(listId, direction) {
+  const ordered = getRoadmapLists();
+  const idx = ordered.findIndex(l => l.id === listId);
+  if (idx === -1) return;
+  const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (newIdx < 0 || newIdx >= ordered.length) return;
+  const a = ordered[idx], b = ordered[newIdx];
+  [a.roadmapOrder, b.roadmapOrder] = [b.roadmapOrder, a.roadmapOrder];
+  saveData();
+}
+
+export function isModelOnRoadmap(modelId) {
+  return getRoadmapLists().some(l => (l.modelIds || []).includes(modelId));
 }
 
 // --- Session helpers ---

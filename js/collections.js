@@ -4,7 +4,8 @@ import {
   appData, createCollection, deleteCollection,
   createList, deleteList, addModelToList, removeModelFromList,
   setModelSplits, removeModelSplits, splitModelPoints, splitModelThreshold,
-  listStats, saveData, uid, GAME_SYSTEMS, modelPoints, modelThreshold
+  listStats, saveData, uid, GAME_SYSTEMS, modelPoints, modelThreshold,
+  addListToRoadmap, removeListFromRoadmap
 } from './data.js';
 import { showModal, closeModal, showConfirm, toast, progressBar, thresholdBadge, createDateInput, getDateValue, formatDate } from './ui.js';
 import { applyTheme, resetTheme, setCurrentSystem, resetCurrentSystem, getTerm } from './theme.js';
@@ -158,7 +159,7 @@ function renderCollectionsSidebar() {
   });
 }
 
-function selectCollection(colId) {
+export function selectCollection(colId) {
   activeCollectionId = colId;
   activeListId = null;
   const col = appData.collections[colId];
@@ -206,7 +207,7 @@ function selectCollection(colId) {
   main.querySelector('#deleteCollBtn')?.addEventListener('click', () => confirmDeleteCollection(colId));
 }
 
-function selectList(listId) {
+export function selectList(listId) {
   activeListId = listId;
   const list = appData.lists[listId];
   if (!list) return;
@@ -221,6 +222,7 @@ function selectList(listId) {
       <button class="btn btn-sm" id="backToCol">← ${col?.name || 'Back'}</button>
       <h2>${list.name}</h2>
       <div style="margin-left:auto;display:flex;gap:0.4em">
+        <button class="btn btn-sm ${list.onRoadmap ? 'btn-primary' : ''}" id="toggleRoadmapBtn" title="${list.onRoadmap ? 'On the roadmap — click to move back to backlog' : 'Add to roadmap as active work'}">🗺️ ${list.onRoadmap ? 'On Roadmap' : 'Add to Roadmap'}</button>
         <button class="btn btn-sm" id="shareListBtn" title="Share progress">📤 Share</button>
         <button class="btn btn-sm btn-danger" id="deleteListBtn" title="Delete army list">🗑️ Delete</button>
       </div>
@@ -258,6 +260,16 @@ function selectList(listId) {
   main.querySelector('#addModelToListBtn')?.addEventListener('click', () => showAddModelToList(listId));
   main.querySelector('#shareListBtn')?.addEventListener('click', () => shareList(listId));
   main.querySelector('#deleteListBtn')?.addEventListener('click', () => confirmDeleteList(listId));
+  main.querySelector('#toggleRoadmapBtn')?.addEventListener('click', () => {
+    if (list.onRoadmap) {
+      removeListFromRoadmap(listId);
+      toast('Moved back to backlog', 'info');
+    } else {
+      addListToRoadmap(listId);
+      toast('Added to roadmap!', 'success');
+    }
+    selectList(listId);
+  });
   const deadlineEl = document.getElementById('listDeadlineInput');
   const saveListDeadline = () => {
     const val = getDateValue('listDeadlineInput');
