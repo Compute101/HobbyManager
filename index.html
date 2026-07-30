@@ -328,6 +328,33 @@
       align-items: center;
     }
 
+    .tips-btn { position: relative; }
+    .tips-dot {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--warning);
+      border: 1px solid var(--surface2);
+    }
+
+    .tips-list { display: flex; flex-direction: column; gap: 0.6em; }
+    .tip-card {
+      display: flex;
+      gap: 0.6em;
+      align-items: flex-start;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.7em;
+    }
+    .tip-icon { font-size: 1.3em; line-height: 1; }
+    .tip-body { flex: 1; }
+    .tip-text { margin: 0 0 0.5em; font-size: 0.9em; }
+    .tip-actions { display: flex; gap: 0.4em; flex-wrap: wrap; }
+
     .system-badge {
       font-size: 0.7em;
       padding: 2px 8px;
@@ -2097,6 +2124,7 @@
   <header>
     <div class="app-title">⚔️ Hobby Manager</div>
     <div class="header-actions">
+      <button class="btn btn-sm tips-btn" id="tipsBtn" title="Tips">💡<span class="tips-dot" id="tipsDot" style="display:none"></span></button>
       <button class="btn btn-sm" id="exportBtn" title="Export">💾</button>
       <button class="btn btn-sm" id="importBtn" title="Import">📂</button>
       <button class="btn btn-sm" id="settingsBtn" title="Settings">⚙️</button>
@@ -2181,10 +2209,12 @@
   import { loadSavedTheme, applyTheme } from './js/theme.js';
   import { toast, showModal, closeModal, showConfirm } from './js/ui.js';
   import { renderQuartermaster, pileCount, pileWorth, rectitudePct } from './js/quartermaster.js';
+  import { openTipsModal, refreshTipsBadge } from './js/tips.js';
 
   // --- Boot ---
   loadData();
   loadSavedTheme();
+  refreshTipsBadge();
 
   // --- Drive sync ---
   let _driveSyncTimer = null;
@@ -2214,11 +2244,15 @@
     if (tabId === 'collections') renderCollections();
     if (tabId === 'queues') renderQueues();
     if (tabId === 'activity') renderActivity();
+    refreshTipsBadge();
   }
 
   tabs.forEach(tab => {
     tab.addEventListener('click', () => switchTab(tab.dataset.tab));
   });
+
+  // --- Tips ---
+  document.getElementById('tipsBtn').addEventListener('click', openTipsModal);
 
   // --- Settings button (now in header as modal) ---
   document.getElementById('settingsBtn').addEventListener('click', () => {
