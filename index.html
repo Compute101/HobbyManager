@@ -1843,6 +1843,30 @@
     .folder-empty { font-size: 0.85em; color: var(--text-muted); font-style: italic; padding: 0.25em 0; }
     .folder-unfiled .folder-header { background: var(--bg2); }
 
+    /* Roadmap group / backlog wrapper (reuse folder-section chrome) */
+    .pool-section-label { font-size: 0.78em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted); margin: 0.2em 0 0.5em; }
+    .folder-section.roadmap-group { border-color: var(--accent); }
+    .folder-section.backlog-section { margin-top: 1em; }
+
+    /* ================================================================
+       ROADMAP TAB
+    ================================================================ */
+    .roadmap-intro { color: var(--text-muted); font-size: 0.88em; margin: -0.3em 0 1.25em; }
+    .roadmap-campaigns { display: flex; flex-direction: column; gap: 0.75em; margin-bottom: 1.5em; }
+    .roadmap-campaign-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9em 1em; }
+    .roadmap-campaign-header { display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap; margin-bottom: 0.5em; }
+    .roadmap-campaign-name { font-family: var(--font-display); font-weight: 600; font-size: 1em; }
+    .roadmap-deadline { font-size: 0.8em; color: var(--text-muted); margin-left: auto; }
+    .roadmap-campaign-actions { display: flex; align-items: center; gap: 0.5em; margin-top: 0.6em; flex-wrap: wrap; }
+    .roadmap-move-btns { display: flex; gap: 0.2em; }
+    .roadmap-move-btns .btn:disabled { opacity: 0.3; cursor: not-allowed; }
+    .roadmap-add-section { margin-top: 1em; }
+    .roadmap-add-section h3 { font-family: var(--font-display); font-size: 1em; margin-bottom: 0.6em; }
+    .roadmap-available-list { display: flex; flex-direction: column; gap: 0.4em; }
+    .roadmap-available-row { display: flex; align-items: center; gap: 0.6em; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.5em 0.75em; flex-wrap: wrap; }
+    .roadmap-available-name { font-weight: 600; }
+    .roadmap-available-count { font-size: 0.8em; color: var(--text-muted); margin-left: auto; }
+
     /* ================================================================
        POOL SELECT MODE / MASS MOVE
     ================================================================ */
@@ -2118,6 +2142,10 @@
       <span class="tab-icon">🛡️</span>
       <span class="tab-label">Armies</span>
     </button>
+    <button class="nav-tab" data-tab="roadmap" role="tab">
+      <span class="tab-icon">🗺️</span>
+      <span class="tab-label">Roadmap</span>
+    </button>
     <button class="nav-tab" data-tab="queues" role="tab">
       <span class="tab-icon">📋</span>
       <span class="tab-label">Queue</span>
@@ -2153,6 +2181,11 @@
       <div id="collectionsView"></div>
     </div>
 
+    <!-- Roadmap -->
+    <div class="tab-panel" id="tab-roadmap">
+      <div id="roadmapView"></div>
+    </div>
+
     <!-- Queues -->
     <div class="tab-panel" id="tab-queues">
       <div id="queuesView"></div>
@@ -2175,6 +2208,7 @@
   import { isConfigured, isConnected, wasConnected, getSavedEmail, getLastSyncTime, init as gDriveInit, connect as gDriveConnect, disconnect as gDriveDisconnect, loadFromDrive, saveToDrive } from './js/gdrive.js';
   import { renderModelPool, showModelForm, showModelTypeEditor } from './js/models.js';
   import { renderCollections } from './js/collections.js';
+  import { renderRoadmap } from './js/roadmap.js';
   import { renderDashboard } from './js/dashboard.js';
   import { renderQueues } from './js/queue.js';
   import { renderActivity } from './js/activity.js';
@@ -2212,6 +2246,7 @@
     if (tabId === 'dashboard') renderDashboard();
     if (tabId === 'pool') renderModelPool();
     if (tabId === 'collections') renderCollections();
+    if (tabId === 'roadmap') renderRoadmap();
     if (tabId === 'queues') renderQueues();
     if (tabId === 'activity') renderActivity();
   }
