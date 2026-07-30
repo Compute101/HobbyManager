@@ -491,7 +491,9 @@ export let appData = {
     imageSize: 'small',
     pieChartMode: 'count',
     monthlyBudgetGBP: 0,
-    budgetPeriod: 'monthly' // 'monthly' | 'annual' — display/input preference; monthlyBudgetGBP stays the source of truth
+    budgetPeriod: 'monthly', // 'monthly' | 'annual' — display/input preference; monthlyBudgetGBP stays the source of truth
+    tipsDismissed: [], // tip ids the user asked never to see again
+    tipsSnoozed: {}    // tip id -> ISO date string; hidden until that date passes
   },
   folders: {}, // id -> { id, name, collapsed }
   queues: {},  // id -> { id, name, entries: [{id, modelId, note}] }
@@ -546,7 +548,9 @@ export function loadData() {
           imageSize: parsed.config?.imageSize || 'small',
           pieChartMode: parsed.config?.pieChartMode || 'count',
           monthlyBudgetGBP: parsed.config?.monthlyBudgetGBP || 0,
-          budgetPeriod: parsed.config?.budgetPeriod || 'monthly'
+          budgetPeriod: parsed.config?.budgetPeriod || 'monthly',
+          tipsDismissed: parsed.config?.tipsDismissed || [],
+          tipsSnoozed: parsed.config?.tipsSnoozed || {}
         }
       };
     }
