@@ -1079,6 +1079,39 @@
 
     .pile-total.shame-heavy { color: var(--danger); font-weight: 600; }
 
+    /* Fireworks celebration overlay */
+    .fireworks-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
+
+    /* Bounty Board */
+    .dash-bounty { grid-column: 1 / -1; }
+    .bounty-active { display: flex; flex-direction: column; gap: 0.4em; align-items: flex-start; }
+    .bounty-model-name { font-size: 1.1em; font-weight: 700; font-family: var(--font-display); }
+    .bounty-model-age { font-size: 0.82em; color: var(--text-muted); }
+    .bounty-active .prog-bar { width: 100%; }
+    .bounty-reward { font-size: 0.9em; }
+    .bounty-reward-label { color: var(--text-muted); margin-right: 0.3em; }
+
+    /* Hall of Fame */
+    .dash-hall-of-fame { grid-column: 1 / -1; }
+    .hof-list { display: flex; flex-direction: column; gap: 0.6em; }
+    .hof-item { display: flex; gap: 0.7em; align-items: flex-start; padding: 0.4em 0; border-bottom: 1px solid var(--border); }
+    .hof-item:last-child { border-bottom: none; }
+    .hof-tier { font-size: 1.4em; line-height: 1; }
+    .hof-item-name { font-weight: 600; }
+    .hof-item-meta { font-size: 0.78em; color: var(--text-muted); }
+    .hof-item-reward { font-size: 0.85em; margin-top: 0.15em; }
+
+    /* Badges */
+    .dash-badges { grid-column: 1 / -1; }
+    .badge-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.6em; }
+    .badge-tile { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.2em; padding: 0.7em 0.4em; border-radius: var(--radius); border: 1px solid var(--border); background: var(--surface2); }
+    .badge-tile-icon { font-size: 1.8em; }
+    .badge-tile-name { font-size: 0.8em; font-weight: 600; }
+    .badge-tile-date { font-size: 0.7em; color: var(--text-muted); }
+    .badge-tile-desc { font-size: 0.7em; color: var(--text-muted); }
+    .badge-tile-locked { opacity: 0.45; filter: grayscale(1); }
+    .badge-tile-earned { border-color: var(--accent); }
+
     /* Ledger tab: a dense transaction record, grouped by month */
     .ledger-month-group { margin-bottom: 1em; }
     .ledger-month-header { display: flex; justify-content: space-between; font-size: 0.8em; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted); padding-bottom: 0.25em; margin-bottom: 0.2em; border-bottom: 1px solid var(--border); }
@@ -2303,7 +2336,7 @@
 </div>
 
 <script type="module">
-  import { loadData, exportJSON, importJSON, appData, getAllModelTypes, deleteCustomModelType, BUILTIN_MODEL_TYPES, createFolder, driveSync, replaceData } from './js/data.js';
+  import { loadData, exportJSON, importJSON, appData, getAllModelTypes, deleteCustomModelType, BUILTIN_MODEL_TYPES, createFolder, driveSync, dataChangeHook, replaceData } from './js/data.js';
   import { isConfigured, isConnected, wasConnected, getSavedEmail, getLastSyncTime, init as gDriveInit, connect as gDriveConnect, disconnect as gDriveDisconnect, loadFromDrive, saveToDrive } from './js/gdrive.js';
   import { renderModelPool, showModelForm, showModelTypeEditor } from './js/models.js';
   import { renderCollections } from './js/collections.js';
@@ -2315,11 +2348,18 @@
   import { toast, showModal, closeModal, showConfirm } from './js/ui.js';
   import { renderQuartermaster, pileCount, pileWorth, rectitudePct } from './js/quartermaster.js';
   import { openTipsModal, refreshTipsBadge } from './js/tips.js';
+  import { checkGamification } from './js/badges.js';
 
   // --- Boot ---
   loadData();
   loadSavedTheme();
   refreshTipsBadge();
+
+  // --- Gamification: badges, bounty, hall of fame ---
+  dataChangeHook.callback = checkGamification;
+  // Silent backfill on load — badges already earned before this feature
+  // existed shouldn't trigger a celebration on every app open.
+  checkGamification({ silent: true });
 
   // --- Drive sync ---
   let _driveSyncTimer = null;

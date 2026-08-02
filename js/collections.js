@@ -7,7 +7,7 @@ import {
   listStats, saveData, uid, GAME_SYSTEMS, modelPoints, modelThreshold,
   addListToRoadmap, removeListFromRoadmap
 } from './data.js';
-import { showModal, closeModal, showConfirm, toast, progressBar, thresholdBadge, createDateInput, getDateValue, formatDate } from './ui.js';
+import { showModal, closeModal, showConfirm, toast, progressBar, thresholdBadge, createDateInput, getDateValue, formatDate, fireworks } from './ui.js';
 import { applyTheme, resetTheme, setCurrentSystem, resetCurrentSystem, getTerm } from './theme.js';
 import { showLogProgress, showModelDetail } from './models.js';
 import { renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle } from './charts.js';
@@ -208,6 +208,7 @@ export function selectCollection(colId) {
 }
 
 export function selectList(listId) {
+  const isNewView = activeListId !== listId;
   activeListId = listId;
   const list = appData.lists[listId];
   if (!list) return;
@@ -316,6 +317,12 @@ export function selectList(listId) {
   });
   wirePieModeToggle(main, () => selectList(listId));
   requestAnimationFrame(() => renderListCompletionPie('listCompletionPieChart', models));
+
+  // Fireworks when navigating into a completed campaign — once per visit,
+  // not on every internal refresh (deadline edits, etc.) while already here.
+  if (isNewView && list.onRoadmap && stats.totalPts > 0 && stats.totalPts - stats.donePts <= 0) {
+    fireworks();
+  }
 }
 
 function listModelRow(model, listId) {
