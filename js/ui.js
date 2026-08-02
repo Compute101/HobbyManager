@@ -144,6 +144,13 @@ export function today() {
   return localDateStr(new Date());
 }
 
+export function addDays(dateStr, n) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + n);
+  return localDateStr(dt);
+}
+
 // dateStr is a local YYYY-MM-DD string; parse at local noon to stay in the correct day.
 export function formatDate(dateStr, options) {
   if (!dateStr) return '';

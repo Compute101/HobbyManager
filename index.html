@@ -1911,6 +1911,13 @@
     .roadmap-pace.pace-done { color: var(--accent); }
     .roadmap-pace.roadmap-pace-unknown { font-style: italic; }
     .roadmap-campaign-actions { display: flex; align-items: center; gap: 0.5em; margin-top: 0.6em; flex-wrap: wrap; }
+
+    .roadmap-campaign-sprints { display: flex; flex-wrap: wrap; gap: 0.4em; margin-top: 0.6em; }
+    .roadmap-sprint-chip { border-radius: 100px; }
+    .roadmap-sprint-chip.status-ok { border-color: var(--accent); color: var(--accent); }
+    .roadmap-sprint-chip.status-tight { border-color: var(--warning); color: var(--warning); }
+    .roadmap-sprint-chip.status-over { border-color: var(--danger); color: var(--danger); }
+    .roadmap-sprint-chip.status-unknown { color: var(--text-muted); }
     .roadmap-move-btns { display: flex; gap: 0.2em; }
     .roadmap-move-btns .btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .roadmap-add-section { margin-top: 1em; }

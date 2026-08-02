@@ -901,7 +901,7 @@ export function deleteCollection(id) {
 
 export function createList({ name, collectionId }) {
   const id = uid();
-  appData.lists[id] = { id, name, collectionId, modelIds: [], onRoadmap: false, roadmapOrder: 0, linkedSprintId: null };
+  appData.lists[id] = { id, name, collectionId, modelIds: [], onRoadmap: false, roadmapOrder: 0, sprintIds: [] };
   const col = appData.collections[collectionId];
   if (col) col.listIds.push(id);
   saveData();
@@ -1039,13 +1039,21 @@ export function isModelOnRoadmap(modelId) {
   return getRoadmapLists().some(l => (l.modelIds || []).includes(modelId));
 }
 
-// Links a campaign to the sprint planning it, so the Roadmap can offer a
-// "View Sprint" shortcut instead of creating a duplicate one each time.
-export function setListLinkedSprint(listId, sprintId) {
+// A campaign accumulates a queue of sprints over its lifetime (short,
+// ~2-week slices of its work) rather than one sprint spanning the whole
+// campaign — see addCampaignSprint().
+export function addCampaignSprint(listId, sprintId) {
   const list = appData.lists[listId];
   if (!list) return;
-  list.linkedSprintId = sprintId;
+  if (!list.sprintIds) list.sprintIds = [];
+  if (!list.sprintIds.includes(sprintId)) list.sprintIds.push(sprintId);
   saveData();
+}
+
+export function getCampaignSprints(list) {
+  return (list.sprintIds || [])
+    .map(id => appData.sprints?.[id])
+    .filter(Boolean);
 }
 
 // --- Session helpers ---

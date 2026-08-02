@@ -4,7 +4,7 @@
 import {
   appData, saveData, uid, modelThreshold, modelPoints, getRoadmapLists
 } from './data.js';
-import { showModal, closeModal, toast, thresholdBadge, progressBar, createDateInput, getDateValue, formatDate, localDateStr, today } from './ui.js';
+import { showModal, closeModal, toast, thresholdBadge, progressBar, createDateInput, getDateValue, formatDate, today, addDays } from './ui.js';
 import { showLogProgress } from './models.js';
 import { paceRate } from './charts.js';
 
@@ -153,13 +153,6 @@ export function sprintCapacityStats(sprint) {
 }
 
 // --- Timeline (Gantt-style, hand-rolled HTML/CSS — no charting lib needed) ---
-
-function addDays(dateStr, n) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const dt = new Date(y, m - 1, d);
-  dt.setDate(dt.getDate() + n);
-  return localDateStr(dt);
-}
 
 // One row per dated sprint plus one row per roadmap campaign with a deadline,
 // sorted so the timeline reads chronologically top to bottom.

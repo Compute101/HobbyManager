@@ -4,14 +4,19 @@
 import {
   appData, GAME_SYSTEMS, listStats, modelPoints, modelThreshold,
   getRoadmapLists, addListToRoadmap, removeListFromRoadmap, moveRoadmapList,
-  setListLinkedSprint
+  addCampaignSprint, getCampaignSprints
 } from './data.js';
-import { toast, progressBar, thresholdBadge, formatDate, daysUntil, today } from './ui.js';
+import { toast, progressBar, thresholdBadge, formatDate, daysUntil, today, addDays } from './ui.js';
 import { selectCollection, selectList } from './collections.js';
 import { showModelDetail } from './models.js';
 import { showListBurndown } from './dashboard.js';
-import { projectedFinishDate } from './charts.js';
-import { createSprint, addManyToSprint, setSprintDates, focusSprint } from './sprint.js';
+import { projectedFinishDate, paceRate } from './charts.js';
+import { createSprint, addManyToSprint, setSprintDates, focusSprint, sprintCapacityStats } from './sprint.js';
+
+// Default length for a campaign's auto-planned sprints — short and time-boxed,
+// same idea as a software sprint, rather than one sprint spanning the whole
+// campaign with every remaining model dumped into it.
+const SPRINT_SPAN_DAYS = 14;
 
 // List ids whose finished models are currently expanded (collapsed by default).
 const _showFinishedFor = new Set();
@@ -128,11 +133,9 @@ export function renderRoadmap(containerId = 'roadmapView') {
   container.querySelectorAll('[data-roadmap-burndown]').forEach(btn => {
     btn.addEventListener('click', () => showListBurndown(btn.dataset.roadmapBurndown));
   });
-  container.querySelectorAll('[data-roadmap-view-sprint]').forEach(btn => {
+  container.querySelectorAll('[data-roadmap-goto-sprint]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const list = appData.lists[btn.dataset.roadmapViewSprint];
-      if (!list?.linkedSprintId) return;
-      focusSprint(list.linkedSprintId);
+      focusSprint(btn.dataset.roadmapGotoSprint);
       document.querySelector('.nav-tab[data-tab="sprints"]')?.click();
     });
   });
@@ -140,15 +143,56 @@ export function renderRoadmap(containerId = 'roadmapView') {
     btn.addEventListener('click', () => {
       const list = appData.lists[btn.dataset.roadmapPlanSprint];
       if (!list) return;
-      const unfinishedIds = (list.modelIds || [])
+
+      const campaignSprints = getCampaignSprints(list);
+      const alreadyPlanned = new Set(campaignSprints.flatMap(s => s.entries.map(e => e.modelId)));
+      const unplanned = (list.modelIds || [])
         .map(id => appData.models[id])
-        .filter(m => m && modelThreshold(m) !== 'finished')
-        .map(m => m.id);
-      const sprintId = createSprint(`${list.name} Sprint`);
-      addManyToSprint(sprintId, unfinishedIds);
-      if (list.deadline) setSprintDates(sprintId, today(), list.deadline);
-      setListLinkedSprint(list.id, sprintId);
-      toast('Sprint created from campaign!', 'success');
+        .filter(m => m && modelThreshold(m) !== 'finished' && !alreadyPlanned.has(m.id));
+
+      if (!unplanned.length) {
+        toast('Everything in this campaign is already in a sprint', 'info');
+        return;
+      }
+
+      // Size the sprint to what actually fits ~2 weeks at your current pace,
+      // rather than dumping the whole campaign in — pick models off the top
+      // of the list until the next one would blow the budget (but always
+      // include at least one, even if it alone exceeds it).
+      const rate = paceRate();
+      const chosen = [];
+      if (rate > 0) {
+        const capacityPts = rate * SPRINT_SPAN_DAYS;
+        let used = 0;
+        for (const m of unplanned) {
+          const remaining = modelPoints(m).total - modelPoints(m).done;
+          if (chosen.length && used + remaining > capacityPts) break;
+          chosen.push(m);
+          used += remaining;
+        }
+      } else {
+        chosen.push(unplanned[0]);
+      }
+
+      // Sequence after the campaign's latest existing sprint rather than
+      // always starting today — otherwise "Plan Next Sprint" just overlaps
+      // the one before it instead of queuing up behind it.
+      const latestEnd = campaignSprints.reduce((max, s) =>
+        (s.endDate && (!max || s.endDate > max)) ? s.endDate : max, null);
+      const earliestStart = latestEnd ? addDays(latestEnd, 1) : today();
+      const startDate = earliestStart > today() ? earliestStart : today();
+      const endDate = addDays(startDate, SPRINT_SPAN_DAYS - 1);
+
+      const sprintNum = campaignSprints.length + 1;
+      const sprintId = createSprint(`${list.name} — Sprint ${sprintNum}`);
+      addManyToSprint(sprintId, chosen.map(m => m.id));
+      setSprintDates(sprintId, startDate, endDate);
+      addCampaignSprint(list.id, sprintId);
+
+      toast(rate > 0
+        ? `Sprint ${sprintNum} created with ${chosen.length} model${chosen.length !== 1 ? 's' : ''} sized to your pace!`
+        : `Sprint ${sprintNum} created — no pace data yet, so just the next model was added.`,
+        'success');
       focusSprint(sprintId);
       document.querySelector('.nav-tab[data-tab="sprints"]')?.click();
     });
@@ -184,7 +228,18 @@ function campaignCard(list, idx, total) {
       : `<span class="roadmap-pace roadmap-pace-unknown">⏱️ No pace data yet</span>`;
   }
 
-  const linkedSprint = list.linkedSprintId ? appData.sprints?.[list.linkedSprintId] : null;
+  const campaignSprints = getCampaignSprints(list);
+  const plannedIds = new Set(campaignSprints.flatMap(s => s.entries.map(e => e.modelId)));
+  const unplannedCount = activeModels.filter(m => !plannedIds.has(m.id)).length;
+
+  const sprintChipsHtml = campaignSprints.length ? `
+    <div class="roadmap-campaign-sprints">
+      ${campaignSprints.map(s => {
+        const cap = sprintCapacityStats(s);
+        return `<button class="btn btn-xs roadmap-sprint-chip status-${cap?.status || 'unknown'}" data-roadmap-goto-sprint="${s.id}">📋 ${s.name}</button>`;
+      }).join('')}
+    </div>
+  ` : '';
 
   return `
     <div class="roadmap-campaign-card" data-list-id="${list.id}">
@@ -207,13 +262,12 @@ function campaignCard(list, idx, total) {
         </div>
         <button class="btn btn-sm" data-roadmap-open="${list.id}">🛡️ Open</button>
         <button class="btn btn-sm" data-roadmap-burndown="${list.id}">📈 Burndown</button>
-        ${linkedSprint
-          ? `<button class="btn btn-sm" data-roadmap-view-sprint="${list.id}">🔗 View Sprint</button>`
-          : activeModels.length
-            ? `<button class="btn btn-sm" data-roadmap-plan-sprint="${list.id}">📋 Plan Sprint</button>`
-            : ''}
+        ${unplannedCount > 0
+          ? `<button class="btn btn-sm" data-roadmap-plan-sprint="${list.id}">📋 ${campaignSprints.length ? 'Plan Next Sprint' : 'Plan Sprint'}</button>`
+          : ''}
         <button class="btn btn-sm btn-danger" data-roadmap-remove="${list.id}">Remove</button>
       </div>
+      ${sprintChipsHtml}
       <div class="roadmap-campaign-models">
         ${activeModels.length
           ? activeModels.map(campaignModelRow).join('')
