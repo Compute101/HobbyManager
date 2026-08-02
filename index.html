@@ -1799,6 +1799,53 @@
     .pace-badge.status-over { color: var(--danger); }
     .pace-badge.status-unknown { color: var(--text-muted); }
 
+    /* Sprint timeline (Gantt-style) */
+    .timeline-card { margin-bottom: 1.25em; }
+    .timeline-card h3 { margin-bottom: 0.75em; }
+    .timeline-empty { color: var(--text-muted); font-size: 0.85em; }
+
+    .timeline-axis-row { display: flex; margin-bottom: 0.2em; }
+    .timeline-label-spacer { flex: 0 0 140px; }
+    .timeline-axis-track { flex: 1; position: relative; height: 1.3em; }
+    .timeline-axis-tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 0.72em; color: var(--text-muted); white-space: nowrap; }
+
+    .timeline-row { display: flex; align-items: stretch; }
+    .timeline-row-label {
+      flex: 0 0 140px;
+      font-size: 0.82em;
+      padding-right: 0.6em;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: flex; align-items: center;
+    }
+    .timeline-row-track {
+      flex: 1;
+      position: relative;
+      height: 30px;
+      border-top: 1px solid var(--border);
+    }
+    .timeline-row:last-child .timeline-row-track { border-bottom: 1px solid var(--border); }
+
+    .timeline-month-guide { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); }
+    .timeline-today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--danger); opacity: 0.55; z-index: 2; }
+
+    .timeline-bar {
+      position: absolute; top: 6px; bottom: 6px;
+      border-radius: 4px; min-width: 3px;
+      z-index: 1;
+    }
+    .timeline-bar.status-ok { background: var(--accent); }
+    .timeline-bar.status-tight { background: var(--warning); }
+    .timeline-bar.status-over { background: var(--danger); }
+    .timeline-bar.status-unknown { background: var(--text-muted); }
+
+    .timeline-diamond {
+      position: absolute; top: 50%; width: 10px; height: 10px;
+      background: var(--accent2);
+      transform: translate(-50%, -50%) rotate(45deg);
+      border-radius: 2px;
+      z-index: 1;
+    }
+
     /* ================================================================
        FOLDERS
     ================================================================ */

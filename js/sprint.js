@@ -2,9 +2,9 @@
 // lists that can optionally be time-boxed with a capacity check against pace.
 
 import {
-  appData, saveData, uid, modelThreshold, modelPoints
+  appData, saveData, uid, modelThreshold, modelPoints, getRoadmapLists
 } from './data.js';
-import { showModal, closeModal, toast, thresholdBadge, progressBar, createDateInput, getDateValue, formatDate } from './ui.js';
+import { showModal, closeModal, toast, thresholdBadge, progressBar, createDateInput, getDateValue, formatDate, localDateStr, today } from './ui.js';
 import { showLogProgress } from './models.js';
 import { pileBurndownStats } from './charts.js';
 
@@ -142,6 +142,118 @@ export function sprintCapacityStats(sprint) {
   return { remainingPts, capacityPts, dayCount, status, hasRate };
 }
 
+// --- Timeline (Gantt-style, hand-rolled HTML/CSS — no charting lib needed) ---
+
+function addDays(dateStr, n) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setDate(dt.getDate() + n);
+  return localDateStr(dt);
+}
+
+// One row per dated sprint plus one row per roadmap campaign with a deadline,
+// sorted so the timeline reads chronologically top to bottom.
+function timelineRows() {
+  const dated = Object.values(appData.sprints || {})
+    .filter(s => s.startDate && s.endDate)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+  const deadlineCampaigns = getRoadmapLists()
+    .filter(l => l.deadline)
+    .sort((a, b) => a.deadline.localeCompare(b.deadline));
+  return [
+    ...dated.map(sprint => ({ type: 'sprint', sprint })),
+    ...deadlineCampaigns.map(list => ({ type: 'deadline', list })),
+  ];
+}
+
+// First day of every month spanned by [minStr, maxStr], used as axis gridlines.
+function monthTicks(minStr, maxStr) {
+  const ticks = [];
+  let [y, m] = minStr.split('-').map(Number);
+  while (true) {
+    const boundary = `${y}-${String(m).padStart(2, '0')}-01`;
+    if (boundary > maxStr) break;
+    if (boundary >= minStr) ticks.push(boundary);
+    m++;
+    if (m > 12) { m = 1; y++; }
+  }
+  return ticks;
+}
+
+function pctForDate(dateStr, rangeMin, totalDays) {
+  const offset = daysBetween(rangeMin, dateStr);
+  return Math.min(100, Math.max(0, (offset / totalDays) * 100));
+}
+
+function timelineRowHtml(row, rangeMin, totalDays, todayStr, guides) {
+  const isSprintRow = row.type === 'sprint';
+  const label = isSprintRow ? row.sprint.name : `🎯 ${row.list.name}`;
+
+  const guidesHtml = guides.map(g => `<div class="timeline-month-guide" style="left:${pctForDate(g, rangeMin, totalDays)}%"></div>`).join('');
+  const todayHtml = `<div class="timeline-today" style="left:${pctForDate(todayStr, rangeMin, totalDays)}%"></div>`;
+
+  let markerHtml;
+  if (isSprintRow) {
+    const s = row.sprint;
+    const cap = sprintCapacityStats(s);
+    const leftPct = pctForDate(s.startDate, rangeMin, totalDays);
+    const widthPct = Math.max(pctForDate(s.endDate, rangeMin, totalDays) - leftPct, 1.5);
+    const tooltip = `${s.name}: ${formatDate(s.startDate, { day: 'numeric', month: 'short' })} → ${formatDate(s.endDate, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    markerHtml = `<div class="timeline-bar status-${cap?.status || 'unknown'}" style="left:${leftPct}%;width:${widthPct}%" title="${tooltip}"></div>`;
+  } else {
+    const l = row.list;
+    const leftPct = pctForDate(l.deadline, rangeMin, totalDays);
+    const tooltip = `🎯 ${l.name} deadline: ${formatDate(l.deadline, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+    markerHtml = `<div class="timeline-diamond" style="left:${leftPct}%" title="${tooltip}"></div>`;
+  }
+
+  return `
+    <div class="timeline-row">
+      <div class="timeline-row-label" title="${label}">${label}</div>
+      <div class="timeline-row-track">
+        ${guidesHtml}
+        ${todayHtml}
+        ${markerHtml}
+      </div>
+    </div>
+  `;
+}
+
+function renderTimelineCard() {
+  const rows = timelineRows();
+  if (!rows.length) {
+    return `
+      <div class="dash-card timeline-card">
+        <h3>🗓️ Timeline</h3>
+        <p class="timeline-empty">Set dates on a sprint, or a deadline on a Roadmap campaign, to see them plotted here.</p>
+      </div>
+    `;
+  }
+
+  const todayStr = today();
+  const allDates = [
+    ...rows.flatMap(r => r.type === 'sprint' ? [r.sprint.startDate, r.sprint.endDate] : [r.list.deadline]),
+    todayStr
+  ].sort();
+  const rangeMin = addDays(allDates[0], -3);
+  const rangeMax = addDays(allDates[allDates.length - 1], 3);
+  const totalDays = Math.max(1, daysBetween(rangeMin, rangeMax));
+  const guides = monthTicks(rangeMin, rangeMax);
+
+  return `
+    <div class="dash-card timeline-card">
+      <h3>🗓️ Timeline</h3>
+      <div class="timeline-axis-row">
+        <div class="timeline-label-spacer"></div>
+        <div class="timeline-axis-track">
+          ${guides.map(g => `<span class="timeline-axis-tick" style="left:${pctForDate(g, rangeMin, totalDays)}%">${formatDate(g, { month: 'short' })}</span>`).join('')}
+        </div>
+      </div>
+      ${rows.map(row => timelineRowHtml(row, rangeMin, totalDays, todayStr, guides)).join('')}
+    </div>
+  `;
+}
+
 // --- Render ---
 
 let activeSprintId = null;
@@ -161,6 +273,7 @@ export function renderSprints() {
   }
 
   container.innerHTML = `
+    ${renderTimelineCard()}
     <div class="queue-layout">
       <div class="queue-tabs-bar">
         <div class="queue-tab-list" id="sprintTabList">
