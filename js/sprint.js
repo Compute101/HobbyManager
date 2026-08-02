@@ -2,7 +2,8 @@
 // lists that can optionally be time-boxed with a capacity check against pace.
 
 import {
-  appData, saveData, uid, modelThreshold, modelPoints, getRoadmapLists
+  appData, saveData, uid, modelThreshold, modelPoints, getRoadmapLists,
+  splitModelPoints, splitModelThreshold
 } from './data.js';
 import { showModal, closeModal, toast, thresholdBadge, progressBar, createDateInput, getDateValue, formatDate, today, addDays } from './ui.js';
 import { showLogProgress } from './models.js';
@@ -57,18 +58,20 @@ export function addToSprint(sprintId, modelId, note = '') {
   saveData();
 }
 
-// Bulk-add, silently skipping models that don't qualify (finished, or
-// already in the sprint) — used to seed a sprint from a Roadmap campaign's
-// models rather than picking them one by one. Returns the number added.
-export function addManyToSprint(sprintId, modelIds) {
+// Adds model chunks to a sprint — either a whole model, or (for a multi-model
+// regiment) just a quantity slice of one, e.g. 4 of a 20-strong unit — using
+// the same offset/size split math as the Army List "split unit" feature, so a
+// big regiment can be spread across several sprints instead of overloading
+// one. Used by Roadmap campaign planning rather than the manual "+ Add"
+// picker, which always adds whole models. Returns the number of entries added.
+export function addChunksToSprint(sprintId, chunks) {
   const sprint = appData.sprints?.[sprintId];
   if (!sprint) return 0;
   let added = 0;
-  modelIds.forEach(modelId => {
+  chunks.forEach(({ modelId, size, offset }) => {
     const model = appData.models[modelId];
-    if (!model || modelThreshold(model) === 'finished') return;
-    if (sprint.entries.some(e => e.modelId === modelId)) return;
-    sprint.entries.push({ id: uid(), modelId, note: '' });
+    if (!model) return;
+    sprint.entries.push({ id: uid(), modelId, note: '', chunkSize: size, chunkOffset: offset || 0 });
     added++;
   });
   if (added) saveData();
@@ -117,11 +120,21 @@ export function pruneFinishedFromSprints() {
 
 // --- Capacity ---
 
+// An entry is either a whole model, or (for a multi-model regiment) just a
+// quantity slice of one — see addChunksToSprint().
+function entryPoints(model, entry) {
+  return entry.chunkSize != null ? splitModelPoints(model, entry.chunkSize, entry.chunkOffset || 0) : modelPoints(model);
+}
+
+function entryThreshold(model, entry) {
+  return entry.chunkSize != null ? splitModelThreshold(model, entry.chunkSize, entry.chunkOffset || 0) : modelThreshold(model);
+}
+
 function sprintRemainingPoints(sprint) {
   return sprint.entries.reduce((sum, e) => {
     const model = appData.models[e.modelId];
     if (!model) return sum;
-    const pts = modelPoints(model);
+    const pts = entryPoints(model, e);
     return sum + Math.max(0, pts.total - pts.done);
   }, 0);
 }
@@ -380,17 +393,19 @@ function sprintEntryCard(entry, idx, total, sprintId) {
   const model = appData.models[entry.modelId];
   if (!model) return '';
 
-  const pts = modelPoints(model);
-  const thresh = modelThreshold(model);
+  const isChunk = entry.chunkSize != null;
+  const pts = entryPoints(model, entry);
+  const thresh = entryThreshold(model, entry);
   const isFirst = idx === 0;
+  const qtyLabel = isChunk ? `×${entry.chunkSize} of ${model.quantity}` : `×${model.quantity}`;
 
   return `
     <div class="queue-entry ${isFirst ? 'queue-entry-next' : ''}" data-entry-id="${entry.id}" data-sprint-id="${sprintId}">
       ${isFirst ? '<div class="queue-up-next-label">⭐ Up Next</div>' : ''}
       <div class="queue-entry-main">
         <div class="queue-entry-info">
-          <div class="queue-entry-name">${model.name}</div>
-          <div class="queue-entry-qty">×${model.quantity}</div>
+          <div class="queue-entry-name">${model.name}${isChunk ? ' <span class="split-badge">partial</span>' : ''}</div>
+          <div class="queue-entry-qty">${qtyLabel}</div>
           ${thresholdBadge(thresh)}
         </div>
         ${progressBar(pts.pct)}
