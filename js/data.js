@@ -494,7 +494,10 @@ export let appData = {
     budgetPeriod: 'monthly' // 'monthly' | 'annual' — display/input preference; monthlyBudgetGBP stays the source of truth
   },
   folders: {}, // id -> { id, name, collapsed }
-  queues: {},  // id -> { id, name, entries: [{id, modelId, note}] }
+  // id -> { id, name, startDate, endDate, entries: [{id, modelId, note}] }
+  // startDate/endDate are optional — unset, a sprint is just a manually-ordered
+  // priority list (the old "Queue"); set, it gets a capacity check against pace.
+  sprints: {},
   // id -> { id, name, gameSystemId, worth, reason, plannedMonth, collectionId, itemType, status, promotedModelId, purchaseDate }
   // itemType: 'model' (joins the pile on promotion) | 'gift' | 'codex' | 'sundry' (ledger-only, never joins the pile)
   purchaseQueue: {}
@@ -534,7 +537,9 @@ export function loadData() {
         // Convert stored UTC session dates to local on load
         sessions: (parsed.sessions || []).map(s => s.date ? { ...s, date: utcToLocal(s.date) } : s),
         folders: parsed.folders || {},
-        queues: parsed.queues || {},
+        // Sprints were called Queues before — fall back to that key so existing
+        // data carries over untouched (they migrate in as dateless sprints).
+        sprints: parsed.sprints || parsed.queues || {},
         purchaseQueue: parsed.purchaseQueue || {},
         config: {
           stages: parsed.config?.stages || [...DEFAULT_STAGES],
@@ -580,7 +585,7 @@ export function replaceData(parsed) {
     lists: parsed.lists || {},
     sessions: (parsed.sessions || []).map(s => s.date ? { ...s, date: utcToLocal(s.date) } : s),
     folders: parsed.folders || {},
-    queues: parsed.queues || {},
+    sprints: parsed.sprints || parsed.queues || {},
     purchaseQueue: parsed.purchaseQueue || {},
     config: {
       stages: parsed.config?.stages || [...DEFAULT_STAGES],

@@ -1792,6 +1792,13 @@
     .queue-move-btns { display: flex; gap: 0.2em; }
     .queue-move-btns .btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
+    /* Sprint capacity meta line (under the sprint name in the header) */
+    .sprint-meta { display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap; font-size: 0.85em; color: var(--text-muted); margin-top: 0.2em; }
+    .sprint-meta-nodates { font-style: italic; }
+    .pace-badge.status-tight { color: var(--warning); }
+    .pace-badge.status-over { color: var(--danger); }
+    .pace-badge.status-unknown { color: var(--text-muted); }
+
     /* ================================================================
        FOLDERS
     ================================================================ */
@@ -2151,9 +2158,9 @@
       <span class="tab-icon">🗺️</span>
       <span class="tab-label">Roadmap</span>
     </button>
-    <button class="nav-tab" data-tab="queues" role="tab">
+    <button class="nav-tab" data-tab="sprints" role="tab">
       <span class="tab-icon">📋</span>
-      <span class="tab-label">Queue</span>
+      <span class="tab-label">Sprints</span>
     </button>
     <button class="nav-tab" data-tab="activity" role="tab">
       <span class="tab-icon">📅</span>
@@ -2191,9 +2198,9 @@
       <div id="roadmapView"></div>
     </div>
 
-    <!-- Queues -->
-    <div class="tab-panel" id="tab-queues">
-      <div id="queuesView"></div>
+    <!-- Sprints -->
+    <div class="tab-panel" id="tab-sprints">
+      <div id="sprintsView"></div>
     </div>
 
     <!-- Activity -->
@@ -2215,7 +2222,7 @@
   import { renderCollections } from './js/collections.js';
   import { renderRoadmap } from './js/roadmap.js';
   import { renderDashboard } from './js/dashboard.js';
-  import { renderQueues } from './js/queue.js';
+  import { renderSprints } from './js/sprint.js';
   import { renderActivity } from './js/activity.js';
   import { loadSavedTheme, applyTheme } from './js/theme.js';
   import { toast, showModal, closeModal, showConfirm } from './js/ui.js';
@@ -2252,7 +2259,7 @@
     if (tabId === 'pool') renderModelPool();
     if (tabId === 'collections') renderCollections();
     if (tabId === 'roadmap') renderRoadmap();
-    if (tabId === 'queues') renderQueues();
+    if (tabId === 'sprints') renderSprints();
     if (tabId === 'activity') renderActivity();
   }
 

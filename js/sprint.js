@@ -1,0 +1,494 @@
+// sprint.js — sprint planning (formerly "queues"): manually-ordered work
+// lists that can optionally be time-boxed with a capacity check against pace.
+
+import {
+  appData, saveData, uid, modelThreshold, modelPoints
+} from './data.js';
+import { showModal, closeModal, toast, thresholdBadge, progressBar, createDateInput, getDateValue, formatDate } from './ui.js';
+import { showLogProgress } from './models.js';
+import { pileBurndownStats } from './charts.js';
+
+// --- Data helpers ---
+
+export function createSprint(name) {
+  if (!appData.sprints) appData.sprints = {};
+  const id = uid();
+  appData.sprints[id] = { id, name, startDate: null, endDate: null, entries: [] };
+  // entries: [{ id, modelId, note }]
+  saveData();
+  return id;
+}
+
+export function deleteSprint(id) {
+  if (!appData.sprints) return;
+  delete appData.sprints[id];
+  saveData();
+}
+
+export function renameSprint(id, name) {
+  if (!appData.sprints?.[id]) return;
+  appData.sprints[id].name = name;
+  saveData();
+}
+
+export function setSprintDates(id, startDate, endDate) {
+  if (!appData.sprints?.[id]) return;
+  appData.sprints[id].startDate = startDate || null;
+  appData.sprints[id].endDate = endDate || null;
+  saveData();
+}
+
+export function addToSprint(sprintId, modelId, note = '') {
+  const sprint = appData.sprints?.[sprintId];
+  if (!sprint) return;
+  // Don't add finished models
+  const model = appData.models[modelId];
+  if (!model) return;
+  if (modelThreshold(model) === 'finished') {
+    toast('Finished models cannot be added to a sprint', 'error');
+    return;
+  }
+  // Allow duplicates across sprints but not within the same sprint
+  if (sprint.entries.some(e => e.modelId === modelId)) {
+    toast('Model already in this sprint', 'error');
+    return;
+  }
+  sprint.entries.push({ id: uid(), modelId, note });
+  saveData();
+}
+
+export function removeFromSprint(sprintId, entryId) {
+  const sprint = appData.sprints?.[sprintId];
+  if (!sprint) return;
+  sprint.entries = sprint.entries.filter(e => e.id !== entryId);
+  saveData();
+}
+
+export function moveSprintEntry(sprintId, entryId, direction) {
+  const sprint = appData.sprints?.[sprintId];
+  if (!sprint) return;
+  const idx = sprint.entries.findIndex(e => e.id === entryId);
+  if (idx === -1) return;
+  const newIdx = direction === 'up' ? idx - 1 : idx + 1;
+  if (newIdx < 0 || newIdx >= sprint.entries.length) return;
+  [sprint.entries[idx], sprint.entries[newIdx]] = [sprint.entries[newIdx], sprint.entries[idx]];
+  saveData();
+}
+
+export function updateSprintEntryNote(sprintId, entryId, note) {
+  const sprint = appData.sprints?.[sprintId];
+  if (!sprint) return;
+  const entry = sprint.entries.find(e => e.id === entryId);
+  if (entry) { entry.note = note; saveData(); }
+}
+
+// Auto-remove finished models from all sprints
+export function pruneFinishedFromSprints() {
+  if (!appData.sprints) return;
+  let pruned = false;
+  Object.values(appData.sprints).forEach(sprint => {
+    const before = sprint.entries.length;
+    sprint.entries = sprint.entries.filter(e => {
+      const model = appData.models[e.modelId];
+      return model && modelThreshold(model) !== 'finished';
+    });
+    if (sprint.entries.length !== before) pruned = true;
+  });
+  if (pruned) saveData();
+}
+
+// --- Capacity ---
+
+function sprintRemainingPoints(sprint) {
+  return sprint.entries.reduce((sum, e) => {
+    const model = appData.models[e.modelId];
+    if (!model) return sum;
+    const pts = modelPoints(model);
+    return sum + Math.max(0, pts.total - pts.done);
+  }, 0);
+}
+
+// Capacity rate in points/day: your weekly goal if you've set one, otherwise
+// fall back to the same trailing-30-day pace the Pile Burndown chart uses.
+function dailyCapacityRate() {
+  const weeklyGoal = appData.config.weeklyGoal || 0;
+  if (weeklyGoal > 0) return weeklyGoal / 7;
+  return pileBurndownStats().velocity || 0;
+}
+
+function daysBetween(startStr, endStr) {
+  const [sy, sm, sd] = startStr.split('-').map(Number);
+  const [ey, em, ed] = endStr.split('-').map(Number);
+  return Math.round((new Date(ey, em - 1, ed) - new Date(sy, sm - 1, sd)) / 86400000);
+}
+
+// Returns null for undated sprints (they skip capacity checking entirely and
+// behave like a plain priority list). Otherwise compares remaining work
+// against projected capacity for the sprint's date range.
+export function sprintCapacityStats(sprint) {
+  if (!sprint.startDate || !sprint.endDate) return null;
+  const remainingPts = sprintRemainingPoints(sprint);
+  const dayCount = Math.max(1, daysBetween(sprint.startDate, sprint.endDate) + 1);
+  const rate = dailyCapacityRate();
+  const hasRate = rate > 0;
+  const capacityPts = Math.round(rate * dayCount);
+
+  let status;
+  if (!hasRate) status = 'unknown';
+  else if (remainingPts <= capacityPts * 0.85) status = 'ok';
+  else if (remainingPts <= capacityPts * 1.15) status = 'tight';
+  else status = 'over';
+
+  return { remainingPts, capacityPts, dayCount, status, hasRate };
+}
+
+// --- Render ---
+
+let activeSprintId = null;
+
+export function renderSprints() {
+  const container = document.getElementById('sprintsView');
+  if (!container) return;
+
+  if (!appData.sprints) appData.sprints = {};
+  pruneFinishedFromSprints();
+
+  const sprints = Object.values(appData.sprints);
+
+  // Set active sprint to first if not set
+  if (!activeSprintId || !appData.sprints[activeSprintId]) {
+    activeSprintId = sprints[0]?.id || null;
+  }
+
+  container.innerHTML = `
+    <div class="queue-layout">
+      <div class="queue-tabs-bar">
+        <div class="queue-tab-list" id="sprintTabList">
+          ${sprints.map(s => `
+            <button class="queue-tab-btn ${s.id === activeSprintId ? 'active' : ''}" data-sprint-id="${s.id}">
+              ${s.name}
+            </button>
+          `).join('')}
+        </div>
+        <button class="btn btn-sm btn-primary" id="newSprintBtn">+ Sprint</button>
+      </div>
+      <div class="queue-body" id="sprintBody">
+        ${activeSprintId ? renderSprintBody(activeSprintId) : `
+          <div class="empty-state">
+            <p>No sprints yet.</p>
+            <p style="font-size:0.85em;color:var(--text-muted)">Create a sprint to plan your next painting — with dates for a real deadline, or without for a plain priority list.</p>
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+
+  // Sprint tab switching
+  container.querySelectorAll('[data-sprint-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeSprintId = btn.dataset.sprintId;
+      renderSprints();
+    });
+  });
+
+  // New sprint
+  container.querySelector('#newSprintBtn')?.addEventListener('click', () => {
+    showSprintForm(null, id => { activeSprintId = id; renderSprints(); });
+  });
+
+  // Wire up sprint body events
+  wireSprintBody(container);
+}
+
+function renderSprintBody(sprintId) {
+  const sprint = appData.sprints[sprintId];
+  if (!sprint) return '';
+
+  const entries = sprint.entries;
+  const cap = sprintCapacityStats(sprint);
+
+  return `
+    <div class="queue-header">
+      <div>
+        <h2 class="queue-name">${sprint.name}</h2>
+        ${sprintMetaHtml(sprint, cap)}
+      </div>
+      <div class="queue-header-actions">
+        <button class="btn btn-sm btn-primary" id="addToSprintBtn">+ Add</button>
+        <button class="btn btn-sm" id="editSprintBtn">✏️ Edit</button>
+        <button class="btn btn-sm btn-danger" id="deleteSprintBtn">🗑️</button>
+      </div>
+    </div>
+    ${entries.length === 0 ? `
+      <div class="empty-state">
+        <p>Sprint is empty.</p>
+        <p style="font-size:0.85em;color:var(--text-muted)">Add models to plan your next painting session.</p>
+      </div>
+    ` : `
+      <div class="queue-entries">
+        ${entries.map((entry, idx) => sprintEntryCard(entry, idx, entries.length, sprintId)).join('')}
+      </div>
+    `}
+  `;
+}
+
+function sprintMetaHtml(sprint, cap) {
+  if (!sprint.startDate || !sprint.endDate) {
+    return `<div class="sprint-meta"><span class="sprint-meta-nodates">No dates — plain priority list</span></div>`;
+  }
+  const dateStr = `${formatDate(sprint.startDate, { day: 'numeric', month: 'short' })} – ${formatDate(sprint.endDate, { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  if (!cap) return `<div class="sprint-meta">🎯 ${dateStr}</div>`;
+
+  const statusInfo = {
+    ok:      { label: '✅ On track',        cls: 'status-ok' },
+    tight:   { label: '⚠️ Tight',           cls: 'status-tight' },
+    over:    { label: '🔥 Overcommitted',   cls: 'status-over' },
+    unknown: { label: 'ℹ️ No pace data yet', cls: 'status-unknown' },
+  }[cap.status];
+
+  return `
+    <div class="sprint-meta">
+      🎯 ${dateStr}
+      <span class="pace-badge ${statusInfo.cls}">${cap.remainingPts} pts needed${cap.hasRate ? ` · ~${cap.capacityPts} pts capacity` : ''} · ${statusInfo.label}</span>
+    </div>
+  `;
+}
+
+function sprintEntryCard(entry, idx, total, sprintId) {
+  const model = appData.models[entry.modelId];
+  if (!model) return '';
+
+  const pts = modelPoints(model);
+  const thresh = modelThreshold(model);
+  const isFirst = idx === 0;
+
+  return `
+    <div class="queue-entry ${isFirst ? 'queue-entry-next' : ''}" data-entry-id="${entry.id}" data-sprint-id="${sprintId}">
+      ${isFirst ? '<div class="queue-up-next-label">⭐ Up Next</div>' : ''}
+      <div class="queue-entry-main">
+        <div class="queue-entry-info">
+          <div class="queue-entry-name">${model.name}</div>
+          <div class="queue-entry-qty">×${model.quantity}</div>
+          ${thresholdBadge(thresh)}
+        </div>
+        ${progressBar(pts.pct)}
+        ${entry.note ? `<div class="queue-entry-note">📌 ${entry.note}</div>` : ''}
+        <div class="queue-entry-actions">
+          <button class="btn btn-sm btn-primary" data-log-model="${entry.modelId}">📝 Log</button>
+          <button class="btn btn-sm" data-edit-note="${entry.id}">📌 Note</button>
+          <div class="queue-move-btns">
+            <button class="btn btn-sm" data-move-up="${entry.id}" ${idx === 0 ? 'disabled' : ''}>↑</button>
+            <button class="btn btn-sm" data-move-down="${entry.id}" ${idx === total - 1 ? 'disabled' : ''}>↓</button>
+          </div>
+          <button class="btn btn-sm btn-danger" data-remove-entry="${entry.id}">✕</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function wireSprintBody(container) {
+  // Add to sprint
+  container.querySelector('#addToSprintBtn')?.addEventListener('click', () => {
+    showAddToSprint(activeSprintId);
+  });
+
+  // Edit sprint (name + dates)
+  container.querySelector('#editSprintBtn')?.addEventListener('click', () => {
+    showSprintForm(activeSprintId, () => renderSprints());
+  });
+
+  // Delete sprint
+  container.querySelector('#deleteSprintBtn')?.addEventListener('click', () => {
+    const sprint = appData.sprints[activeSprintId];
+    if (!confirm(`Delete sprint "${sprint.name}"?`)) return;
+    deleteSprint(activeSprintId);
+    activeSprintId = null;
+    renderSprints();
+  });
+
+  // Log progress
+  container.querySelectorAll('[data-log-model]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      showLogProgress(btn.dataset.logModel);
+    });
+  });
+
+  // Move up/down
+  container.querySelectorAll('[data-move-up]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      moveSprintEntry(activeSprintId, btn.dataset.moveUp, 'up');
+      renderSprints();
+    });
+  });
+  container.querySelectorAll('[data-move-down]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      moveSprintEntry(activeSprintId, btn.dataset.moveDown, 'down');
+      renderSprints();
+    });
+  });
+
+  // Remove from sprint
+  container.querySelectorAll('[data-remove-entry]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm('Remove from sprint?')) return;
+      removeFromSprint(activeSprintId, btn.dataset.removeEntry);
+      renderSprints();
+    });
+  });
+
+  // Edit note
+  container.querySelectorAll('[data-edit-note]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const entryId = btn.dataset.editNote;
+      const sprint = appData.sprints[activeSprintId];
+      const entry = sprint?.entries.find(e => e.id === entryId);
+      const note = prompt('Note for this model (leave blank to clear):', entry?.note || '');
+      if (note !== null) {
+        updateSprintEntryNote(activeSprintId, entryId, note.trim());
+        renderSprints();
+      }
+    });
+  });
+}
+
+// --- New / edit sprint modal (name + optional date range) ---
+
+function showSprintForm(editId, onSaved) {
+  const sprint = editId ? appData.sprints[editId] : null;
+  const content = document.createElement('div');
+  content.innerHTML = `
+    <div class="form-group">
+      <label>Sprint name</label>
+      <input id="sfName" class="form-input" type="text" placeholder="e.g. Sprint 12, or Someday / Maybe" value="${sprint?.name || ''}">
+    </div>
+    <div class="form-row-two">
+      <div class="form-group">
+        <label>Start date (optional)</label>
+        ${createDateInput('sfStart', sprint?.startDate || '')}
+      </div>
+      <div class="form-group">
+        <label>End date (optional)</label>
+        ${createDateInput('sfEnd', sprint?.endDate || '')}
+      </div>
+    </div>
+    <p class="form-hint">Leave both blank for an undated priority list. Set both for a capacity check against your painting pace.</p>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="sfSave">${editId ? 'Update' : 'Create'}</button>
+      <button class="btn" id="sfCancel">Cancel</button>
+    </div>
+  `;
+
+  content.querySelector('#sfSave').addEventListener('click', () => {
+    const name = content.querySelector('#sfName').value.trim();
+    if (!name) { toast('Please enter a name', 'error'); return; }
+    const startDate = getDateValue('sfStart');
+    const endDate = getDateValue('sfEnd');
+    if ((startDate && !endDate) || (!startDate && endDate)) {
+      toast('Set both a start and end date, or leave both blank', 'error');
+      return;
+    }
+    if (startDate && endDate && endDate < startDate) {
+      toast('End date must be after the start date', 'error');
+      return;
+    }
+
+    let id = editId;
+    if (editId) {
+      renameSprint(editId, name);
+      setSprintDates(editId, startDate, endDate);
+      toast('Sprint updated!', 'success');
+    } else {
+      id = createSprint(name);
+      setSprintDates(id, startDate, endDate);
+      toast('Sprint created!', 'success');
+    }
+    closeModal();
+    onSaved?.(id);
+  });
+
+  content.querySelector('#sfCancel').addEventListener('click', () => closeModal());
+  showModal({ title: editId ? 'Edit Sprint' : 'New Sprint', content });
+}
+
+// --- Add to sprint modal (pool picker) ---
+
+function showAddToSprint(sprintId) {
+  const sprint = appData.sprints[sprintId];
+  if (!sprint) return;
+
+  const alreadyInSprint = new Set(sprint.entries.map(e => e.modelId));
+  const allModels = Object.values(appData.models);
+  const folders = Object.values(appData.folders || {}).sort((a, b) => a.name.localeCompare(b.name));
+  // Selections persist here so they survive the picker re-rendering on search/folder filter changes
+  const selected = new Set();
+
+  const content = document.createElement('div');
+
+  const renderPicker = (filter = '', folderId = '') => {
+    const available = allModels.filter(m => {
+      if (modelThreshold(m) === 'finished') return false;
+      if (alreadyInSprint.has(m.id)) return false;
+      const matchName = m.name.toLowerCase().includes(filter.toLowerCase());
+      const matchFolder = !folderId || m.folderId === folderId;
+      return matchName && matchFolder;
+    });
+
+    if (!available.length) return '<p style="color:var(--text-muted);font-size:0.85em;padding:0.5em 0">No available models. Finished models and models already in this sprint are excluded.</p>';
+
+    return available.map(m => `
+      <label class="pool-pick-item">
+        <input type="checkbox" value="${m.id}" ${selected.has(m.id) ? 'checked' : ''}>
+        <span class="pool-pick-name">${m.name}</span>
+        <span class="pool-pick-qty">×${m.quantity}</span>
+        ${m.folderId && appData.folders?.[m.folderId] ? `<span class="pool-pick-folder">📁 ${appData.folders[m.folderId].name}</span>` : ''}
+      </label>
+    `).join('');
+  };
+
+  content.innerHTML = `
+    <div class="pool-filter-row">
+      <input id="sprintSearch" class="form-input" type="text" placeholder="Search models...">
+      <select id="sprintFolderFilter" class="form-input" style="width:auto;flex:0 1 140px">
+        <option value="">All folders</option>
+        ${folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="pool-picker" id="sprintPicker">
+      ${renderPicker()}
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="sprintPickSave">Add to Sprint</button>
+      <button class="btn" id="sprintPickCancel">Cancel</button>
+    </div>
+  `;
+
+  const picker = content.querySelector('#sprintPicker');
+
+  const updatePicker = () => {
+    picker.innerHTML = renderPicker(
+      content.querySelector('#sprintSearch').value,
+      content.querySelector('#sprintFolderFilter').value
+    );
+  };
+
+  // Delegated listener: the picker's checkboxes get replaced on every filter change,
+  // so track checked state in `selected` rather than reading the DOM at save time.
+  picker.addEventListener('change', e => {
+    if (!e.target.matches('input[type="checkbox"]')) return;
+    if (e.target.checked) selected.add(e.target.value);
+    else selected.delete(e.target.value);
+  });
+
+  content.querySelector('#sprintSearch').addEventListener('input', updatePicker);
+  content.querySelector('#sprintFolderFilter').addEventListener('change', updatePicker);
+
+  content.querySelector('#sprintPickSave').addEventListener('click', () => {
+    selected.forEach(modelId => addToSprint(sprintId, modelId));
+    closeModal();
+    renderSprints();
+  });
+
+  content.querySelector('#sprintPickCancel').addEventListener('click', () => closeModal());
+  showModal({ title: `Add to "${sprint.name}"`, content, wide: true });
+}
