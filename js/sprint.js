@@ -39,7 +39,10 @@ export function setSprintDates(id, startDate, endDate) {
   saveData();
 }
 
-export function addToSprint(sprintId, modelId, note = '') {
+// chunkSize lets a manual add commit just part of a multi-model regiment
+// (e.g. 5 of a 20-strong unit) rather than always the whole thing — same
+// chunk concept campaign sprint planning uses, just picked by hand here.
+export function addToSprint(sprintId, modelId, note = '', chunkSize = null, chunkOffset = 0) {
   const sprint = appData.sprints?.[sprintId];
   if (!sprint) return;
   // Don't add finished models
@@ -49,12 +52,30 @@ export function addToSprint(sprintId, modelId, note = '') {
     toast('Finished models cannot be added to a sprint', 'error');
     return;
   }
-  // Allow duplicates across sprints but not within the same sprint
-  if (sprint.entries.some(e => e.modelId === modelId)) {
+  // Allow duplicates across sprints, and multiple chunks of the same model
+  // within one sprint — only block a second *whole*-model entry, which would
+  // be a plain redundant duplicate.
+  if (chunkSize == null && sprint.entries.some(e => e.modelId === modelId && e.chunkSize == null)) {
     toast('Model already in this sprint', 'error');
     return;
   }
-  sprint.entries.push({ id: uid(), modelId, note });
+  sprint.entries.push({ id: uid(), modelId, note, chunkSize, chunkOffset: chunkSize != null ? chunkOffset : null });
+  saveData();
+}
+
+// Resizes an existing entry's chunk after the fact (e.g. "actually make that
+// 8 of the 20, not 5"). Sizing up to the model's full quantity turns it back
+// into a plain whole-model entry.
+export function setSprintEntryChunk(sprintId, entryId, size) {
+  const sprint = appData.sprints?.[sprintId];
+  if (!sprint) return;
+  const entry = sprint.entries.find(e => e.id === entryId);
+  if (!entry) return;
+  const model = appData.models[entry.modelId];
+  if (!model) return;
+  const clamped = Math.max(1, Math.min(model.quantity, Math.round(size) || 1));
+  entry.chunkSize = clamped < model.quantity ? clamped : null;
+  entry.chunkOffset = entry.chunkSize != null ? (entry.chunkOffset || 0) : null;
   saveData();
 }
 
@@ -413,6 +434,7 @@ function sprintEntryCard(entry, idx, total, sprintId) {
         <div class="queue-entry-actions">
           <button class="btn btn-sm btn-primary" data-log-model="${entry.modelId}">📝 Log</button>
           <button class="btn btn-sm" data-edit-note="${entry.id}">📌 Note</button>
+          ${model.quantity > 1 ? `<button class="btn btn-sm" data-edit-qty="${entry.id}" title="Change how many of this regiment are in this sprint">✂️ Qty</button>` : ''}
           <div class="queue-move-btns">
             <button class="btn btn-sm" data-move-up="${entry.id}" ${idx === 0 ? 'disabled' : ''}>↑</button>
             <button class="btn btn-sm" data-move-down="${entry.id}" ${idx === total - 1 ? 'disabled' : ''}>↓</button>
@@ -487,6 +509,25 @@ function wireSprintBody(container) {
       }
     });
   });
+
+  // Edit chunk quantity (how many of a multi-model regiment are in this sprint)
+  container.querySelectorAll('[data-edit-qty]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const entryId = btn.dataset.editQty;
+      const sprint = appData.sprints[activeSprintId];
+      const entry = sprint?.entries.find(e => e.id === entryId);
+      const model = entry && appData.models[entry.modelId];
+      if (!model) return;
+      const current = entry.chunkSize ?? model.quantity;
+      const val = prompt(`How many of "${model.name}" (out of ${model.quantity}) should be in this sprint?`, current);
+      if (val === null) return;
+      const n = parseInt(val);
+      if (!n || n < 1) { toast('Enter a number of at least 1', 'error'); return; }
+      setSprintEntryChunk(activeSprintId, entryId, n);
+      toast(n < model.quantity ? `Set to ${n} of ${model.quantity}` : 'Set to the whole model', 'success');
+      renderSprints();
+    });
+  });
 }
 
 // --- New / edit sprint modal (name + optional date range) ---
@@ -554,18 +595,21 @@ function showAddToSprint(sprintId) {
   const sprint = appData.sprints[sprintId];
   if (!sprint) return;
 
-  const alreadyInSprint = new Set(sprint.entries.map(e => e.modelId));
+  // A model with a whole-model entry already here is redundant to re-add;
+  // one that only has chunk(s) here can still get another chunk added.
+  const wholeEntryModelIds = new Set(sprint.entries.filter(e => e.chunkSize == null).map(e => e.modelId));
   const allModels = Object.values(appData.models);
   const folders = Object.values(appData.folders || {}).sort((a, b) => a.name.localeCompare(b.name));
-  // Selections persist here so they survive the picker re-rendering on search/folder filter changes
+  // Selections/quantities persist here so they survive the picker re-rendering on search/folder filter changes
   const selected = new Set();
+  const chosenQty = new Map();
 
   const content = document.createElement('div');
 
   const renderPicker = (filter = '', folderId = '') => {
     const available = allModels.filter(m => {
       if (modelThreshold(m) === 'finished') return false;
-      if (alreadyInSprint.has(m.id)) return false;
+      if (wholeEntryModelIds.has(m.id)) return false;
       const matchName = m.name.toLowerCase().includes(filter.toLowerCase());
       const matchFolder = !folderId || m.folderId === folderId;
       return matchName && matchFolder;
@@ -577,7 +621,9 @@ function showAddToSprint(sprintId) {
       <label class="pool-pick-item">
         <input type="checkbox" value="${m.id}" ${selected.has(m.id) ? 'checked' : ''}>
         <span class="pool-pick-name">${m.name}</span>
-        <span class="pool-pick-qty">×${m.quantity}</span>
+        ${m.quantity > 1
+          ? `<input type="number" class="form-input pool-pick-qty-input" data-qty-for="${m.id}" min="1" max="${m.quantity}" value="${chosenQty.get(m.id) ?? m.quantity}" title="How many of this regiment to add">`
+          : `<span class="pool-pick-qty">×${m.quantity}</span>`}
         ${m.folderId && appData.folders?.[m.folderId] ? `<span class="pool-pick-folder">📁 ${appData.folders[m.folderId].name}</span>` : ''}
       </label>
     `).join('');
@@ -591,6 +637,7 @@ function showAddToSprint(sprintId) {
         ${folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
       </select>
     </div>
+    <p class="form-hint">Multi-model regiments show a quantity box — lower it to add just part of the unit to this sprint.</p>
     <div class="pool-picker" id="sprintPicker">
       ${renderPicker()}
     </div>
@@ -609,19 +656,33 @@ function showAddToSprint(sprintId) {
     );
   };
 
-  // Delegated listener: the picker's checkboxes get replaced on every filter change,
-  // so track checked state in `selected` rather than reading the DOM at save time.
+  // Delegated listeners: the picker's inputs get replaced on every filter
+  // change, so track checked/qty state in `selected`/`chosenQty` rather than
+  // reading the DOM at save time.
   picker.addEventListener('change', e => {
-    if (!e.target.matches('input[type="checkbox"]')) return;
-    if (e.target.checked) selected.add(e.target.value);
-    else selected.delete(e.target.value);
+    if (e.target.matches('input[type="checkbox"]')) {
+      if (e.target.checked) selected.add(e.target.value);
+      else selected.delete(e.target.value);
+    }
+  });
+  picker.addEventListener('input', e => {
+    if (!e.target.matches('.pool-pick-qty-input')) return;
+    const modelId = e.target.dataset.qtyFor;
+    const model = appData.models[modelId];
+    const n = Math.max(1, Math.min(model?.quantity || 1, parseInt(e.target.value) || 1));
+    chosenQty.set(modelId, n);
   });
 
   content.querySelector('#sprintSearch').addEventListener('input', updatePicker);
   content.querySelector('#sprintFolderFilter').addEventListener('change', updatePicker);
 
   content.querySelector('#sprintPickSave').addEventListener('click', () => {
-    selected.forEach(modelId => addToSprint(sprintId, modelId));
+    selected.forEach(modelId => {
+      const model = appData.models[modelId];
+      const qty = chosenQty.get(modelId);
+      const chunkSize = (qty != null && model && qty < model.quantity) ? qty : null;
+      addToSprint(sprintId, modelId, '', chunkSize, 0);
+    });
     closeModal();
     renderSprints();
   });
