@@ -435,6 +435,28 @@ export function pileBurndownStats() {
   return { byDay, sortedDates, todayStr, pileRemainingPoints, velocity, daysToClear, clearDate };
 }
 
+// Shared "how fast am I painting" rate (pts/day), used by both Sprint capacity
+// checks and Roadmap finish-date projections: your weekly goal if you've set
+// one, otherwise the trailing-30-day pace pileBurndownStats() already computes.
+// Pool-wide, not scoped per sprint/campaign — juggling several active sprints
+// or campaigns at once will double-count against this one shared rate.
+export function paceRate() {
+  const weeklyGoal = appData.config.weeklyGoal || 0;
+  if (weeklyGoal > 0) return weeklyGoal / 7;
+  return pileBurndownStats().velocity || 0;
+}
+
+// Projects a finish date for a chunk of remaining work at the current pace.
+// date is null when there's nothing left, or no pace data yet to project from.
+export function projectedFinishDate(remainingPts) {
+  if (remainingPts <= 0) return { date: null, rate: 0, days: 0 };
+  const rate = paceRate();
+  if (rate <= 0) return { date: null, rate: 0, days: null };
+  const days = Math.ceil(remainingPts / rate);
+  const date = new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
+  return { date, rate, days };
+}
+
 export function renderPileBurndown(canvasId) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;

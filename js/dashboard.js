@@ -933,7 +933,7 @@ function showGreyShareFallback(text) {
 }
 
 // --- Per-list burndown modal ---
-function showListBurndown(listId) {
+export function showListBurndown(listId) {
   const list = appData.lists[listId];
   if (!list) return;
 

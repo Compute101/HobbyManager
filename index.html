@@ -972,6 +972,7 @@
     .pool-pick-item.already-in { opacity: 0.5; cursor: not-allowed; }
     .pool-pick-name { flex: 1; font-size: 0.9em; }
     .pool-pick-qty { font-size: 0.8em; color: var(--text-muted); }
+    .pool-pick-qty-input { width: 4em; padding: 0.2em 0.4em; font-size: 0.85em; flex: 0 0 auto; }
 
     /* ================================================================
        DASHBOARD
@@ -1819,6 +1820,60 @@
     .queue-move-btns { display: flex; gap: 0.2em; }
     .queue-move-btns .btn:disabled { opacity: 0.3; cursor: not-allowed; }
 
+    /* Sprint capacity meta line (under the sprint name in the header) */
+    .sprint-meta { display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap; font-size: 0.85em; color: var(--text-muted); margin-top: 0.2em; }
+    .sprint-meta-nodates { font-style: italic; }
+    .pace-badge.status-tight { color: var(--warning); }
+    .pace-badge.status-over { color: var(--danger); }
+    .pace-badge.status-unknown { color: var(--text-muted); }
+
+    /* Sprint timeline (Gantt-style) */
+    .timeline-card { margin-bottom: 1.25em; }
+    .timeline-card h3 { margin-bottom: 0.75em; }
+    .timeline-empty { color: var(--text-muted); font-size: 0.85em; }
+
+    .timeline-axis-row { display: flex; margin-bottom: 0.2em; }
+    .timeline-label-spacer { flex: 0 0 140px; }
+    .timeline-axis-track { flex: 1; position: relative; height: 1.3em; }
+    .timeline-axis-tick { position: absolute; top: 0; transform: translateX(-50%); font-size: 0.72em; color: var(--text-muted); white-space: nowrap; }
+
+    .timeline-row { display: flex; align-items: stretch; }
+    .timeline-row-label {
+      flex: 0 0 140px;
+      font-size: 0.82em;
+      padding-right: 0.6em;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: flex; align-items: center;
+    }
+    .timeline-row-track {
+      flex: 1;
+      position: relative;
+      height: 30px;
+      border-top: 1px solid var(--border);
+    }
+    .timeline-row:last-child .timeline-row-track { border-bottom: 1px solid var(--border); }
+
+    .timeline-month-guide { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--border); }
+    .timeline-today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--danger); opacity: 0.55; z-index: 2; }
+
+    .timeline-bar {
+      position: absolute; top: 6px; bottom: 6px;
+      border-radius: 4px; min-width: 3px;
+      z-index: 1;
+    }
+    .timeline-bar.status-ok { background: var(--accent); }
+    .timeline-bar.status-tight { background: var(--warning); }
+    .timeline-bar.status-over { background: var(--danger); }
+    .timeline-bar.status-unknown { background: var(--text-muted); }
+
+    .timeline-diamond {
+      position: absolute; top: 50%; width: 10px; height: 10px;
+      background: var(--accent2);
+      transform: translate(-50%, -50%) rotate(45deg);
+      border-radius: 2px;
+      z-index: 1;
+    }
+
     /* ================================================================
        FOLDERS
     ================================================================ */
@@ -1879,7 +1934,18 @@
     .roadmap-campaign-header { display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap; margin-bottom: 0.5em; }
     .roadmap-campaign-name { font-family: var(--font-display); font-weight: 600; font-size: 1em; }
     .roadmap-deadline { font-size: 0.8em; color: var(--text-muted); margin-left: auto; }
+    .roadmap-pace-row { margin-top: 0.4em; }
+    .roadmap-pace { font-size: 0.82em; color: var(--text-muted); }
+    .roadmap-pace.pace-done { color: var(--accent); }
+    .roadmap-pace.roadmap-pace-unknown { font-style: italic; }
     .roadmap-campaign-actions { display: flex; align-items: center; gap: 0.5em; margin-top: 0.6em; flex-wrap: wrap; }
+
+    .roadmap-campaign-sprints { display: flex; flex-wrap: wrap; gap: 0.4em; margin-top: 0.6em; }
+    .roadmap-sprint-chip { border-radius: 100px; }
+    .roadmap-sprint-chip.status-ok { border-color: var(--accent); color: var(--accent); }
+    .roadmap-sprint-chip.status-tight { border-color: var(--warning); color: var(--warning); }
+    .roadmap-sprint-chip.status-over { border-color: var(--danger); color: var(--danger); }
+    .roadmap-sprint-chip.status-unknown { color: var(--text-muted); }
     .roadmap-move-btns { display: flex; gap: 0.2em; }
     .roadmap-move-btns .btn:disabled { opacity: 0.3; cursor: not-allowed; }
     .roadmap-add-section { margin-top: 1em; }
@@ -2179,9 +2245,9 @@
       <span class="tab-icon">🗺️</span>
       <span class="tab-label">Roadmap</span>
     </button>
-    <button class="nav-tab" data-tab="queues" role="tab">
+    <button class="nav-tab" data-tab="sprints" role="tab">
       <span class="tab-icon">📋</span>
-      <span class="tab-label">Queue</span>
+      <span class="tab-label">Sprints</span>
     </button>
     <button class="nav-tab" data-tab="activity" role="tab">
       <span class="tab-icon">📅</span>
@@ -2219,9 +2285,9 @@
       <div id="roadmapView"></div>
     </div>
 
-    <!-- Queues -->
-    <div class="tab-panel" id="tab-queues">
-      <div id="queuesView"></div>
+    <!-- Sprints -->
+    <div class="tab-panel" id="tab-sprints">
+      <div id="sprintsView"></div>
     </div>
 
     <!-- Activity -->
@@ -2243,7 +2309,7 @@
   import { renderCollections } from './js/collections.js';
   import { renderRoadmap } from './js/roadmap.js';
   import { renderDashboard } from './js/dashboard.js';
-  import { renderQueues } from './js/queue.js';
+  import { renderSprints } from './js/sprint.js';
   import { renderActivity } from './js/activity.js';
   import { loadSavedTheme, applyTheme } from './js/theme.js';
   import { toast, showModal, closeModal, showConfirm } from './js/ui.js';
@@ -2282,7 +2348,7 @@
     if (tabId === 'pool') renderModelPool();
     if (tabId === 'collections') renderCollections();
     if (tabId === 'roadmap') renderRoadmap();
-    if (tabId === 'queues') renderQueues();
+    if (tabId === 'sprints') renderSprints();
     if (tabId === 'activity') renderActivity();
     refreshTipsBadge();
   }

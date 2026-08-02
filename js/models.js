@@ -16,11 +16,11 @@ let _selectMode = false;
 let _selectedIds = new Set();
 
 // Lazy import to avoid circular dependency
-async function pruneQueues() {
+async function pruneSprints() {
   try {
-    const { pruneFinishedFromQueues } = await import('./queue.js');
-    pruneFinishedFromQueues();
-  } catch(e) { /* queue module not loaded yet */ }
+    const { pruneFinishedFromSprints } = await import('./sprint.js');
+    pruneFinishedFromSprints();
+  } catch(e) { /* sprint module not loaded yet */ }
 }
 
 // --- Render the model pool section with folders ---
@@ -936,7 +936,7 @@ export function showLogProgress(modelId) {
     }
 
     toast('Progress saved!', 'success');
-    pruneQueues();
+    pruneSprints();
     closeModal();
     renderModelPool();
   });
