@@ -3,7 +3,7 @@
 // unused (or a situation where it would help) so people who already lean on
 // a feature stop getting nagged about it — the tip simply stops matching.
 
-import { appData, saveData, getAllModels, getAllModelTypes, modelThreshold, GAME_SYSTEMS, getRoadmapLists } from './data.js';
+import { appData, saveData, getAllModels, getAllModelTypes, modelThreshold, GAME_SYSTEMS, getRoadmapLists, getCampaignSprints } from './data.js';
 import { isConfigured, wasConnected } from './gdrive.js';
 import { showModal, today } from './ui.js';
 
@@ -17,10 +17,10 @@ const TIP_DEFINITIONS = [
     condition: ctx => ctx.folderCount === 0 && ctx.modelCount >= 8
   },
   {
-    id: 'queue',
+    id: 'sprints',
     icon: '📋',
-    text: "Not sure what to paint next? Build a Painting Queue to line up your next few projects.",
-    condition: ctx => ctx.queueEntryCount === 0 && ctx.unfinishedCount >= 4
+    text: "Not sure what to paint next? Build a Sprint (Sprints tab) to line up your next few projects — add start/end dates for a capacity check against your pace.",
+    condition: ctx => ctx.sprintEntryCount === 0 && ctx.unfinishedCount >= 4
   },
   {
     id: 'weekly_goal',
@@ -94,16 +94,29 @@ const TIP_DEFINITIONS = [
     text: "Pool feeling overwhelming? Mark an army list as active on the Roadmap tab — its models rise to the top of the Model Pool, and everything else settles into the Backlog.",
     condition: ctx => ctx.roadmapListCount === 0 && ctx.listsWithModels >= 1 && ctx.modelCount >= 8
   },
+  {
+    id: 'sprint_capacity',
+    icon: '⏱️',
+    text: "Give a Sprint start and end dates to get a capacity check — it'll flag whether you're on track, tight, or overcommitted for your painting pace.",
+    condition: ctx => ctx.sprintCount >= 1 && ctx.datedSprintCount === 0
+  },
+  {
+    id: 'campaign_sprint',
+    icon: '🔗',
+    text: "Turn a Roadmap campaign's remaining work into a Sprint — hit \"Plan Sprint\" on its card for a batch sized to your pace and dated toward its deadline.",
+    condition: ctx => ctx.campaignNeedsSprintPlan
+  },
 ];
 
 function buildContext() {
   const models = getAllModels();
   const folders = appData.folders || {};
-  const queues = appData.queues || {};
+  const sprints = Object.values(appData.sprints || {});
   const lists = Object.values(appData.lists || {});
   const collections = Object.values(appData.collections || {});
 
-  const queueEntryCount = Object.values(queues).reduce((sum, q) => sum + (q.entries?.length || 0), 0);
+  const sprintEntryCount = sprints.reduce((sum, s) => sum + (s.entries?.length || 0), 0);
+  const datedSprintCount = sprints.filter(s => s.startDate && s.endDate).length;
   const unfinishedCount = models.filter(m => modelThreshold(m) !== 'finished').length;
   const listsWithDeadline = lists.filter(l => l.deadline).length;
   const listsWithModels = lists.filter(l => (l.modelIds || []).length > 0).length;
@@ -115,12 +128,24 @@ function buildContext() {
   const hasAnyProgress = models.some(m => Object.values(m.progress || {}).some(p => (p?.done || 0) > 0));
   const hasAnyImage = models.some(m => !!m.image);
   const nonCustomCollectionCount = collections.filter(c => c.gameSystemId && c.gameSystemId !== 'custom' && GAME_SYSTEMS[c.gameSystemId]).length;
-  const roadmapListCount = getRoadmapLists().length;
+  const roadmapLists = getRoadmapLists();
+  const roadmapListCount = roadmapLists.length;
+  // A campaign "needs" sprint planning once it still has unfinished models
+  // but hasn't had a single Sprint spun off it yet via Roadmap's "Plan Sprint".
+  const campaignNeedsSprintPlan = roadmapLists.some(l => {
+    const hasUnfinished = (l.modelIds || []).some(id => {
+      const m = appData.models[id];
+      return m && modelThreshold(m) !== 'finished';
+    });
+    return hasUnfinished && getCampaignSprints(l).length === 0;
+  });
 
   return {
     modelCount: models.length,
     folderCount: Object.keys(folders).length,
-    queueEntryCount,
+    sprintEntryCount,
+    sprintCount: sprints.length,
+    datedSprintCount,
     unfinishedCount,
     sessionCount: appData.sessions.length,
     listsWithDeadline,
@@ -133,6 +158,7 @@ function buildContext() {
     hasAnyImage,
     nonCustomCollectionCount,
     roadmapListCount,
+    campaignNeedsSprintPlan,
   };
 }
 
