@@ -3,11 +3,15 @@
 
 import {
   appData, GAME_SYSTEMS, listStats, modelPoints, modelThreshold,
-  getRoadmapLists, addListToRoadmap, removeListFromRoadmap, moveRoadmapList
+  getRoadmapLists, addListToRoadmap, removeListFromRoadmap, moveRoadmapList,
+  setListLinkedSprint
 } from './data.js';
-import { toast, progressBar, thresholdBadge, formatDate, daysUntil } from './ui.js';
+import { toast, progressBar, thresholdBadge, formatDate, daysUntil, today } from './ui.js';
 import { selectCollection, selectList } from './collections.js';
 import { showModelDetail } from './models.js';
+import { showListBurndown } from './dashboard.js';
+import { projectedFinishDate } from './charts.js';
+import { createSprint, addManyToSprint, setSprintDates, focusSprint } from './sprint.js';
 
 // List ids whose finished models are currently expanded (collapsed by default).
 const _showFinishedFor = new Set();
@@ -121,6 +125,34 @@ export function renderRoadmap(containerId = 'roadmapView') {
   container.querySelectorAll('[data-roadmap-model-view]').forEach(el => {
     el.addEventListener('click', () => showModelDetail(el.dataset.roadmapModelView));
   });
+  container.querySelectorAll('[data-roadmap-burndown]').forEach(btn => {
+    btn.addEventListener('click', () => showListBurndown(btn.dataset.roadmapBurndown));
+  });
+  container.querySelectorAll('[data-roadmap-view-sprint]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const list = appData.lists[btn.dataset.roadmapViewSprint];
+      if (!list?.linkedSprintId) return;
+      focusSprint(list.linkedSprintId);
+      document.querySelector('.nav-tab[data-tab="sprints"]')?.click();
+    });
+  });
+  container.querySelectorAll('[data-roadmap-plan-sprint]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const list = appData.lists[btn.dataset.roadmapPlanSprint];
+      if (!list) return;
+      const unfinishedIds = (list.modelIds || [])
+        .map(id => appData.models[id])
+        .filter(m => m && modelThreshold(m) !== 'finished')
+        .map(m => m.id);
+      const sprintId = createSprint(`${list.name} Sprint`);
+      addManyToSprint(sprintId, unfinishedIds);
+      if (list.deadline) setSprintDates(sprintId, today(), list.deadline);
+      setListLinkedSprint(list.id, sprintId);
+      toast('Sprint created from campaign!', 'success');
+      focusSprint(sprintId);
+      document.querySelector('.nav-tab[data-tab="sprints"]')?.click();
+    });
+  });
 }
 
 function campaignCard(list, idx, total) {
@@ -141,6 +173,19 @@ function campaignCard(list, idx, total) {
   const finishedModels = models.filter(m => modelThreshold(m) === 'finished');
   const showFinished = _showFinishedFor.has(list.id);
 
+  const remainingPts = stats.totalPts - stats.donePts;
+  let paceHtml = '';
+  if (stats.total > 0 && remainingPts <= 0) {
+    paceHtml = `<span class="roadmap-pace pace-done">✅ Complete</span>`;
+  } else if (remainingPts > 0) {
+    const proj = projectedFinishDate(remainingPts);
+    paceHtml = proj.date
+      ? `<span class="roadmap-pace">⏱️ At current pace, finishes ~${formatDate(proj.date, { day: 'numeric', month: 'short', year: 'numeric' })}</span>`
+      : `<span class="roadmap-pace roadmap-pace-unknown">⏱️ No pace data yet</span>`;
+  }
+
+  const linkedSprint = list.linkedSprintId ? appData.sprints?.[list.linkedSprintId] : null;
+
   return `
     <div class="roadmap-campaign-card" data-list-id="${list.id}">
       <div class="roadmap-campaign-header">
@@ -154,12 +199,19 @@ function campaignCard(list, idx, total) {
         <span class="thresh-item">🎨 ${stats.painted}/${stats.total}</span>
         <span class="thresh-item">🏆 ${stats.finished}/${stats.total}</span>
       </div>
+      ${paceHtml ? `<div class="roadmap-pace-row">${paceHtml}</div>` : ''}
       <div class="roadmap-campaign-actions">
         <div class="roadmap-move-btns">
           <button class="btn btn-sm" data-roadmap-up="${list.id}" title="Move up" ${idx === 0 ? 'disabled' : ''}>↑</button>
           <button class="btn btn-sm" data-roadmap-down="${list.id}" title="Move down" ${idx === total - 1 ? 'disabled' : ''}>↓</button>
         </div>
         <button class="btn btn-sm" data-roadmap-open="${list.id}">🛡️ Open</button>
+        <button class="btn btn-sm" data-roadmap-burndown="${list.id}">📈 Burndown</button>
+        ${linkedSprint
+          ? `<button class="btn btn-sm" data-roadmap-view-sprint="${list.id}">🔗 View Sprint</button>`
+          : activeModels.length
+            ? `<button class="btn btn-sm" data-roadmap-plan-sprint="${list.id}">📋 Plan Sprint</button>`
+            : ''}
         <button class="btn btn-sm btn-danger" data-roadmap-remove="${list.id}">Remove</button>
       </div>
       <div class="roadmap-campaign-models">

@@ -901,7 +901,7 @@ export function deleteCollection(id) {
 
 export function createList({ name, collectionId }) {
   const id = uid();
-  appData.lists[id] = { id, name, collectionId, modelIds: [], onRoadmap: false, roadmapOrder: 0 };
+  appData.lists[id] = { id, name, collectionId, modelIds: [], onRoadmap: false, roadmapOrder: 0, linkedSprintId: null };
   const col = appData.collections[collectionId];
   if (col) col.listIds.push(id);
   saveData();
@@ -1037,6 +1037,15 @@ export function moveRoadmapList(listId, direction) {
 
 export function isModelOnRoadmap(modelId) {
   return getRoadmapLists().some(l => (l.modelIds || []).includes(modelId));
+}
+
+// Links a campaign to the sprint planning it, so the Roadmap can offer a
+// "View Sprint" shortcut instead of creating a duplicate one each time.
+export function setListLinkedSprint(listId, sprintId) {
+  const list = appData.lists[listId];
+  if (!list) return;
+  list.linkedSprintId = sprintId;
+  saveData();
 }
 
 // --- Session helpers ---

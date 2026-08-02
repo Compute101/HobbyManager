@@ -6,7 +6,7 @@ import {
 } from './data.js';
 import { showModal, closeModal, toast, thresholdBadge, progressBar, createDateInput, getDateValue, formatDate, localDateStr, today } from './ui.js';
 import { showLogProgress } from './models.js';
-import { pileBurndownStats } from './charts.js';
+import { paceRate } from './charts.js';
 
 // --- Data helpers ---
 
@@ -55,6 +55,24 @@ export function addToSprint(sprintId, modelId, note = '') {
   }
   sprint.entries.push({ id: uid(), modelId, note });
   saveData();
+}
+
+// Bulk-add, silently skipping models that don't qualify (finished, or
+// already in the sprint) — used to seed a sprint from a Roadmap campaign's
+// models rather than picking them one by one. Returns the number added.
+export function addManyToSprint(sprintId, modelIds) {
+  const sprint = appData.sprints?.[sprintId];
+  if (!sprint) return 0;
+  let added = 0;
+  modelIds.forEach(modelId => {
+    const model = appData.models[modelId];
+    if (!model || modelThreshold(model) === 'finished') return;
+    if (sprint.entries.some(e => e.modelId === modelId)) return;
+    sprint.entries.push({ id: uid(), modelId, note: '' });
+    added++;
+  });
+  if (added) saveData();
+  return added;
 }
 
 export function removeFromSprint(sprintId, entryId) {
@@ -108,14 +126,6 @@ function sprintRemainingPoints(sprint) {
   }, 0);
 }
 
-// Capacity rate in points/day: your weekly goal if you've set one, otherwise
-// fall back to the same trailing-30-day pace the Pile Burndown chart uses.
-function dailyCapacityRate() {
-  const weeklyGoal = appData.config.weeklyGoal || 0;
-  if (weeklyGoal > 0) return weeklyGoal / 7;
-  return pileBurndownStats().velocity || 0;
-}
-
 function daysBetween(startStr, endStr) {
   const [sy, sm, sd] = startStr.split('-').map(Number);
   const [ey, em, ed] = endStr.split('-').map(Number);
@@ -129,7 +139,7 @@ export function sprintCapacityStats(sprint) {
   if (!sprint.startDate || !sprint.endDate) return null;
   const remainingPts = sprintRemainingPoints(sprint);
   const dayCount = Math.max(1, daysBetween(sprint.startDate, sprint.endDate) + 1);
-  const rate = dailyCapacityRate();
+  const rate = paceRate();
   const hasRate = rate > 0;
   const capacityPts = Math.round(rate * dayCount);
 
@@ -257,6 +267,12 @@ function renderTimelineCard() {
 // --- Render ---
 
 let activeSprintId = null;
+
+// Lets other tabs (e.g. Roadmap's "View Sprint" link) pick which sprint is
+// showing before switching to this tab.
+export function focusSprint(id) {
+  activeSprintId = id;
+}
 
 export function renderSprints() {
   const container = document.getElementById('sprintsView');
