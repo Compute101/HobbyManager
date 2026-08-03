@@ -1,9 +1,10 @@
 // dashboard.js — dashboard with pie charts and deadline cards
 
-import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, singleModelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER } from './data.js';
+import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, singleModelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER, getModelDateAdded, resolveGameSystemId, greyBrigadeCount } from './data.js';
 import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
 import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle, renderPileBurndown, pileBurndownStats } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
+import { renderBountySection, wireBountySection, renderHallOfFameSection, renderBadgesSection } from './badges.js';
 
 export function renderDashboard() {
   const container = document.getElementById('dashboardView');
@@ -99,11 +100,20 @@ export function renderDashboard() {
       <!-- Pile of Potential -->
       ${pileOfPotentialSection()}
 
+      <!-- Bounty Board -->
+      ${renderBountySection()}
+
       <!-- Pile burndown -->
       ${pileBurndownSection()}
 
       <!-- Grey Brigade -->
       ${greyBrigadeSection()}
+
+      <!-- Hall of Fame -->
+      ${renderHallOfFameSection()}
+
+      <!-- Badges -->
+      ${renderBadgesSection()}
 
     </div>
   `;
@@ -118,6 +128,9 @@ export function renderDashboard() {
 
   // Grey Brigade share button
   document.getElementById('shareGreyBtn')?.addEventListener('click', shareGreyBrigade);
+
+  // Bounty Board buttons + modal
+  wireBountySection(container, () => renderDashboard());
 
   // Pictogram figures: click/Enter/Space reveals model name + type
   wirePictoFigs(container);
@@ -443,31 +456,6 @@ function armyCompletionSection() {
 
 // --- Pile of Potential ---
 
-export function resolveGameSystemId(model) {
-  if (model.gameSystemId) return model.gameSystemId;
-  // For manually created models, infer from whichever list they belong to
-  for (const list of Object.values(appData.lists)) {
-    if ((list.modelIds || []).includes(model.id)) {
-      const col = appData.collections?.[list.collectionId];
-      if (col?.gameSystemId) return col.gameSystemId;
-    }
-  }
-  return null;
-}
-
-function getModelDateAdded(model) {
-  if (model.dateAdded) return new Date(model.dateAdded);
-  // Derive from uid: Date.now().toString(36) prefix (8 chars for current timestamps)
-  const id = model.id || '';
-  for (const len of [8, 9]) {
-    if (id.length < len + 5) continue;
-    const ts = parseInt(id.slice(0, len), 36);
-    const year = new Date(ts).getFullYear();
-    if (year >= 2020 && year <= 2100) return new Date(ts);
-  }
-  return null;
-}
-
 function shameScore(model, unstarted) {
   if (unstarted === 0) return 0;
   let score = unstarted;
@@ -759,35 +747,6 @@ function showPileShareFallback(text) {
 }
 
 // --- Grey Brigade ---
-
-export function greyBrigadeCount(model) {
-  const stages = model.stages || appData.config.stages;
-  const skipped = model.skippedStages || [];
-
-  // This heuristic assumes a single ordered stage track; multi-part entries
-  // (hull + crew) don't map onto it, so skip them rather than report bogus counts.
-  if (stages.some(s => s.group === 'crew')) return 0;
-
-  const assemblyStage = stages.find(s => s.threshold === 'table_ready');
-  if (!assemblyStage) return 0;
-
-  const assembled = Math.min(model.progress[assemblyStage.id]?.done || 0, model.quantity);
-  if (assembled === 0) return 0;
-
-  // Stages after Prime (assemblyIdx + 2 onward) up to and including the painted threshold
-  const assemblyIdx = stages.indexOf(assemblyStage);
-  const paintedStage = stages.find(s => s.threshold === 'painted');
-  const paintedIdx = paintedStage ? stages.indexOf(paintedStage) : stages.length - 1;
-
-  const actualPaintingStages = stages
-    .slice(assemblyIdx + 2, paintedIdx + 1)
-    .filter(s => !skipped.includes(s.id));
-
-  const maxPainted = actualPaintingStages.reduce((max, s) =>
-    Math.max(max, model.progress[s.id]?.done || 0), 0);
-
-  return Math.max(0, assembled - maxPainted);
-}
 
 function greyBrigadeSection() {
   const withGrey = Object.values(appData.models)

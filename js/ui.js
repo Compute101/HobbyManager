@@ -58,6 +58,67 @@ export function closeModal(callback) {
   if (typeof callback === 'function') callback();
 }
 
+// --- Fireworks ---
+// A short celebratory burst, e.g. for viewing a completed campaign or
+// closing out a bounty. Self-contained canvas overlay, no dependencies.
+
+const FIREWORK_COLORS = ['#ff5252', '#ffd740', '#69f0ae', '#40c4ff', '#e040fb', '#ff9e40'];
+
+export function fireworks({ duration = 2200, bursts = 4 } = {}) {
+  const canvas = document.createElement('canvas');
+  canvas.className = 'fireworks-overlay';
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  document.body.appendChild(canvas);
+  const ctx = canvas.getContext('2d');
+
+  let particles = [];
+  const addBurst = (x, y) => {
+    const color = FIREWORK_COLORS[Math.floor(Math.random() * FIREWORK_COLORS.length)];
+    const count = 44 + Math.floor(Math.random() * 24);
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + Math.random() * 0.25;
+      const speed = 2 + Math.random() * 3.5;
+      particles.push({
+        x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+        life: 1, decay: 0.012 + Math.random() * 0.01, color, size: 2 + Math.random() * 2
+      });
+    }
+  };
+
+  const burstTimings = Array.from({ length: bursts }, (_, i) => i * (duration / (bursts + 1)));
+  const timers = burstTimings.map(t => setTimeout(() => {
+    addBurst(canvas.width * (0.2 + Math.random() * 0.6), canvas.height * (0.15 + Math.random() * 0.35));
+  }, t));
+
+  const start = performance.now();
+  let raf;
+  const frame = now => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.05;
+      p.life -= p.decay;
+      ctx.globalAlpha = Math.max(p.life, 0);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    particles = particles.filter(p => p.life > 0);
+    ctx.globalAlpha = 1;
+
+    if (now - start < duration + 800 || particles.length) {
+      raf = requestAnimationFrame(frame);
+    } else {
+      timers.forEach(clearTimeout);
+      canvas.remove();
+    }
+  };
+  raf = requestAnimationFrame(frame);
+}
+
 // --- Toast ---
 
 export function toast(message, type = 'info', duration = 2800) {

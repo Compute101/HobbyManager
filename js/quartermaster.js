@@ -1,9 +1,9 @@
 // quartermaster.js — Quartermaster's Office: purchase planning, valuation, and budget tracking
 
 import {
-  appData, saveData, uid, unstartedCount, createModel, updateModel, GAME_SYSTEMS
+  appData, saveData, uid, unstartedCount, createModel, updateModel, GAME_SYSTEMS,
+  resolveGameSystemId, greyBrigadeCount
 } from './data.js';
-import { resolveGameSystemId, greyBrigadeCount } from './dashboard.js';
 import { toast, today, formatDate } from './ui.js';
 
 // --- Data helpers ---

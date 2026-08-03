@@ -502,7 +502,13 @@ export let appData = {
   sprints: {},
   // id -> { id, name, gameSystemId, worth, reason, plannedMonth, collectionId, itemType, status, promotedModelId, purchaseDate }
   // itemType: 'model' (joins the pile on promotion) | 'gift' | 'codex' | 'sundry' (ledger-only, never joins the pile)
-  purchaseQueue: {}
+  purchaseQueue: {},
+  // The active "clear the oldest thing" bounty, or null: { id, modelId, reward, dateSet }
+  bounty: null,
+  // Completed bounties, newest first: [{ id, modelName, ageDays, dateCompleted, reward, tier }]
+  hallOfFame: [],
+  // Earned achievement badges: badgeId -> ISO date first earned
+  badges: {}
 };
 
 // Convert a UTC date string (YYYY-MM-DD) to the equivalent local date string.
@@ -543,6 +549,9 @@ export function loadData() {
         // data carries over untouched (they migrate in as dateless sprints).
         sprints: parsed.sprints || parsed.queues || {},
         purchaseQueue: parsed.purchaseQueue || {},
+        bounty: parsed.bounty || null,
+        hallOfFame: parsed.hallOfFame || [],
+        badges: parsed.badges || {},
         config: {
           stages: parsed.config?.stages || [...DEFAULT_STAGES],
           deadline: parsed.config?.deadline || null,
@@ -577,6 +586,7 @@ export function saveData() {
     console.error('Failed to save data:', e);
     alert('Could not save data — storage may be full.');
   }
+  dataChangeHook.callback?.();
 }
 
 // Replace all in-memory data with a parsed snapshot (e.g. loaded from Drive).
@@ -591,6 +601,9 @@ export function replaceData(parsed) {
     folders: parsed.folders || {},
     sprints: parsed.sprints || parsed.queues || {},
     purchaseQueue: parsed.purchaseQueue || {},
+    bounty: parsed.bounty || null,
+    hallOfFame: parsed.hallOfFame || [],
+    badges: parsed.badges || {},
     config: {
       stages: parsed.config?.stages || [...DEFAULT_STAGES],
       deadline: parsed.config?.deadline || null,
@@ -613,6 +626,9 @@ export function uid() {
 
 // Set by index.html to trigger a debounced Drive upload after every save.
 export const driveSync = { callback: null };
+
+// Set by index.html to run gamification checks (badges/bounty) after every save.
+export const dataChangeHook = { callback: null };
 
 // --- Model helpers ---
 
@@ -718,6 +734,64 @@ export function unstartedCount(model) {
   }
   const maxDone = activeStages.reduce((max, s) => Math.max(max, model.progress[s.id]?.done || 0), 0);
   return Math.max(0, model.quantity - maxDone);
+}
+
+// A model's dateAdded, or (for models predating that field) derived from its
+// uid's Date.now().toString(36) prefix — used for pile "shame" aging and for
+// picking/scoring the oldest thing in the pile.
+export function getModelDateAdded(model) {
+  if (model.dateAdded) return new Date(model.dateAdded);
+  const id = model.id || '';
+  for (const len of [8, 9]) {
+    if (id.length < len + 5) continue;
+    const ts = parseInt(id.slice(0, len), 36);
+    const year = new Date(ts).getFullYear();
+    if (year >= 2020 && year <= 2100) return new Date(ts);
+  }
+  return null;
+}
+
+export function resolveGameSystemId(model) {
+  if (model.gameSystemId) return model.gameSystemId;
+  // For manually created models, infer from whichever list they belong to
+  for (const list of Object.values(appData.lists)) {
+    if ((list.modelIds || []).includes(model.id)) {
+      const col = appData.collections?.[list.collectionId];
+      if (col?.gameSystemId) return col.gameSystemId;
+    }
+  }
+  return null;
+}
+
+// How many of a model's quantity are assembled/primed but not yet painted —
+// the "Grey Brigade". This heuristic assumes a single ordered stage track;
+// multi-part entries (hull + crew) don't map onto it, so skip them rather
+// than report bogus counts.
+export function greyBrigadeCount(model) {
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+
+  if (stages.some(s => s.group === 'crew')) return 0;
+
+  const assemblyStage = stages.find(s => s.threshold === 'table_ready');
+  if (!assemblyStage) return 0;
+
+  const assembled = Math.min(model.progress[assemblyStage.id]?.done || 0, model.quantity);
+  if (assembled === 0) return 0;
+
+  // Stages after Prime (assemblyIdx + 2 onward) up to and including the painted threshold
+  const assemblyIdx = stages.indexOf(assemblyStage);
+  const paintedStage = stages.find(s => s.threshold === 'painted');
+  const paintedIdx = paintedStage ? stages.indexOf(paintedStage) : stages.length - 1;
+
+  const actualPaintingStages = stages
+    .slice(assemblyIdx + 2, paintedIdx + 1)
+    .filter(s => !skipped.includes(s.id));
+
+  const maxPainted = actualPaintingStages.reduce((max, s) =>
+    Math.max(max, model.progress[s.id]?.done || 0), 0);
+
+  return Math.max(0, assembled - maxPainted);
 }
 
 // Splits a unit's quantity across threshold tiers instead of bucketing the
@@ -1103,6 +1177,34 @@ export function deleteFolder(id) {
 
 export function getAllFolders() {
   return Object.values(appData.folders).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// --- Gamification: bounty, hall of fame, badges ---
+// A "bounty" is a self-defined reward for finishing the oldest thing in the
+// pile — the app can't know what motivates you, so it just holds you to
+// whatever you typed in and makes the payoff feel like an event.
+
+export function setBounty(modelId, reward) {
+  appData.bounty = { id: uid(), modelId, reward, dateSet: new Date().toISOString().slice(0, 10) };
+  saveData();
+}
+
+export function clearBounty() {
+  appData.bounty = null;
+  saveData();
+}
+
+export function addHallOfFameEntry(entry) {
+  if (!appData.hallOfFame) appData.hallOfFame = [];
+  appData.hallOfFame.unshift(entry);
+  saveData();
+}
+
+export function recordBadgeEarned(badgeId) {
+  if (!appData.badges) appData.badges = {};
+  if (appData.badges[badgeId]) return;
+  appData.badges[badgeId] = new Date().toISOString().slice(0, 10);
+  saveData();
 }
 
 // --- Export / Import ---
