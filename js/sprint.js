@@ -3,7 +3,7 @@
 
 import {
   appData, saveData, uid, modelThreshold, modelPoints, getRoadmapLists,
-  splitModelPoints, splitModelThreshold
+  splitModelPoints, splitModelThreshold, splitModelDoneCount
 } from './data.js';
 import { showModal, closeModal, toast, thresholdBadge, progressBar, createDateInput, getDateValue, formatDate, today, addDays } from './ui.js';
 import { showLogProgress } from './models.js';
@@ -418,7 +418,15 @@ function sprintEntryCard(entry, idx, total, sprintId) {
   const pts = entryPoints(model, entry);
   const thresh = entryThreshold(model, entry);
   const isFirst = idx === 0;
-  const qtyLabel = isChunk ? `×${entry.chunkSize} of ${model.quantity}` : `×${model.quantity}`;
+  // A chunk can bundle in already-finished models for free (chooseChunkSize
+  // in roadmap.js counts them as zero remaining work), so the chunk size
+  // alone overstates how much painting this sprint actually needs.
+  const doneInChunk = isChunk ? splitModelDoneCount(model, entry.chunkSize, entry.chunkOffset || 0) : 0;
+  const qtyLabel = isChunk
+    ? (doneInChunk > 0
+      ? `×${entry.chunkSize - doneInChunk} of ${model.quantity}`
+      : `×${entry.chunkSize} of ${model.quantity}`)
+    : `×${model.quantity}`;
 
   return `
     <div class="queue-entry ${isFirst ? 'queue-entry-next' : ''}" data-entry-id="${entry.id}" data-sprint-id="${sprintId}">

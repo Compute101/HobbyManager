@@ -970,6 +970,23 @@ export function splitModelPoints(model, splitSize, offset) {
   return { total, done, pct: total ? Math.round(done / total * 100) : 0 };
 }
 
+// How many models within a virtual slice (most-finished-first ordering) have
+// already completed every active stage, i.e. need no further work this slice.
+// Used to tell "models bundled into this chunk" apart from "models in it that
+// still need painting" — a chunk can include already-finished models for free
+// (see chooseChunkSize in roadmap.js) so the two counts often differ.
+export function splitModelDoneCount(model, splitSize, offset) {
+  const stages = model.stages || appData.config.stages;
+  const skipped = model.skippedStages || [];
+  const activeStages = stages.filter(s => !skipped.includes(s.id));
+  if (!activeStages.length) return splitSize;
+  return activeStages.reduce((min, s) => {
+    const rawDone = model.progress[s.id]?.done || 0;
+    const splitDone = Math.max(0, Math.min(rawDone - offset, splitSize));
+    return Math.min(min, splitDone);
+  }, splitSize);
+}
+
 // Returns threshold for a virtual slice of a model (most-finished-first ordering).
 export function splitModelThreshold(model, splitSize, offset) {
   const stages = model.stages || appData.config.stages;
