@@ -503,6 +503,10 @@ export let appData = {
   // id -> { id, name, gameSystemId, worth, reason, plannedMonth, collectionId, itemType, status, promotedModelId, purchaseDate }
   // itemType: 'model' (joins the pile on promotion) | 'gift' | 'codex' | 'sundry' (ledger-only, never joins the pile)
   purchaseQueue: {},
+  // Pure, unplanned wishlisting — things you fancy with no month, no budget
+  // commitment. id -> { id, name, gameSystemId, worth, forWhom, collectionId, itemType, note, dateAdded }
+  // "Move to Requisitions" copies an entry into purchaseQueue when you're ready to plan it.
+  wishlist: {},
   // The active "clear the oldest thing" bounty, or null: { id, modelId, reward, dateSet }
   bounty: null,
   // Completed bounties, newest first: [{ id, modelName, ageDays, dateCompleted, reward, tier }]
@@ -549,6 +553,7 @@ export function loadData() {
         // data carries over untouched (they migrate in as dateless sprints).
         sprints: parsed.sprints || parsed.queues || {},
         purchaseQueue: parsed.purchaseQueue || {},
+        wishlist: parsed.wishlist || {},
         bounty: parsed.bounty || null,
         hallOfFame: parsed.hallOfFame || [],
         badges: parsed.badges || {},
@@ -601,6 +606,7 @@ export function replaceData(parsed) {
     folders: parsed.folders || {},
     sprints: parsed.sprints || parsed.queues || {},
     purchaseQueue: parsed.purchaseQueue || {},
+    wishlist: parsed.wishlist || {},
     bounty: parsed.bounty || null,
     hallOfFame: parsed.hallOfFame || [],
     badges: parsed.badges || {},

@@ -42,6 +42,50 @@ export function deletePurchaseItem(id) {
   saveData();
 }
 
+// --- Wishlist ---
+// Deliberately outside the requisition/budget system: no plannedMonth, no
+// worth requirement, no rectitude impact. Just "things I fancy", for
+// yourself or as gift ideas for someone else. When you're ready to actually
+// plan one, move it into Requisitions.
+
+export function createWishlistItem({ name, gameSystemId = null, worth = 0, forWhom = '', collectionId = null, itemType = 'model', note = '' }) {
+  const id = uid();
+  appData.wishlist[id] = { id, name, gameSystemId, worth, forWhom, collectionId, itemType, note, dateAdded: today() };
+  saveData();
+  return id;
+}
+
+export function updateWishlistItem(id, fields) {
+  if (!appData.wishlist[id]) return;
+  Object.assign(appData.wishlist[id], fields);
+  saveData();
+}
+
+export function deleteWishlistItem(id) {
+  delete appData.wishlist[id];
+  saveData();
+}
+
+// Copies a wishlist entry into the requisitions queue (no plannedMonth set —
+// that's the user's next step, on the Requisitions tab) and removes it from
+// the wishlist. The "for" note is folded into the reason so it isn't lost.
+export function moveWishlistToRequisitions(id) {
+  const item = appData.wishlist[id];
+  if (!item) return null;
+  const reason = [item.forWhom ? `For ${item.forWhom}` : '', item.note].filter(Boolean).join(' — ');
+  const newId = createPurchaseItem({
+    name: item.name,
+    gameSystemId: item.gameSystemId,
+    worth: item.worth,
+    reason,
+    plannedMonth: '',
+    collectionId: item.collectionId,
+    itemType: item.itemType
+  });
+  deleteWishlistItem(id);
+  return newId;
+}
+
 // Converts a queued requisition into spent budget. Model-type items become
 // a real model (stamped with today's purchase date), which joins the pile.
 // Gifts, codices and sundries skip model creation entirely — they're
@@ -199,6 +243,7 @@ export function renderQuartermaster(container) {
       <div class="queue-tabs-bar">
         <div class="queue-tab-list">
           <button class="queue-tab-btn ${activeSection === 'overview' ? 'active' : ''}" data-qm-section="overview">Overview</button>
+          <button class="queue-tab-btn ${activeSection === 'wishlist' ? 'active' : ''}" data-qm-section="wishlist">Wishlist</button>
           <button class="queue-tab-btn ${activeSection === 'requisitions' ? 'active' : ''}" data-qm-section="requisitions">Requisitions</button>
           <button class="queue-tab-btn ${activeSection === 'ledger' ? 'active' : ''}" data-qm-section="ledger">Ledger</button>
           <button class="queue-tab-btn ${activeSection === 'budget' ? 'active' : ''}" data-qm-section="budget">Budget</button>
@@ -217,6 +262,7 @@ export function renderQuartermaster(container) {
 
   const body = container.querySelector('#qmBody');
   if (activeSection === 'overview') renderQMOverview(body);
+  else if (activeSection === 'wishlist') renderWishlist(body, container);
   else if (activeSection === 'requisitions') renderRequisitions(body, container);
   else if (activeSection === 'ledger') renderLedger(body);
   else renderBudget(body);
@@ -461,6 +507,158 @@ function renderRequisitionForm(body, container, editId) {
     if (editId) updatePurchaseItem(editId, fields);
     else createPurchaseItem(fields);
     renderRequisitions(body, container);
+  });
+}
+
+// The Wishlist tab: pure, unplanned "things I fancy" — no month, no budget
+// math, nothing else to fill in but a name. Deliberately the lightest-weight
+// form in the office.
+function renderWishlist(body, container) {
+  const items = Object.values(appData.wishlist)
+    .sort((a, b) => (b.dateAdded || '').localeCompare(a.dateAdded || ''));
+
+  body.innerHTML = `
+    <div class="queue-header">
+      <h2 class="queue-name">Wishlist</h2>
+      <div class="queue-header-actions">
+        <button class="btn btn-sm btn-primary" id="qmAddWishBtn">+ Add</button>
+      </div>
+    </div>
+    ${items.length === 0 ? `
+      <div class="empty-state">
+        <p>Nothing on the wishlist yet.</p>
+        <p style="font-size:0.85em;color:var(--text-muted)">Jot down anything you fancy — for yourself or as a gift idea for someone else. No commitment, no month, no budget math.</p>
+      </div>
+    ` : `
+      <div class="queue-entries">
+        ${items.map(item => wishlistCard(item)).join('')}
+      </div>
+    `}
+  `;
+
+  body.querySelector('#qmAddWishBtn')?.addEventListener('click', () => renderWishlistForm(body, container, null));
+
+  body.querySelectorAll('[data-wish-edit]').forEach(btn => {
+    btn.addEventListener('click', () => renderWishlistForm(body, container, btn.dataset.wishEdit));
+  });
+  body.querySelectorAll('[data-wish-move]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const item = appData.wishlist[btn.dataset.wishMove];
+      if (!item) return;
+      if (!confirm(`Move "${item.name}" to Requisitions? You'll be able to give it a planned month there.`)) return;
+      moveWishlistToRequisitions(item.id);
+      toast(`${item.name} moved to Requisitions.`, 'success');
+      renderWishlist(body, container);
+    });
+  });
+  body.querySelectorAll('[data-wish-delete]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!confirm('Remove this from your wishlist?')) return;
+      deleteWishlistItem(btn.dataset.wishDelete);
+      renderWishlist(body, container);
+    });
+  });
+}
+
+function wishlistCard(item) {
+  const sys = item.gameSystemId ? GAME_SYSTEMS[item.gameSystemId] : null;
+  const type = PURCHASE_ITEM_TYPES[item.itemType] || PURCHASE_ITEM_TYPES.model;
+  return `
+    <div class="queue-entry" data-item-id="${item.id}">
+      <div class="queue-entry-main">
+        <div class="queue-entry-info">
+          <div class="queue-entry-name">${item.name}</div>
+          ${item.worth ? `<div class="queue-entry-qty">~£${item.worth.toFixed(0)}</div>` : ''}
+          ${sys ? `<span class="sys-tag ${sys.theme}">${sys.shortLabel}</span>` : ''}
+          ${!type.addsToPile ? `<span class="sys-tag theme-default">${type.label}</span>` : ''}
+        </div>
+        ${item.forWhom ? `<div class="queue-entry-note">🎁 For ${item.forWhom}</div>` : ''}
+        ${item.note ? `<div class="queue-entry-note">📌 ${item.note}</div>` : ''}
+        <div class="queue-entry-actions">
+          <button class="btn btn-sm btn-primary" data-wish-move="${item.id}">➡️ Move to Requisitions</button>
+          <button class="btn btn-sm" data-wish-edit="${item.id}">✏️ Edit</button>
+          <button class="btn btn-sm btn-danger" data-wish-delete="${item.id}">✕</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderWishlistForm(body, container, editId) {
+  const item = editId ? appData.wishlist[editId] : null;
+  const collections = Object.values(appData.collections);
+
+  body.innerHTML = `
+    <div class="queue-header">
+      <h2 class="queue-name">${editId ? 'Edit' : 'New'} Wishlist Item</h2>
+      <div class="queue-header-actions">
+        <button class="btn btn-sm" id="qmWishFormBack">← Back</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Name</label>
+      <input id="wishName" type="text" class="form-input" placeholder="What do you fancy?" value="${item?.name || ''}">
+    </div>
+    <div class="form-row-two">
+      <div class="form-group">
+        <label>Estimated Worth (£, optional)</label>
+        <input id="wishWorth" type="number" class="form-input" min="0" step="0.01" value="${item?.worth ?? ''}">
+      </div>
+      <div class="form-group">
+        <label>Type</label>
+        <select id="wishItemType" class="form-input">
+          ${Object.values(PURCHASE_ITEM_TYPES).map(t => `<option value="${t.id}" ${(item?.itemType || 'model') === t.id ? 'selected' : ''}>${t.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-row-two">
+      <div class="form-group">
+        <label>Game System</label>
+        <select id="wishGameSystem" class="form-input">
+          <option value="">— None —</option>
+          ${Object.values(GAME_SYSTEMS).map(s => `<option value="${s.id}" ${item?.gameSystemId === s.id ? 'selected' : ''}>${s.shortLabel}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>For (optional)</label>
+        <input id="wishForWhom" type="text" class="form-input" placeholder="Yourself" value="${item?.forWhom || ''}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Army (optional)</label>
+      <select id="wishCollection" class="form-input">
+        <option value="">— None —</option>
+        ${collections.map(c => `<option value="${c.id}" ${item?.collectionId === c.id ? 'selected' : ''}>${c.name}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Note (optional)</label>
+      <textarea id="wishNote" class="form-input" rows="2">${item?.note || ''}</textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="wishSave">${editId ? 'Update' : 'Add'} to Wishlist</button>
+      <button class="btn" id="wishCancel">Cancel</button>
+    </div>
+  `;
+
+  body.querySelector('#qmWishFormBack').addEventListener('click', () => renderWishlist(body, container));
+  body.querySelector('#wishCancel').addEventListener('click', () => renderWishlist(body, container));
+
+  body.querySelector('#wishSave').addEventListener('click', () => {
+    const name = body.querySelector('#wishName').value.trim();
+    if (!name) { toast('Please enter a name', 'error'); return; }
+    const fields = {
+      name,
+      worth: parseFloat(body.querySelector('#wishWorth').value) || 0,
+      itemType: body.querySelector('#wishItemType').value || 'model',
+      gameSystemId: body.querySelector('#wishGameSystem').value || null,
+      forWhom: body.querySelector('#wishForWhom').value.trim(),
+      collectionId: body.querySelector('#wishCollection').value || null,
+      note: body.querySelector('#wishNote').value.trim()
+    };
+    if (editId) updateWishlistItem(editId, fields);
+    else createWishlistItem(fields);
+    renderWishlist(body, container);
   });
 }
 
