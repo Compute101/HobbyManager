@@ -1,10 +1,11 @@
 // w40k-import.js — Warhammer 40,000 app army list parser
 
-function detectModelType(name, section) {
+function detectModelType(name, section, attachedCategory) {
   const n = name.toLowerCase();
   const s = (section || '').toLowerCase();
+  const cat = (attachedCategory || '').toLowerCase();
 
-  if (s === 'characters') return 'character';
+  if (s === 'characters' || cat === 'character') return 'character';
 
   if (/swarm|rippers?/.test(n)) return 'swarm';
 
@@ -54,7 +55,7 @@ export function parseW40kList(text) {
       name: currentUnit.name,
       quantity: calculateQuantity(currentUnit.lines),
       section: currentUnit.section,
-      modelTypeId: detectModelType(currentUnit.name, currentUnit.section),
+      modelTypeId: detectModelType(currentUnit.name, currentUnit.section, currentUnit.attachedCategory),
     });
     currentUnit = null;
   };
@@ -73,6 +74,21 @@ export function parseW40kList(text) {
       continue;
     }
 
+    // Newer app exports group leader+bodyguard units under an "Attached
+    // Units" heading — not ALL-CAPS like the other section headers, so it
+    // needs its own trigger or everything under it (attached characters and
+    // their bodyguard squads alike) silently drops on the floor.
+    if (trimmed === 'Attached Units') {
+      finalizeUnit();
+      currentSection = null;
+      inUnitSection = true;
+      continue;
+    }
+
+    // "Attached Unit 1", "Attached Unit 2", ... just delimit one leader+
+    // bodyguard group from the next; nothing to extract.
+    if (/^Attached Unit \d+$/i.test(trimmed)) continue;
+
     // Section headers are all-uppercase words (e.g. CHARACTERS, BATTLELINE, OTHER DATASHEETS)
     if (/^[A-Z][A-Z\s\-/]+$/.test(trimmed)) {
       finalizeUnit();
@@ -82,6 +98,16 @@ export function parseW40kList(text) {
     }
 
     if (!inUnitSection) continue;
+
+    // "• Attached as: Leader (Character)" / "• Attached as: Bodyguard (Battleline)"
+    // tags the unit whose name line just preceded it. The bracketed category —
+    // when present — is a more reliable single-model-character signal than
+    // guessing from the unit's name, so capture it for detectModelType.
+    const attachedAsMatch = trimmed.match(/^[•·]\s*Attached as:.*?\(([^)]+)\)\s*$/i);
+    if (attachedAsMatch) {
+      if (currentUnit) currentUnit.attachedCategory = attachedAsMatch[1].trim();
+      continue;
+    }
 
     // Unit entry: no leading whitespace + "Name (N points)"
     if (!rawLine.startsWith(' ') && !rawLine.startsWith('\t')) {
