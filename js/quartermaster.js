@@ -401,13 +401,33 @@ export function projectionAnalysis(projection) {
     valueScore10 = Math.max(0, Math.min(10, 5 * (referenceCostPerPoint / costPerPoint)));
   }
 
+  // Pile headroom: would buying this push your backlog past what your
+  // budget (and, by extension, your painting pace) can clear? Reuses the
+  // same rectitude formula as the rest of the office — 100% on an empty
+  // pile, 0% when the pile equals a month of budget, negative beyond that —
+  // just simulated with this purchase's cost added on top.
+  const budget = appData.config.monthlyBudgetGBP || 0;
+  const currentRectitude = rectitudePct(projection.gameSystemId);
+  const projectedPileWorth = baseWorth + totalCost;
+  const projectedRectitude = budget ? Math.min(100, (budget - projectedPileWorth) / budget * 100) : null;
+  // Every 20 points of projected rectitude is worth 1 of the 10 — 100% (pile
+  // fully clear after buying) scores 10, 0% (pile now equals a month of
+  // budget) scores 5, -100% or worse scores 0.
+  const pileHeadroomScore10 = projectedRectitude !== null
+    ? Math.max(0, Math.min(10, 5 + projectedRectitude / 20))
+    : null;
+
   const nothingToBuy = units.length > 0 && unowned.length === 0;
+
+  const scoreComponents = [{ label: 'rating', score: ratingScore10 }];
+  if (valueScore10 !== null) scoreComponents.push({ label: 'value', score: valueScore10 });
+  if (pileHeadroomScore10 !== null) scoreComponents.push({ label: 'pile headroom', score: pileHeadroomScore10 });
 
   let finalScore = null, verdict, verdictLabel, verdictIcon;
   if (nothingToBuy) {
     verdict = 'owned'; verdictLabel = 'Nothing to buy'; verdictIcon = '✅';
   } else {
-    finalScore = valueScore10 !== null ? (ratingScore10 * 0.5 + valueScore10 * 0.5) : ratingScore10;
+    finalScore = scoreComponents.reduce((sum, c) => sum + c.score, 0) / scoreComponents.length;
     if (finalScore >= 7)        { verdict = 'buy';      verdictLabel = 'Buy it';      verdictIcon = '✅'; }
     else if (finalScore >= 4.5) { verdict = 'consider';  verdictLabel = 'Consider it'; verdictIcon = '🤔'; }
     else                        { verdict = 'skip';      verdictLabel = 'Skip it';     verdictIcon = '🚫'; }
@@ -439,17 +459,23 @@ export function projectionAnalysis(projection) {
           ? `Your pile currently costs £${baselineCostPerPoint.toFixed(2)}/point on average, so this scores ${valueScore10.toFixed(1)}/10 for value`
           : `No pile history to benchmark against yet, so value is scored against a flat £${FALLBACK_COST_PER_POINT.toFixed(2)}/point reference: ${valueScore10.toFixed(1)}/10`
       );
+    } else {
+      workingLines.push('No priced unowned items yet — value can\'t be scored.');
+    }
+    if (pileHeadroomScore10 !== null) {
       workingLines.push(
-        `Combined score: (rating ${ratingScore10.toFixed(1)} + value ${valueScore10.toFixed(1)}) ÷ 2 = ${finalScore.toFixed(1)}/10 → ${verdictLabel}`
+        `Pile impact: buying this takes your pile from £${baseWorth.toFixed(0)} to £${projectedPileWorth.toFixed(0)} (rectitude ${fmtPct(currentRectitude)} → ${fmtPct(projectedRectitude)}), scoring ${pileHeadroomScore10.toFixed(1)}/10 for headroom`
       );
     } else {
-      workingLines.push('No priced unowned items yet — value can\'t be scored, so the verdict is rating-only.');
-      workingLines.push(`Combined score: rating only = ${finalScore.toFixed(1)}/10 → ${verdictLabel}`);
+      workingLines.push('Set a monthly budget in the Budget tab to weigh pile headroom into the verdict.');
     }
+    const comboExpr = scoreComponents.map(c => `${c.label} ${c.score.toFixed(1)}`).join(' + ');
+    workingLines.push(
+      `Combined score: (${comboExpr}) ÷ ${scoreComponents.length} = ${finalScore.toFixed(1)}/10 → ${verdictLabel}`
+    );
   }
 
   let budgetWarning = null;
-  const budget = appData.config.monthlyBudgetGBP || 0;
   if (budget && totalCost > 0) {
     const remain = budgetRemaining();
     if (totalCost > remain.remaining) {
@@ -457,12 +483,25 @@ export function projectionAnalysis(projection) {
     }
   }
 
+  // Separate from budgetWarning (a near-term spend limit) — this flags the
+  // purchase tipping your whole backlog past what a month of budget can
+  // clear, i.e. growing the pile faster than you can realistically paint it.
+  let pileWarning = null;
+  if (projectedRectitude !== null && projectedRectitude < 0 && totalCost > 0) {
+    const monthsAfter = projectedPileWorth / budget;
+    pileWarning = (currentRectitude !== null && currentRectitude >= 0)
+      ? `⚠️ This would tip your pile into the red — £${baseWorth.toFixed(0)} → £${projectedPileWorth.toFixed(0)}, about ${monthsAfter.toFixed(1)} months of budget to clear.`
+      : `⚠️ Your pile is already over a month of budget, and this adds another £${totalCost.toFixed(0)} — up to £${projectedPileWorth.toFixed(0)}, about ${monthsAfter.toFixed(1)} months to clear.`;
+  }
+
   return {
     totalCost, hobbyPointsAdded, costPerPoint,
     unownedCount: unowned.length, ownedCount: units.length - unowned.length,
     activeBundles, bundleCost, bundleSavings,
-    ratings, avgRating, ratingScore10, baselineCostPerPoint, valueScore10, finalScore,
-    verdict, verdictLabel, verdictIcon, workingLines, budgetWarning, nothingToBuy
+    ratings, avgRating, ratingScore10, baselineCostPerPoint, valueScore10,
+    currentRectitude, projectedPileWorth, projectedRectitude, pileHeadroomScore10,
+    finalScore, verdict, verdictLabel, verdictIcon, workingLines,
+    budgetWarning, pileWarning, nothingToBuy
   };
 }
 
@@ -988,7 +1027,7 @@ function projectionCard(p) {
           ${sys ? `<span class="sys-tag ${sys.theme}">${sys.shortLabel}</span>` : ''}
           ${a ? `<span class="qm-verdict-pill ${verdictClass(a.verdict)}">${a.verdictIcon} ${a.verdictLabel}</span>` : ''}
         </div>
-        ${a && !a.nothingToBuy ? `<div class="queue-entry-note">£${a.totalCost.toFixed(0)} to acquire · ${a.hobbyPointsAdded} hobby pts added${a.costPerPoint !== null ? ` · £${a.costPerPoint.toFixed(2)}/pt` : ''}</div>` : ''}
+        ${a && !a.nothingToBuy ? `<div class="queue-entry-note">£${a.totalCost.toFixed(0)} to acquire · ${a.hobbyPointsAdded} hobby pts added${a.costPerPoint !== null ? ` · £${a.costPerPoint.toFixed(2)}/pt` : ''}${a.pileWarning ? ' · ⚠️ pushes pile into the red' : ''}</div>` : ''}
         <div class="queue-entry-actions">
           <button class="btn btn-sm btn-danger" data-proj-delete="${p.id}">✕</button>
         </div>
@@ -1092,8 +1131,10 @@ function renderProjectionAnalysisBlock(body, proj) {
           <div class="pile-item"><span class="pile-item-name">Hobby points added</span><span class="pile-item-qty">${a.hobbyPointsAdded}</span></div>
           ${a.costPerPoint !== null ? `<div class="pile-item"><span class="pile-item-name">Cost per hobby point</span><span class="pile-item-qty">£${a.costPerPoint.toFixed(2)}</span></div>` : ''}
           ${a.activeBundles.length > 0 && a.bundleSavings !== 0 ? `<div class="pile-item"><span class="pile-item-name">Bundle savings</span><span class="pile-item-qty">${a.bundleSavings > 0 ? `£${a.bundleSavings.toFixed(0)} saved` : `£${Math.abs(a.bundleSavings).toFixed(0)} more`}</span></div>` : ''}
+          ${a.projectedRectitude !== null ? `<div class="pile-item"><span class="pile-item-name">Pile rectitude after buying</span><span class="pile-item-qty">${fmtPct(a.currentRectitude)} → ${fmtPct(a.projectedRectitude)}</span></div>` : ''}
         </div>
         ${a.budgetWarning ? `<p class="form-hint" style="color:var(--danger)">${a.budgetWarning}</p>` : ''}
+        ${a.pileWarning ? `<p class="form-hint" style="color:var(--danger)">${a.pileWarning}</p>` : ''}
         <div class="qm-working">
           <div class="qm-working-title">Show your working</div>
           <ul class="qm-working-list">
@@ -1516,6 +1557,7 @@ function buildProjectionShareText(proj) {
       `💰 Cost to acquire: £${a.totalCost.toFixed(0)}`,
       `⭐ Hobby points added: ${a.hobbyPointsAdded}`,
       a.costPerPoint !== null ? `📐 £${a.costPerPoint.toFixed(2)}/hobby point` : undefined,
+      a.pileWarning ? a.pileWarning : undefined,
       ``,
       `❤️ Personal ${a.ratings.personal}/5 · 🎭 Thematic ${a.ratings.thematic}/5 · ⚔️ Power ${a.ratings.power}/5`,
       ``,
