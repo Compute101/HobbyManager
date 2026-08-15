@@ -1010,9 +1010,9 @@ function ratingRow(field, label, value) {
 }
 
 function projectionUnitRow(u, proj) {
-  const type = u.modelTypeId ? getModelType(u.modelTypeId) : null;
   const pts = unitHobbyPoints(u);
   const bundle = (proj.bundles || []).find(b => b.unitIds.includes(u.id));
+  const types = getAllModelTypes();
   return `
     <div class="queue-entry ${u.owned ? 'qm-unit-owned' : ''}" data-unit-id="${u.id}">
       <div class="queue-entry-main">
@@ -1021,7 +1021,10 @@ function projectionUnitRow(u, proj) {
             <input type="checkbox" data-unit-owned="${u.id}" ${u.owned ? 'checked' : ''}> Owned
           </label>
           <span class="queue-entry-name">${u.name} <span class="queue-entry-qty">×${u.quantity}</span></span>
-          ${type ? `<span class="sys-tag theme-default">${type.name}</span>` : ''}
+          <select class="form-input qm-unit-type" data-unit-type="${u.id}">
+            <option value="">— Generic —</option>
+            ${types.map(t => `<option value="${t.id}" ${u.modelTypeId === t.id ? 'selected' : ''}>${t.name}</option>`).join('')}
+          </select>
           ${bundle ? `<span class="qm-bundle-tag">🎁 ${bundle.name}</span>` : ''}
         </div>
         <div class="queue-entry-note">
@@ -1211,6 +1214,12 @@ function renderProjectionDetail(body, container, projId) {
     inp.addEventListener('input', e => {
       updateProjectionUnit(proj.id, inp.dataset.unitWorth, { worth: parseFloat(e.target.value) || 0 });
       renderProjectionAnalysisBlock(body, appData.projections[proj.id]);
+    });
+  });
+  body.querySelectorAll('[data-unit-type]').forEach(sel => {
+    sel.addEventListener('change', e => {
+      updateProjectionUnit(proj.id, sel.dataset.unitType, { modelTypeId: e.target.value || null });
+      renderProjectionDetail(body, container, proj.id);
     });
   });
   body.querySelectorAll('[data-unit-delete]').forEach(btn => {
