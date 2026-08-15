@@ -238,18 +238,26 @@ export function pileWorth(gameSystemId = null) {
   }, 0);
 }
 
-// Hobby points still up for grabs from the pile — the undone portion of
-// each pile model's total, weighted the same way pileWorth() weights £:
-// full weight on the sprue, half weight for Grey Brigade. Used as a
-// projection's own real-world "£ per hobby point" benchmark.
-export function pileHobbyPoints(gameSystemId = null) {
-  return pileModels(gameSystemId).reduce((sum, m) => {
-    const pts = modelPoints(m);
-    const remaining = Math.max(0, pts.total - pts.done);
-    if (unstartedCount(m) > 0) return sum + remaining;
-    if (greyBrigadeCount(m) > 0) return sum + remaining * 0.5;
-    return sum;
-  }, 0);
+// £ per hobby point historically paid across every *priced* model in the
+// collection (optionally scoped to one game system) — the benchmark a
+// projection's value is judged against. Two deliberate choices, each
+// closing a way the old pile-based benchmark misfired:
+//  - only models with a recorded worth count: an unpriced model reads as
+//    £0, and enough of those drag the benchmark so low that any real
+//    purchase looks terrible on value;
+//  - the whole collection counts, not just the pile, at full points: what
+//    things cost is independent of how much of them is painted, so the
+//    size of the backlog weighs on the verdict exactly once — through the
+//    pile headroom score — instead of sinking value too.
+export function collectionCostPerPoint(gameSystemId = null) {
+  let worth = 0, points = 0;
+  Object.values(appData.models).forEach(m => {
+    if (!(m.worth > 0)) return;
+    if (gameSystemId && resolveGameSystemId(m) !== gameSystemId) return;
+    worth += m.worth;
+    points += modelPoints(m).total;
+  });
+  return points > 0 ? worth / points : null;
 }
 
 export function backlogScoreMonths(gameSystemId = null) {
@@ -388,9 +396,15 @@ export function projectionAnalysis(projection) {
   const avgRating = (ratings.personal + ratings.thematic + ratings.power) / 3;
   const ratingScore10 = avgRating * 2;
 
+  // Every pile/benchmark figure below is scoped to the projection's game
+  // system when it has one — an Old World list is judged against the Old
+  // World backlog, not the whole cabinet. Without a system set the figures
+  // necessarily span all systems, and the working says so.
+  const sys = projection.gameSystemId ? GAME_SYSTEMS[projection.gameSystemId] : null;
+  const pileScopeLabel = sys ? `${sys.shortLabel} pile` : 'pile (all systems)';
+
   const baseWorth = pileWorth(projection.gameSystemId);
-  const basePoints = pileHobbyPoints(projection.gameSystemId);
-  const baselineCostPerPoint = basePoints > 0 ? baseWorth / basePoints : null;
+  const baselineCostPerPoint = collectionCostPerPoint(projection.gameSystemId);
   const referenceCostPerPoint = baselineCostPerPoint ?? FALLBACK_COST_PER_POINT;
 
   // Only score value once the unowned items are actually priced — £0 just
@@ -456,18 +470,29 @@ export function projectionAnalysis(projection) {
       );
       workingLines.push(
         baselineCostPerPoint
-          ? `Your pile currently costs £${baselineCostPerPoint.toFixed(2)}/point on average, so this scores ${valueScore10.toFixed(1)}/10 for value`
-          : `No pile history to benchmark against yet, so value is scored against a flat £${FALLBACK_COST_PER_POINT.toFixed(2)}/point reference: ${valueScore10.toFixed(1)}/10`
+          ? `Your priced ${sys ? `${sys.shortLabel} ` : ''}models have cost £${baselineCostPerPoint.toFixed(2)}/point on average, so this scores ${valueScore10.toFixed(1)}/10 for value`
+          : `No priced ${sys ? `${sys.shortLabel} ` : ''}models to benchmark against yet, so value is scored against a flat £${FALLBACK_COST_PER_POINT.toFixed(2)}/point reference: ${valueScore10.toFixed(1)}/10`
       );
     } else {
       workingLines.push('No priced unowned items yet — value can\'t be scored.');
     }
     if (pileHeadroomScore10 !== null) {
       workingLines.push(
-        `Pile impact: buying this takes your pile from £${baseWorth.toFixed(0)} to £${projectedPileWorth.toFixed(0)} (rectitude ${fmtPct(currentRectitude)} → ${fmtPct(projectedRectitude)}), scoring ${pileHeadroomScore10.toFixed(1)}/10 for headroom`
+        `Pile impact: buying this takes your ${pileScopeLabel} from £${baseWorth.toFixed(0)} to £${projectedPileWorth.toFixed(0)} (rectitude ${fmtPct(currentRectitude)} → ${fmtPct(projectedRectitude)}), scoring ${pileHeadroomScore10.toFixed(1)}/10 for headroom`
       );
     } else {
       workingLines.push('Set a monthly budget in the Budget tab to weigh pile headroom into the verdict.');
+    }
+    if (!sys) {
+      // An unscoped projection is being judged against every system at
+      // once — a backlog of one game shouldn't veto a purchase for another,
+      // so nudge toward setting the system whenever the pile is mixed.
+      const pileSystemCount = new Set(pileModels().map(m => resolveGameSystemId(m))).size;
+      if (pileSystemCount > 1) {
+        workingLines.push(
+          `No game system is set on this projection, so the benchmark and pile figures above lump ${pileSystemCount} systems together — set one to judge this list against its own system's backlog alone.`
+        );
+      }
     }
     const comboExpr = scoreComponents.map(c => `${c.label} ${c.score.toFixed(1)}`).join(' + ');
     workingLines.push(
@@ -490,8 +515,8 @@ export function projectionAnalysis(projection) {
   if (projectedRectitude !== null && projectedRectitude < 0 && totalCost > 0) {
     const monthsAfter = projectedPileWorth / budget;
     pileWarning = (currentRectitude !== null && currentRectitude >= 0)
-      ? `⚠️ This would tip your pile into the red — £${baseWorth.toFixed(0)} → £${projectedPileWorth.toFixed(0)}, about ${monthsAfter.toFixed(1)} months of budget to clear.`
-      : `⚠️ Your pile is already over a month of budget, and this adds another £${totalCost.toFixed(0)} — up to £${projectedPileWorth.toFixed(0)}, about ${monthsAfter.toFixed(1)} months to clear.`;
+      ? `⚠️ This would tip your ${pileScopeLabel} into the red — £${baseWorth.toFixed(0)} → £${projectedPileWorth.toFixed(0)}, about ${monthsAfter.toFixed(1)} months of budget to clear.`
+      : `⚠️ Your ${pileScopeLabel} is already over a month of budget, and this adds another £${totalCost.toFixed(0)} — up to £${projectedPileWorth.toFixed(0)}, about ${monthsAfter.toFixed(1)} months to clear.`;
   }
 
   return {
@@ -499,7 +524,7 @@ export function projectionAnalysis(projection) {
     unownedCount: unowned.length, ownedCount: units.length - unowned.length,
     activeBundles, bundleCost, bundleSavings,
     ratings, avgRating, ratingScore10, baselineCostPerPoint, valueScore10,
-    currentRectitude, projectedPileWorth, projectedRectitude, pileHeadroomScore10,
+    pileScopeLabel, currentRectitude, projectedPileWorth, projectedRectitude, pileHeadroomScore10,
     finalScore, verdict, verdictLabel, verdictIcon, workingLines,
     budgetWarning, pileWarning, nothingToBuy
   };
@@ -1131,7 +1156,7 @@ function renderProjectionAnalysisBlock(body, proj) {
           <div class="pile-item"><span class="pile-item-name">Hobby points added</span><span class="pile-item-qty">${a.hobbyPointsAdded}</span></div>
           ${a.costPerPoint !== null ? `<div class="pile-item"><span class="pile-item-name">Cost per hobby point</span><span class="pile-item-qty">£${a.costPerPoint.toFixed(2)}</span></div>` : ''}
           ${a.activeBundles.length > 0 && a.bundleSavings !== 0 ? `<div class="pile-item"><span class="pile-item-name">Bundle savings</span><span class="pile-item-qty">${a.bundleSavings > 0 ? `£${a.bundleSavings.toFixed(0)} saved` : `£${Math.abs(a.bundleSavings).toFixed(0)} more`}</span></div>` : ''}
-          ${a.projectedRectitude !== null ? `<div class="pile-item"><span class="pile-item-name">Pile rectitude after buying</span><span class="pile-item-qty">${fmtPct(a.currentRectitude)} → ${fmtPct(a.projectedRectitude)}</span></div>` : ''}
+          ${a.projectedRectitude !== null ? `<div class="pile-item"><span class="pile-item-name">Rectitude after buying — ${a.pileScopeLabel}</span><span class="pile-item-qty">${fmtPct(a.currentRectitude)} → ${fmtPct(a.projectedRectitude)}</span></div>` : ''}
         </div>
         ${a.budgetWarning ? `<p class="form-hint" style="color:var(--danger)">${a.budgetWarning}</p>` : ''}
         ${a.pileWarning ? `<p class="form-hint" style="color:var(--danger)">${a.pileWarning}</p>` : ''}
