@@ -2,9 +2,12 @@
 
 import {
   appData, saveData, uid, unstartedCount, createModel, updateModel, GAME_SYSTEMS,
-  resolveGameSystemId, greyBrigadeCount
+  resolveGameSystemId, greyBrigadeCount, modelPoints, getModelType, singleModelPoints,
+  getAllModelTypes
 } from './data.js';
 import { toast, today, formatDate } from './ui.js';
+import { parseOwbList } from './owb-import.js';
+import { parseW40kList } from './w40k-import.js';
 
 // --- Data helpers ---
 
@@ -105,6 +108,79 @@ export function promoteToModel(id) {
   return modelId;
 }
 
+// --- Army Projections ---
+// A projection is a hypothetical army list under evaluation: paste one in,
+// tick off what you already own, price what's left, rate it, and get a
+// cost-benefit verdict. Unlike a real import, this never creates models or
+// touches the pile — it's purely for deciding whether to buy at all.
+
+function normalizeProjectionUnit(u) {
+  return {
+    id: uid(),
+    name: u.name,
+    quantity: u.quantity || 1,
+    modelTypeId: u.modelTypeId || null,
+    owned: !!u.owned,
+    worth: u.worth || 0
+  };
+}
+
+export function createProjection({ name, gameSystemId = null, units = [] }) {
+  const id = uid();
+  appData.projections[id] = {
+    id, name, gameSystemId,
+    units: units.map(normalizeProjectionUnit),
+    ratings: { personal: 3, thematic: 3, power: 3 },
+    notes: '',
+    dateCreated: today()
+  };
+  saveData();
+  return id;
+}
+
+export function updateProjection(id, fields) {
+  if (!appData.projections[id]) return;
+  Object.assign(appData.projections[id], fields);
+  saveData();
+}
+
+export function deleteProjection(id) {
+  delete appData.projections[id];
+  saveData();
+}
+
+export function addProjectionUnit(projId, fields) {
+  const proj = appData.projections[projId];
+  if (!proj) return null;
+  const unit = normalizeProjectionUnit(fields);
+  proj.units.push(unit);
+  saveData();
+  return unit.id;
+}
+
+export function updateProjectionUnit(projId, unitId, fields) {
+  const unit = appData.projections[projId]?.units.find(u => u.id === unitId);
+  if (!unit) return;
+  Object.assign(unit, fields);
+  saveData();
+}
+
+export function deleteProjectionUnit(projId, unitId) {
+  const proj = appData.projections[projId];
+  if (!proj) return;
+  proj.units = proj.units.filter(u => u.id !== unitId);
+  saveData();
+}
+
+// Hobby points one copy of this unit's model type is worth, times quantity —
+// mirrors singleModelPoints() but works off a projection's lightweight unit
+// stub rather than a real pooled model.
+export function unitHobbyPoints(unit) {
+  const type = unit.modelTypeId ? getModelType(unit.modelTypeId) : null;
+  const perModel = singleModelPoints({ stages: type?.stages || null, skippedStages: [] });
+  return perModel * (unit.quantity || 1);
+}
+
 // --- Calculations ---
 
 function pileModels(gameSystemId = null) {
@@ -126,6 +202,20 @@ export function pileWorth(gameSystemId = null) {
   return pileModels(gameSystemId).reduce((sum, m) => {
     if (unstartedCount(m) > 0) return sum + (m.worth || 0);
     if (greyBrigadeCount(m) > 0) return sum + (m.worth || 0) * 0.5;
+    return sum;
+  }, 0);
+}
+
+// Hobby points still up for grabs from the pile — the undone portion of
+// each pile model's total, weighted the same way pileWorth() weights £:
+// full weight on the sprue, half weight for Grey Brigade. Used as a
+// projection's own real-world "£ per hobby point" benchmark.
+export function pileHobbyPoints(gameSystemId = null) {
+  return pileModels(gameSystemId).reduce((sum, m) => {
+    const pts = modelPoints(m);
+    const remaining = Math.max(0, pts.total - pts.done);
+    if (unstartedCount(m) > 0) return sum + remaining;
+    if (greyBrigadeCount(m) > 0) return sum + remaining * 0.5;
     return sum;
   }, 0);
 }
@@ -224,6 +314,99 @@ export function yearToDateSpend(year = new Date().getFullYear()) {
     .reduce((sum, m) => sum + m.actualSpend, 0);
 }
 
+// £ per hobby point assumed when there's no pile history yet to benchmark
+// a projection's value against.
+const FALLBACK_COST_PER_POINT = 5;
+
+// Cost-benefit analysis for a projection: prices and points only count the
+// unowned units (what you'd actually be buying), benchmarked against what
+// your own pile currently costs you per hobby point. Every number used in
+// the verdict is also returned in workingLines, in the order it's applied,
+// so the verdict can always show its working.
+export function projectionAnalysis(projection) {
+  const units = projection.units || [];
+  const unowned = units.filter(u => !u.owned);
+  const totalCost = unowned.reduce((sum, u) => sum + (u.worth || 0), 0);
+  const hobbyPointsAdded = unowned.reduce((sum, u) => sum + unitHobbyPoints(u), 0);
+  const costPerPoint = hobbyPointsAdded > 0 ? totalCost / hobbyPointsAdded : null;
+
+  const ratings = projection.ratings || { personal: 0, thematic: 0, power: 0 };
+  const avgRating = (ratings.personal + ratings.thematic + ratings.power) / 3;
+  const ratingScore10 = avgRating * 2;
+
+  const baseWorth = pileWorth(projection.gameSystemId);
+  const basePoints = pileHobbyPoints(projection.gameSystemId);
+  const baselineCostPerPoint = basePoints > 0 ? baseWorth / basePoints : null;
+  const referenceCostPerPoint = baselineCostPerPoint ?? FALLBACK_COST_PER_POINT;
+
+  // Only score value once the unowned items are actually priced — £0 just
+  // means "not priced yet" (the default on import), not "free", so it must
+  // not read as a maximal-value acquisition.
+  let valueScore10 = null;
+  if (costPerPoint !== null && totalCost > 0) {
+    valueScore10 = Math.max(0, Math.min(10, 5 * (referenceCostPerPoint / costPerPoint)));
+  }
+
+  const nothingToBuy = units.length > 0 && unowned.length === 0;
+
+  let finalScore = null, verdict, verdictLabel, verdictIcon;
+  if (nothingToBuy) {
+    verdict = 'owned'; verdictLabel = 'Nothing to buy'; verdictIcon = '✅';
+  } else {
+    finalScore = valueScore10 !== null ? (ratingScore10 * 0.5 + valueScore10 * 0.5) : ratingScore10;
+    if (finalScore >= 7)        { verdict = 'buy';      verdictLabel = 'Buy it';      verdictIcon = '✅'; }
+    else if (finalScore >= 4.5) { verdict = 'consider';  verdictLabel = 'Consider it'; verdictIcon = '🤔'; }
+    else                        { verdict = 'skip';      verdictLabel = 'Skip it';     verdictIcon = '🚫'; }
+  }
+
+  const workingLines = [];
+  if (!nothingToBuy) {
+    const ratingSum = ratings.personal + ratings.thematic + ratings.power;
+    workingLines.push(
+      `Ratings: Personal ${ratings.personal}/5 + Thematic ${ratings.thematic}/5 + Power ${ratings.power}/5 = ${ratingSum}/15 → average ${avgRating.toFixed(1)}/5 → rating score ${ratingScore10.toFixed(1)}/10`
+    );
+    if (valueScore10 !== null) {
+      workingLines.push(
+        `Cost: £${totalCost.toFixed(0)} for ${unowned.length} unowned item${unowned.length !== 1 ? 's' : ''} adding ${hobbyPointsAdded} hobby points → £${costPerPoint.toFixed(2)}/point`
+      );
+      workingLines.push(
+        baselineCostPerPoint
+          ? `Your pile currently costs £${baselineCostPerPoint.toFixed(2)}/point on average, so this scores ${valueScore10.toFixed(1)}/10 for value`
+          : `No pile history to benchmark against yet, so value is scored against a flat £${FALLBACK_COST_PER_POINT.toFixed(2)}/point reference: ${valueScore10.toFixed(1)}/10`
+      );
+      workingLines.push(
+        `Combined score: (rating ${ratingScore10.toFixed(1)} + value ${valueScore10.toFixed(1)}) ÷ 2 = ${finalScore.toFixed(1)}/10 → ${verdictLabel}`
+      );
+    } else {
+      workingLines.push('No priced unowned items yet — value can\'t be scored, so the verdict is rating-only.');
+      workingLines.push(`Combined score: rating only = ${finalScore.toFixed(1)}/10 → ${verdictLabel}`);
+    }
+  }
+
+  let budgetWarning = null;
+  const budget = appData.config.monthlyBudgetGBP || 0;
+  if (budget && totalCost > 0) {
+    const remain = budgetRemaining();
+    if (totalCost > remain.remaining) {
+      budgetWarning = `⚠️ £${totalCost.toFixed(0)} exceeds your remaining ${remain.period === 'annual' ? "year's" : "month's"} budget of £${Math.max(0, remain.remaining).toFixed(0)}.`;
+    }
+  }
+
+  return {
+    totalCost, hobbyPointsAdded, costPerPoint,
+    unownedCount: unowned.length, ownedCount: units.length - unowned.length,
+    ratings, avgRating, ratingScore10, baselineCostPerPoint, valueScore10, finalScore,
+    verdict, verdictLabel, verdictIcon, workingLines, budgetWarning, nothingToBuy
+  };
+}
+
+function verdictClass(verdict) {
+  return {
+    buy: 'qm-verdict-buy', consider: 'qm-verdict-consider',
+    skip: 'qm-verdict-skip', owned: 'qm-verdict-owned'
+  }[verdict] || '';
+}
+
 function rectClass(pct) {
   if (pct === null) return '';
   return pct >= 0 ? 'qm-rect-positive' : 'qm-rect-negative';
@@ -236,6 +419,7 @@ function fmtPct(pct) {
 // --- Render ---
 
 let activeSection = 'overview';
+let activeProjectionId = null;
 
 export function renderQuartermaster(container) {
   container.innerHTML = `
@@ -244,6 +428,7 @@ export function renderQuartermaster(container) {
         <div class="queue-tab-list">
           <button class="queue-tab-btn ${activeSection === 'overview' ? 'active' : ''}" data-qm-section="overview">Overview</button>
           <button class="queue-tab-btn ${activeSection === 'wishlist' ? 'active' : ''}" data-qm-section="wishlist">Wishlist</button>
+          <button class="queue-tab-btn ${activeSection === 'projections' ? 'active' : ''}" data-qm-section="projections">Projections</button>
           <button class="queue-tab-btn ${activeSection === 'requisitions' ? 'active' : ''}" data-qm-section="requisitions">Requisitions</button>
           <button class="queue-tab-btn ${activeSection === 'ledger' ? 'active' : ''}" data-qm-section="ledger">Ledger</button>
           <button class="queue-tab-btn ${activeSection === 'budget' ? 'active' : ''}" data-qm-section="budget">Budget</button>
@@ -263,6 +448,7 @@ export function renderQuartermaster(container) {
   const body = container.querySelector('#qmBody');
   if (activeSection === 'overview') renderQMOverview(body);
   else if (activeSection === 'wishlist') renderWishlist(body, container);
+  else if (activeSection === 'projections') renderProjectionsTab(body, container);
   else if (activeSection === 'requisitions') renderRequisitions(body, container);
   else if (activeSection === 'ledger') renderLedger(body);
   else renderBudget(body);
@@ -660,6 +846,525 @@ function renderWishlistForm(body, container, editId) {
     else createWishlistItem(fields);
     renderWishlist(body, container);
   });
+}
+
+// --- Projections tab ---
+// Two views sharing the tab body: a list of projections, and a detail view
+// for whichever one is open (tracked by activeProjectionId, module-level so
+// it survives re-renders triggered by other tabs' clicks).
+
+function renderProjectionsTab(body, container) {
+  if (activeProjectionId && appData.projections[activeProjectionId]) {
+    renderProjectionDetail(body, container, activeProjectionId);
+  } else {
+    activeProjectionId = null;
+    renderProjectionsList(body, container);
+  }
+}
+
+function renderProjectionsList(body, container) {
+  const projections = Object.values(appData.projections)
+    .sort((a, b) => (b.dateCreated || '').localeCompare(a.dateCreated || ''));
+
+  body.innerHTML = `
+    <div class="queue-header">
+      <h2 class="queue-name">Projections</h2>
+      <div class="queue-header-actions">
+        <button class="btn btn-sm btn-primary" id="qmProjImportBtn">📋 Import List</button>
+        <button class="btn btn-sm" id="qmProjBlankBtn">+ Blank</button>
+      </div>
+    </div>
+    ${projections.length === 0 ? `
+      <div class="empty-state">
+        <p>No projections yet.</p>
+        <p style="font-size:0.85em;color:var(--text-muted)">Import an army list to check off what you already own, price the rest, and get a buy/skip verdict before you spend a penny.</p>
+      </div>
+    ` : `
+      <div class="queue-entries">
+        ${projections.map(p => projectionCard(p)).join('')}
+      </div>
+    `}
+  `;
+
+  body.querySelector('#qmProjImportBtn').addEventListener('click', () => renderProjectionImportForm(body, container));
+  body.querySelector('#qmProjBlankBtn').addEventListener('click', () => {
+    const name = prompt('Projection name:');
+    if (!name?.trim()) return;
+    activeProjectionId = createProjection({ name: name.trim() });
+    renderProjectionsTab(body, container);
+  });
+
+  body.querySelectorAll('[data-proj-open]').forEach(el => {
+    el.addEventListener('click', () => {
+      activeProjectionId = el.dataset.projOpen;
+      renderProjectionsTab(body, container);
+    });
+  });
+  body.querySelectorAll('[data-proj-delete]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const proj = appData.projections[btn.dataset.projDelete];
+      if (!proj || !confirm(`Delete projection "${proj.name}"?`)) return;
+      deleteProjection(proj.id);
+      renderProjectionsList(body, container);
+    });
+  });
+}
+
+function projectionCard(p) {
+  const sys = p.gameSystemId ? GAME_SYSTEMS[p.gameSystemId] : null;
+  const a = p.units.length ? projectionAnalysis(p) : null;
+  return `
+    <div class="queue-entry qm-proj-card" data-proj-open="${p.id}">
+      <div class="queue-entry-main">
+        <div class="queue-entry-info">
+          <div class="queue-entry-name">${p.name}</div>
+          ${sys ? `<span class="sys-tag ${sys.theme}">${sys.shortLabel}</span>` : ''}
+          ${a ? `<span class="qm-verdict-pill ${verdictClass(a.verdict)}">${a.verdictIcon} ${a.verdictLabel}</span>` : ''}
+        </div>
+        ${a && !a.nothingToBuy ? `<div class="queue-entry-note">£${a.totalCost.toFixed(0)} to acquire · ${a.hobbyPointsAdded} hobby pts added${a.costPerPoint !== null ? ` · £${a.costPerPoint.toFixed(2)}/pt` : ''}</div>` : ''}
+        <div class="queue-entry-actions">
+          <button class="btn btn-sm btn-danger" data-proj-delete="${p.id}">✕</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function ratingRow(field, label, value) {
+  return `
+    <div class="qm-rating-row" data-rating-field="${field}">
+      <span class="qm-rating-label">${label}</span>
+      <span class="qm-rating-stars">
+        ${[1, 2, 3, 4, 5].map(n => `<button type="button" class="qm-star-btn ${n <= value ? 'filled' : ''}" data-star="${n}">★</button>`).join('')}
+      </span>
+      <span class="qm-rating-value">${value}/5</span>
+    </div>
+  `;
+}
+
+function projectionUnitRow(u) {
+  const type = u.modelTypeId ? getModelType(u.modelTypeId) : null;
+  const pts = unitHobbyPoints(u);
+  return `
+    <div class="queue-entry ${u.owned ? 'qm-unit-owned' : ''}" data-unit-id="${u.id}">
+      <div class="queue-entry-main">
+        <div class="queue-entry-info">
+          <label class="qm-owned-check">
+            <input type="checkbox" data-unit-owned="${u.id}" ${u.owned ? 'checked' : ''}> Owned
+          </label>
+          <span class="queue-entry-name">${u.name} <span class="queue-entry-qty">×${u.quantity}</span></span>
+          ${type ? `<span class="sys-tag theme-default">${type.name}</span>` : ''}
+        </div>
+        <div class="queue-entry-note">
+          ${u.owned
+            ? `Already secured — not counted in cost or points added.`
+            : `£<input type="number" class="form-input qm-unit-worth" data-unit-worth="${u.id}" min="0" step="0.01" value="${u.worth || 0}"> for ${pts} hobby pt${pts !== 1 ? 's' : ''}`
+          }
+        </div>
+        <div class="queue-entry-actions">
+          <button class="btn btn-sm btn-danger" data-unit-delete="${u.id}">✕</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderProjectionAnalysisBlock(body, proj) {
+  const el = body.querySelector('#qmProjAnalysis');
+  if (!el) return;
+  if (!proj.units.length) {
+    el.innerHTML = `<p class="empty-text">Add units to see a cost-benefit analysis.</p>`;
+    return;
+  }
+  const a = projectionAnalysis(proj);
+  el.innerHTML = `
+    <div class="dash-card">
+      <h3>Cost-Benefit Analysis</h3>
+      ${a.nothingToBuy ? `
+        <p class="empty-text">You already own everything on this list — nothing left to weigh up.</p>
+      ` : `
+        <div class="qm-verdict-banner ${verdictClass(a.verdict)}">
+          <span class="qm-verdict-icon">${a.verdictIcon}</span>
+          <span class="qm-verdict-text">${a.verdictLabel}</span>
+          <span class="qm-verdict-score">${a.finalScore.toFixed(1)}/10</span>
+        </div>
+        <div class="pile-items">
+          <div class="pile-item"><span class="pile-item-name">Cost to acquire</span><span class="pile-item-qty">£${a.totalCost.toFixed(0)}</span></div>
+          <div class="pile-item"><span class="pile-item-name">Hobby points added</span><span class="pile-item-qty">${a.hobbyPointsAdded}</span></div>
+          ${a.costPerPoint !== null ? `<div class="pile-item"><span class="pile-item-name">Cost per hobby point</span><span class="pile-item-qty">£${a.costPerPoint.toFixed(2)}</span></div>` : ''}
+        </div>
+        ${a.budgetWarning ? `<p class="form-hint" style="color:var(--danger)">${a.budgetWarning}</p>` : ''}
+        <div class="qm-working">
+          <div class="qm-working-title">Show your working</div>
+          <ul class="qm-working-list">
+            ${a.workingLines.map(l => `<li>${l}</li>`).join('')}
+          </ul>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function renderProjectionDetail(body, container, projId) {
+  const proj = appData.projections[projId];
+  if (!proj) { activeProjectionId = null; renderProjectionsList(body, container); return; }
+
+  body.innerHTML = `
+    <div class="queue-header">
+      <h2 class="queue-name">${proj.name}</h2>
+      <div class="queue-header-actions">
+        <button class="btn btn-sm" id="qmProjBack">← Back</button>
+        <button class="btn btn-sm" id="qmProjShareBtn">📤 Share</button>
+        <button class="btn btn-sm btn-danger" id="qmProjDeleteBtn">✕ Delete</button>
+      </div>
+    </div>
+    <div class="form-row-two">
+      <div class="form-group">
+        <label>Name</label>
+        <input id="qmProjName" type="text" class="form-input" value="${proj.name}">
+      </div>
+      <div class="form-group">
+        <label>Game System</label>
+        <select id="qmProjSystem" class="form-input">
+          <option value="">— None —</option>
+          ${Object.values(GAME_SYSTEMS).map(s => `<option value="${s.id}" ${proj.gameSystemId === s.id ? 'selected' : ''}>${s.shortLabel}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+
+    <div class="queue-header" style="margin-top:1em">
+      <h2 class="queue-name" style="font-size:1em">Units</h2>
+      <div class="queue-header-actions">
+        <button class="btn btn-sm btn-primary" id="qmProjAddUnitBtn">+ Add Item</button>
+      </div>
+    </div>
+    ${proj.units.length === 0 ? `
+      <div class="empty-state">
+        <p>No units yet — add items manually, or import a list from the Projections tab.</p>
+      </div>
+    ` : `
+      <div class="queue-entries">
+        ${proj.units.map(u => projectionUnitRow(u)).join('')}
+      </div>
+    `}
+    <div id="qmProjAddUnitForm"></div>
+
+    <div class="dash-card" style="margin-top:1em">
+      <h3>Ratings</h3>
+      ${ratingRow('personal', 'Personal', proj.ratings?.personal || 0)}
+      ${ratingRow('thematic', 'Thematic', proj.ratings?.thematic || 0)}
+      ${ratingRow('power', 'Power', proj.ratings?.power || 0)}
+    </div>
+
+    <div class="form-group" style="margin-top:0.75em">
+      <label>Notes (optional)</label>
+      <textarea id="qmProjNotes" class="form-input" rows="2">${proj.notes || ''}</textarea>
+    </div>
+
+    <div id="qmProjAnalysis" style="margin-top:1em"></div>
+  `;
+
+  renderProjectionAnalysisBlock(body, proj);
+
+  body.querySelector('#qmProjBack').addEventListener('click', () => {
+    activeProjectionId = null;
+    renderProjectionsList(body, container);
+  });
+  body.querySelector('#qmProjDeleteBtn').addEventListener('click', () => {
+    if (!confirm(`Delete projection "${proj.name}"?`)) return;
+    deleteProjection(proj.id);
+    activeProjectionId = null;
+    renderProjectionsList(body, container);
+  });
+  body.querySelector('#qmProjShareBtn').addEventListener('click', () => shareProjection(body, container, proj));
+
+  body.querySelector('#qmProjName').addEventListener('change', e => {
+    updateProjection(proj.id, { name: e.target.value.trim() || proj.name });
+    renderProjectionDetail(body, container, proj.id);
+  });
+  body.querySelector('#qmProjSystem').addEventListener('change', e => {
+    updateProjection(proj.id, { gameSystemId: e.target.value || null });
+    renderProjectionDetail(body, container, proj.id);
+  });
+  body.querySelector('#qmProjNotes').addEventListener('change', e => {
+    updateProjection(proj.id, { notes: e.target.value });
+  });
+
+  body.querySelectorAll('[data-unit-owned]').forEach(cb => {
+    cb.addEventListener('change', e => {
+      updateProjectionUnit(proj.id, cb.dataset.unitOwned, { owned: e.target.checked });
+      renderProjectionDetail(body, container, proj.id);
+    });
+  });
+  body.querySelectorAll('[data-unit-worth]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      updateProjectionUnit(proj.id, inp.dataset.unitWorth, { worth: parseFloat(e.target.value) || 0 });
+      renderProjectionAnalysisBlock(body, appData.projections[proj.id]);
+    });
+  });
+  body.querySelectorAll('[data-unit-delete]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      deleteProjectionUnit(proj.id, btn.dataset.unitDelete);
+      renderProjectionDetail(body, container, proj.id);
+    });
+  });
+
+  body.querySelector('#qmProjAddUnitBtn').addEventListener('click', () => renderProjectionAddUnitForm(body, container, proj.id));
+
+  body.querySelectorAll('.qm-star-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const field = btn.closest('[data-rating-field]').dataset.ratingField;
+      const ratings = { ...(proj.ratings || {}), [field]: parseInt(btn.dataset.star, 10) };
+      updateProjection(proj.id, { ratings });
+      renderProjectionDetail(body, container, proj.id);
+    });
+  });
+}
+
+// Inline "add item" mini-form, appended below the unit list rather than
+// swapping the whole body — keeps the rest of the projection in view while
+// adding several manual items in a row.
+function renderProjectionAddUnitForm(body, container, projId) {
+  const formEl = body.querySelector('#qmProjAddUnitForm');
+  const types = getAllModelTypes();
+  formEl.innerHTML = `
+    <div class="dash-card" style="margin-top:0.5em">
+      <div class="form-group">
+        <label>Name</label>
+        <input id="qmUnitName" type="text" class="form-input" placeholder="Unit name">
+      </div>
+      <div class="form-row-two">
+        <div class="form-group">
+          <label>Quantity</label>
+          <input id="qmUnitQty" type="number" class="form-input" min="1" step="1" value="1">
+        </div>
+        <div class="form-group">
+          <label>Model Type</label>
+          <select id="qmUnitType" class="form-input">
+            <option value="">— Generic —</option>
+            ${types.map(t => `<option value="${t.id}">${t.name}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-row-two">
+        <div class="form-group">
+          <label>Already owned?</label>
+          <select id="qmUnitOwned" class="form-input">
+            <option value="0">No — need to buy</option>
+            <option value="1">Yes — already have it</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Worth (£)</label>
+          <input id="qmUnitWorth" type="number" class="form-input" min="0" step="0.01" value="0">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="qmUnitAddSave">Add</button>
+        <button class="btn" id="qmUnitAddCancel">Cancel</button>
+      </div>
+    </div>
+  `;
+  formEl.querySelector('#qmUnitAddCancel').addEventListener('click', () => { formEl.innerHTML = ''; });
+  formEl.querySelector('#qmUnitAddSave').addEventListener('click', () => {
+    const name = formEl.querySelector('#qmUnitName').value.trim();
+    if (!name) { toast('Please enter a name', 'error'); return; }
+    addProjectionUnit(projId, {
+      name,
+      quantity: parseInt(formEl.querySelector('#qmUnitQty').value, 10) || 1,
+      modelTypeId: formEl.querySelector('#qmUnitType').value || null,
+      owned: formEl.querySelector('#qmUnitOwned').value === '1',
+      worth: parseFloat(formEl.querySelector('#qmUnitWorth').value) || 0
+    });
+    renderProjectionDetail(body, container, projId);
+  });
+}
+
+const PROJECTION_IMPORT_FORMATS = {
+  owb: {
+    label: 'Old World Builder',
+    placeholder: `===\nClan Eshin [748 pts]\nWarhammer: The Old World, Skaven...\n===\n\n++ Characters [166 pts] ++\n\nSkaven Chieftain [51 pts]\n...`,
+    parse: parseOwbList
+  },
+  w40k: {
+    label: 'Warhammer 40,000',
+    placeholder: `Niddos (1500 points)\n\nTyranids\nStrike Force (2000 points)\nInvasion Fleet\n\nCHARACTERS\n\nNeurotyrant (125 points)\n  • 1x Neurotyrant claws and lashes\n\nBATTLELINE\n\nHormagaunts (65 points)\n  • 10x Hormagaunt`,
+    parse: parseW40kList
+  }
+};
+
+function autoDetectProjectionFormat(text) {
+  if (/created with [""]old world builder[""]/i.test(text) || /old-world-builder\.com/i.test(text)) return 'owb';
+  if (/exported with app version:/i.test(text)) return 'w40k';
+  if (/^===/.test(text.trim()) || /\[\d+\s*pts?\]/.test(text)) return 'owb';
+  if (/\(\d+\s*points?\)/i.test(text)) return 'w40k';
+  return null;
+}
+
+// Rendered inline in the office body, not a nested showModal — the office
+// itself is already inside one modal, and this app's modal system only
+// tracks a single overlay at a time.
+function renderProjectionImportForm(body, container) {
+  let currentFormat = 'owb';
+
+  body.innerHTML = `
+    <div class="queue-header">
+      <h2 class="queue-name">Import Army List</h2>
+      <div class="queue-header-actions">
+        <button class="btn btn-sm" id="qmProjImportBack">← Back</button>
+      </div>
+    </div>
+    <p class="form-hint" style="margin-bottom:0.75em">Paste an army list to build a projection. Nothing is added to your pile — this is purely for evaluating a potential purchase.</p>
+    <div style="display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:0.9em">
+      <button type="button" class="import-fmt-btn" data-fmt="owb" style="flex:1;padding:0.45em 0.5em;font-size:0.82em;font-weight:600;border:none;cursor:pointer;transition:background 0.15s,color 0.15s">Old World Builder</button>
+      <button type="button" class="import-fmt-btn" data-fmt="w40k" style="flex:1;padding:0.45em 0.5em;font-size:0.82em;font-weight:600;border:none;cursor:pointer;transition:background 0.15s,color 0.15s;border-left:1px solid var(--border)">Warhammer 40,000</button>
+    </div>
+    <textarea id="qmProjImportArea" class="form-input" rows="10" style="font-family:monospace;font-size:0.8em"></textarea>
+    <div id="qmProjImportPreview" style="margin-top:0.75em;display:none"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="qmProjImportDoBtn">Create Projection</button>
+      <button class="btn" id="qmProjImportCancelBtn">Cancel</button>
+    </div>
+  `;
+
+  const textarea = body.querySelector('#qmProjImportArea');
+  const preview = body.querySelector('#qmProjImportPreview');
+
+  function applyFormat(fmt) {
+    currentFormat = fmt;
+    const fmtData = PROJECTION_IMPORT_FORMATS[fmt];
+    textarea.placeholder = fmtData.placeholder;
+    body.querySelectorAll('.import-fmt-btn').forEach(btn => {
+      const active = btn.dataset.fmt === fmt;
+      btn.style.background = active ? 'var(--accent)' : 'transparent';
+      btn.style.color = active ? '#fff' : 'var(--text)';
+    });
+    updatePreview();
+  }
+
+  function updatePreview() {
+    const text = textarea.value.trim();
+    if (!text) { preview.style.display = 'none'; return; }
+    try {
+      const { armyName, gameSystemId, units } = PROJECTION_IMPORT_FORMATS[currentFormat].parse(text);
+      if (!units.length) { preview.style.display = 'none'; return; }
+      const sys = GAME_SYSTEMS[gameSystemId];
+      preview.innerHTML = `
+        <div style="font-size:0.82em;color:var(--text-muted)">
+          Preview — <strong style="color:var(--text)">${armyName}</strong>
+          &nbsp;<span class="sys-tag ${sys?.theme || ''}">${sys?.shortLabel || gameSystemId}</span>
+          &nbsp;· ${units.length} unit${units.length !== 1 ? 's' : ''}
+        </div>
+      `;
+      preview.style.display = '';
+    } catch {
+      preview.style.display = 'none';
+    }
+  }
+
+  body.querySelectorAll('.import-fmt-btn').forEach(btn => btn.addEventListener('click', () => applyFormat(btn.dataset.fmt)));
+  textarea.addEventListener('input', () => {
+    const detected = autoDetectProjectionFormat(textarea.value);
+    if (detected && detected !== currentFormat) applyFormat(detected);
+    else updatePreview();
+  });
+
+  body.querySelector('#qmProjImportBack').addEventListener('click', () => renderProjectionsList(body, container));
+  body.querySelector('#qmProjImportCancelBtn').addEventListener('click', () => renderProjectionsList(body, container));
+
+  body.querySelector('#qmProjImportDoBtn').addEventListener('click', () => {
+    const text = textarea.value.trim();
+    if (!text) { toast('Paste an army list first', 'error'); return; }
+    const { armyName, gameSystemId, units } = PROJECTION_IMPORT_FORMATS[currentFormat].parse(text);
+    if (!units.length) { toast('No units found — check the list format and selected format type', 'error'); return; }
+    const projId = createProjection({
+      name: armyName,
+      gameSystemId,
+      units: units.map(u => ({ name: u.name, quantity: u.quantity, modelTypeId: u.modelTypeId, owned: false, worth: 0 }))
+    });
+    toast(`Projection "${armyName}" created — ${units.length} unit${units.length !== 1 ? 's' : ''}`, 'success');
+    activeProjectionId = projId;
+    renderProjectionsTab(body, container);
+  });
+
+  applyFormat('owb');
+}
+
+// Shares via the OS share sheet or clipboard where available; the fallback
+// is an inline read-only view (not a nested showModal — see note above).
+function shareProjection(body, container, proj) {
+  const text = buildProjectionShareText(proj);
+  if (navigator.share) {
+    navigator.share({ title: proj.name, text }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text)
+      .then(() => toast('Copied to clipboard!', 'success'))
+      .catch(() => renderProjectionShareFallback(body, container, proj, text));
+  }
+}
+
+function buildProjectionShareText(proj) {
+  const sys = proj.gameSystemId ? GAME_SYSTEMS[proj.gameSystemId] : null;
+  const a = proj.units.length ? projectionAnalysis(proj) : null;
+
+  const unitLines = proj.units.map(u => {
+    const pts = unitHobbyPoints(u);
+    return u.owned
+      ? `✅ ${u.name} ×${u.quantity} — already owned`
+      : `⬜ ${u.name} ×${u.quantity} — £${(u.worth || 0).toFixed(0)}, ${pts} pt${pts !== 1 ? 's' : ''}`;
+  }).join('\n');
+
+  const lines = [
+    `🎖️ Projection: ${proj.name}${sys ? ` (${sys.shortLabel})` : ''}`,
+    `${'━'.repeat(Math.min(proj.name.length + 14, 32))}`,
+    ``,
+    `📋 Units:`,
+    unitLines || '  (none)',
+  ];
+
+  if (a && !a.nothingToBuy) {
+    lines.push(
+      ``,
+      `💰 Cost to acquire: £${a.totalCost.toFixed(0)}`,
+      `⭐ Hobby points added: ${a.hobbyPointsAdded}`,
+      a.costPerPoint !== null ? `📐 £${a.costPerPoint.toFixed(2)}/hobby point` : undefined,
+      ``,
+      `❤️ Personal ${a.ratings.personal}/5 · 🎭 Thematic ${a.ratings.thematic}/5 · ⚔️ Power ${a.ratings.power}/5`,
+      ``,
+      `${a.verdictIcon} Verdict: ${a.verdictLabel} (${a.finalScore.toFixed(1)}/10)`,
+      ``,
+      `Working:`,
+      ...a.workingLines.map(l => `• ${l}`)
+    );
+  } else if (a?.nothingToBuy) {
+    lines.push(``, `✅ Already own everything on this list.`);
+  }
+  if (proj.notes) lines.push(``, `📝 ${proj.notes}`);
+
+  return lines.filter(l => l !== undefined).join('\n').trim();
+}
+
+function renderProjectionShareFallback(body, container, proj, text) {
+  body.innerHTML = `
+    <div class="queue-header">
+      <h2 class="queue-name">Share Projection</h2>
+      <div class="queue-header-actions">
+        <button class="btn btn-sm" id="qmProjShareBack">← Back</button>
+      </div>
+    </div>
+    <p class="form-hint" style="margin-bottom:0.75em">Copy the text below and share it however you like:</p>
+    <textarea class="form-input share-text-area" readonly rows="18">${text}</textarea>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="qmProjShareCopyBtn">📋 Copy</button>
+    </div>
+  `;
+  body.querySelector('#qmProjShareCopyBtn').addEventListener('click', () => {
+    body.querySelector('.share-text-area').select();
+    document.execCommand('copy');
+    toast('Copied!', 'success');
+  });
+  body.querySelector('#qmProjShareBack').addEventListener('click', () => renderProjectionDetail(body, container, proj.id));
 }
 
 function monthLabel(month) {

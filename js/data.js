@@ -507,6 +507,11 @@ export let appData = {
   // commitment. id -> { id, name, gameSystemId, worth, forWhom, collectionId, itemType, note, dateAdded }
   // "Move to Requisitions" copies an entry into purchaseQueue when you're ready to plan it.
   wishlist: {},
+  // Army projections — evaluate a whole army list before buying any of it.
+  // id -> { id, name, gameSystemId, units, ratings: {personal, thematic, power}, notes, dateCreated }
+  // units: [{ id, name, quantity, modelTypeId, owned, worth }]. Purely for
+  // deciding whether to buy — never creates models or touches the pile.
+  projections: {},
   // The active "clear the oldest thing" bounty, or null: { id, modelId, reward, dateSet }
   bounty: null,
   // Completed bounties, newest first: [{ id, modelName, ageDays, dateCompleted, reward, tier }]
@@ -554,6 +559,7 @@ export function loadData() {
         sprints: parsed.sprints || parsed.queues || {},
         purchaseQueue: parsed.purchaseQueue || {},
         wishlist: parsed.wishlist || {},
+        projections: parsed.projections || {},
         bounty: parsed.bounty || null,
         hallOfFame: parsed.hallOfFame || [],
         badges: parsed.badges || {},
@@ -607,6 +613,7 @@ export function replaceData(parsed) {
     sprints: parsed.sprints || parsed.queues || {},
     purchaseQueue: parsed.purchaseQueue || {},
     wishlist: parsed.wishlist || {},
+    projections: parsed.projections || {},
     bounty: parsed.bounty || null,
     hallOfFame: parsed.hallOfFame || [],
     badges: parsed.badges || {},

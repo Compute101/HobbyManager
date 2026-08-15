@@ -1079,6 +1079,34 @@
 
     .pile-total.shame-heavy { color: var(--danger); font-weight: 600; }
 
+    /* Projections tab */
+    .qm-proj-card { cursor: pointer; }
+    .qm-verdict-pill { display: inline-block; font-size: 0.72em; font-weight: 600; padding: 0.15em 0.55em; border-radius: 100px; border: 1px solid var(--border); white-space: nowrap; }
+    .qm-verdict-buy      { border-color: var(--accent);  color: var(--accent); }
+    .qm-verdict-consider { border-color: var(--warning); color: var(--warning); }
+    .qm-verdict-skip     { border-color: var(--danger);  color: var(--danger); }
+    .qm-verdict-owned    { border-color: var(--text-muted); color: var(--text-muted); }
+    .qm-verdict-banner { display: flex; align-items: center; gap: 0.5em; padding: 0.6em 0.8em; border-radius: var(--radius); border: 1px solid var(--border); margin-bottom: 0.75em; }
+    .qm-verdict-banner.qm-verdict-buy      { border-color: var(--accent);  background: color-mix(in srgb, var(--accent) 12%, transparent); }
+    .qm-verdict-banner.qm-verdict-consider { border-color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+    .qm-verdict-banner.qm-verdict-skip     { border-color: var(--danger);  background: color-mix(in srgb, var(--danger) 12%, transparent); }
+    .qm-verdict-icon { font-size: 1.3em; line-height: 1; }
+    .qm-verdict-text { font-weight: 700; font-family: var(--font-display); flex: 1; }
+    .qm-verdict-score { font-size: 0.9em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+    .qm-working { margin-top: 0.75em; font-size: 0.85em; }
+    .qm-working-title { font-weight: 600; color: var(--text-muted); text-transform: uppercase; font-size: 0.78em; letter-spacing: 0.03em; margin-bottom: 0.35em; }
+    .qm-working-list { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 0.35em; color: var(--text-muted); line-height: 1.4; }
+    .qm-owned-check { display: flex; align-items: center; gap: 0.35em; font-size: 0.82em; color: var(--text-muted); cursor: pointer; }
+    .qm-unit-owned { opacity: 0.6; }
+    .qm-unit-owned .queue-entry-name { text-decoration: line-through; }
+    .qm-unit-worth { width: 5.5em; display: inline-block; padding: 0.2em 0.4em; }
+    .qm-rating-row { display: flex; align-items: center; gap: 0.6em; padding: 0.3em 0; }
+    .qm-rating-label { flex: 0 0 6em; font-size: 0.88em; }
+    .qm-rating-stars { display: flex; gap: 0.1em; }
+    .qm-star-btn { background: none; border: none; cursor: pointer; font-size: 1.15em; color: var(--border); padding: 0.05em; line-height: 1; }
+    .qm-star-btn.filled { color: var(--accent); }
+    .qm-rating-value { font-size: 0.78em; color: var(--text-muted); margin-left: auto; }
+
     /* Fireworks celebration overlay */
     .fireworks-overlay { position: fixed; inset: 0; pointer-events: none; z-index: 9999; }
 
