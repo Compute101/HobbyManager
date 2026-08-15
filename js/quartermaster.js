@@ -130,6 +130,10 @@ export function createProjection({ name, gameSystemId = null, units = [] }) {
   appData.projections[id] = {
     id, name, gameSystemId,
     units: units.map(normalizeProjectionUnit),
+    // Box deals (e.g. Combat Patrols) — a bundle bundles ≥2 units under one
+    // discounted price, which replaces those units' individual worths in
+    // the cost total. id -> { id, name, price, unitIds }
+    bundles: [],
     ratings: { personal: 3, thematic: 3, power: 3 },
     notes: '',
     dateCreated: today()
@@ -169,6 +173,34 @@ export function deleteProjectionUnit(projId, unitId) {
   const proj = appData.projections[projId];
   if (!proj) return;
   proj.units = proj.units.filter(u => u.id !== unitId);
+  // Drop the unit from whichever bundle held it; a bundle left with nothing
+  // in it no longer means anything, so it goes too.
+  (proj.bundles || []).forEach(b => { b.unitIds = b.unitIds.filter(id => id !== unitId); });
+  proj.bundles = (proj.bundles || []).filter(b => b.unitIds.length > 0);
+  saveData();
+}
+
+export function addProjectionBundle(projId, { name, price = 0, unitIds = [] }) {
+  const proj = appData.projections[projId];
+  if (!proj) return null;
+  if (!proj.bundles) proj.bundles = [];
+  const id = uid();
+  proj.bundles.push({ id, name, price, unitIds: [...unitIds] });
+  saveData();
+  return id;
+}
+
+export function updateProjectionBundle(projId, bundleId, fields) {
+  const bundle = appData.projections[projId]?.bundles?.find(b => b.id === bundleId);
+  if (!bundle) return;
+  Object.assign(bundle, fields);
+  saveData();
+}
+
+export function deleteProjectionBundle(projId, bundleId) {
+  const proj = appData.projections[projId];
+  if (!proj) return;
+  proj.bundles = (proj.bundles || []).filter(b => b.id !== bundleId);
   saveData();
 }
 
@@ -323,10 +355,32 @@ const FALLBACK_COST_PER_POINT = 5;
 // your own pile currently costs you per hobby point. Every number used in
 // the verdict is also returned in workingLines, in the order it's applied,
 // so the verdict can always show its working.
+//
+// Bundles (box deals like a Combat Patrol) replace their members' individual
+// worths with one price for the set. A bundle counts toward cost as soon as
+// any of its units are unowned — buying the box is assumed to be how you'd
+// get them, even if you already happen to own another item from it.
 export function projectionAnalysis(projection) {
   const units = projection.units || [];
+  const bundles = projection.bundles || [];
   const unowned = units.filter(u => !u.owned);
-  const totalCost = unowned.reduce((sum, u) => sum + (u.worth || 0), 0);
+  const unownedIds = new Set(unowned.map(u => u.id));
+
+  const bundledUnitIds = new Set(bundles.flatMap(b => b.unitIds));
+  const activeBundles = bundles.filter(b => b.unitIds.some(id => unownedIds.has(id)));
+  const bundleCost = activeBundles.reduce((sum, b) => sum + (b.price || 0), 0);
+  const unbundledCost = unowned
+    .filter(u => !bundledUnitIds.has(u.id))
+    .reduce((sum, u) => sum + (u.worth || 0), 0);
+  const totalCost = unbundledCost + bundleCost;
+
+  // What the bundled units would have cost bought individually, vs. what the
+  // bundle(s) actually charge — only meaningful once those units are priced.
+  const bundleIndividualTotal = activeBundles.reduce((sum, b) => {
+    return sum + b.unitIds.reduce((s, id) => s + (units.find(u => u.id === id)?.worth || 0), 0);
+  }, 0);
+  const bundleSavings = bundleIndividualTotal - bundleCost;
+
   const hobbyPointsAdded = unowned.reduce((sum, u) => sum + unitHobbyPoints(u), 0);
   const costPerPoint = hobbyPointsAdded > 0 ? totalCost / hobbyPointsAdded : null;
 
@@ -365,6 +419,17 @@ export function projectionAnalysis(projection) {
     workingLines.push(
       `Ratings: Personal ${ratings.personal}/5 + Thematic ${ratings.thematic}/5 + Power ${ratings.power}/5 = ${ratingSum}/15 → average ${avgRating.toFixed(1)}/5 → rating score ${ratingScore10.toFixed(1)}/10`
     );
+    if (activeBundles.length > 0) {
+      const bundleNames = activeBundles.map(b => b.name).join(', ');
+      const savingsNote = bundleIndividualTotal === 0
+        ? ' (price the bundled units individually to see the saving)'
+        : bundleSavings > 0
+          ? `, saving £${bundleSavings.toFixed(0)} vs £${bundleIndividualTotal.toFixed(0)} bought separately`
+          : bundleSavings < 0
+            ? `, £${Math.abs(bundleSavings).toFixed(0)} more than buying those units separately`
+            : ', same total as buying those units separately';
+      workingLines.push(`Bundled: ${bundleNames} — £${bundleCost.toFixed(0)} for the set${savingsNote}`);
+    }
     if (valueScore10 !== null) {
       workingLines.push(
         `Cost: £${totalCost.toFixed(0)} for ${unowned.length} unowned item${unowned.length !== 1 ? 's' : ''} adding ${hobbyPointsAdded} hobby points → £${costPerPoint.toFixed(2)}/point`
@@ -395,6 +460,7 @@ export function projectionAnalysis(projection) {
   return {
     totalCost, hobbyPointsAdded, costPerPoint,
     unownedCount: unowned.length, ownedCount: units.length - unowned.length,
+    activeBundles, bundleCost, bundleSavings,
     ratings, avgRating, ratingScore10, baselineCostPerPoint, valueScore10, finalScore,
     verdict, verdictLabel, verdictIcon, workingLines, budgetWarning, nothingToBuy
   };
@@ -943,9 +1009,10 @@ function ratingRow(field, label, value) {
   `;
 }
 
-function projectionUnitRow(u) {
+function projectionUnitRow(u, proj) {
   const type = u.modelTypeId ? getModelType(u.modelTypeId) : null;
   const pts = unitHobbyPoints(u);
+  const bundle = (proj.bundles || []).find(b => b.unitIds.includes(u.id));
   return `
     <div class="queue-entry ${u.owned ? 'qm-unit-owned' : ''}" data-unit-id="${u.id}">
       <div class="queue-entry-main">
@@ -955,15 +1022,43 @@ function projectionUnitRow(u) {
           </label>
           <span class="queue-entry-name">${u.name} <span class="queue-entry-qty">×${u.quantity}</span></span>
           ${type ? `<span class="sys-tag theme-default">${type.name}</span>` : ''}
+          ${bundle ? `<span class="qm-bundle-tag">🎁 ${bundle.name}</span>` : ''}
         </div>
         <div class="queue-entry-note">
           ${u.owned
             ? `Already secured — not counted in cost or points added.`
-            : `£<input type="number" class="form-input qm-unit-worth" data-unit-worth="${u.id}" min="0" step="0.01" value="${u.worth || 0}"> for ${pts} hobby pt${pts !== 1 ? 's' : ''}`
+            : `£<input type="number" class="form-input qm-unit-worth" data-unit-worth="${u.id}" min="0" step="0.01" value="${u.worth || 0}"> for ${pts} hobby pt${pts !== 1 ? 's' : ''}${bundle ? ` <em>— individual price, for bundle savings only; ${bundle.name}'s own price is what counts</em>` : ''}`
           }
         </div>
         <div class="queue-entry-actions">
           <button class="btn btn-sm btn-danger" data-unit-delete="${u.id}">✕</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function projectionBundleRow(proj, bundle) {
+  const members = bundle.unitIds.map(id => proj.units.find(u => u.id === id)).filter(Boolean);
+  const individualTotal = members.reduce((sum, u) => sum + (u.worth || 0), 0);
+  const savings = individualTotal - (bundle.price || 0);
+  return `
+    <div class="queue-entry" data-bundle-id="${bundle.id}">
+      <div class="queue-entry-main">
+        <div class="queue-entry-info">
+          <span class="queue-entry-name">🎁 ${bundle.name}</span>
+          <span class="queue-entry-qty">£<input type="number" class="form-input qm-unit-worth" data-bundle-price="${bundle.id}" min="0" step="0.01" value="${bundle.price || 0}"></span>
+        </div>
+        <div class="queue-entry-note">${members.map(m => `${m.name} ×${m.quantity}`).join(', ') || '(no units assigned)'}</div>
+        ${individualTotal > 0 ? `
+          <div class="queue-entry-note">
+            ${savings > 0 ? `💰 Saves £${savings.toFixed(0)} vs £${individualTotal.toFixed(0)} bought separately`
+              : savings < 0 ? `⚠️ £${Math.abs(savings).toFixed(0)} more than buying those units separately`
+              : 'Same total as buying those units separately'}
+          </div>
+        ` : ''}
+        <div class="queue-entry-actions">
+          <button class="btn btn-sm btn-danger" data-bundle-delete="${bundle.id}">✕</button>
         </div>
       </div>
     </div>
@@ -993,6 +1088,7 @@ function renderProjectionAnalysisBlock(body, proj) {
           <div class="pile-item"><span class="pile-item-name">Cost to acquire</span><span class="pile-item-qty">£${a.totalCost.toFixed(0)}</span></div>
           <div class="pile-item"><span class="pile-item-name">Hobby points added</span><span class="pile-item-qty">${a.hobbyPointsAdded}</span></div>
           ${a.costPerPoint !== null ? `<div class="pile-item"><span class="pile-item-name">Cost per hobby point</span><span class="pile-item-qty">£${a.costPerPoint.toFixed(2)}</span></div>` : ''}
+          ${a.activeBundles.length > 0 && a.bundleSavings !== 0 ? `<div class="pile-item"><span class="pile-item-name">Bundle savings</span><span class="pile-item-qty">${a.bundleSavings > 0 ? `£${a.bundleSavings.toFixed(0)} saved` : `£${Math.abs(a.bundleSavings).toFixed(0)} more`}</span></div>` : ''}
         </div>
         ${a.budgetWarning ? `<p class="form-hint" style="color:var(--danger)">${a.budgetWarning}</p>` : ''}
         <div class="qm-working">
@@ -1045,10 +1141,24 @@ function renderProjectionDetail(body, container, projId) {
       </div>
     ` : `
       <div class="queue-entries">
-        ${proj.units.map(u => projectionUnitRow(u)).join('')}
+        ${proj.units.map(u => projectionUnitRow(u, proj)).join('')}
       </div>
     `}
     <div id="qmProjAddUnitForm"></div>
+
+    <div class="queue-header" style="margin-top:1em">
+      <h2 class="queue-name" style="font-size:1em">Bundles</h2>
+      <div class="queue-header-actions">
+        <button class="btn btn-sm" id="qmProjAddBundleBtn">+ Add Bundle</button>
+      </div>
+    </div>
+    <p class="form-hint">Group units bought together at a box-set price — a Combat Patrol, for example — instead of paying for them one by one.</p>
+    ${(proj.bundles || []).length === 0 ? '' : `
+      <div class="queue-entries">
+        ${proj.bundles.map(b => projectionBundleRow(proj, b)).join('')}
+      </div>
+    `}
+    <div id="qmProjAddBundleForm"></div>
 
     <div class="dash-card" style="margin-top:1em">
       <h3>Ratings</h3>
@@ -1111,6 +1221,20 @@ function renderProjectionDetail(body, container, projId) {
   });
 
   body.querySelector('#qmProjAddUnitBtn').addEventListener('click', () => renderProjectionAddUnitForm(body, container, proj.id));
+
+  body.querySelectorAll('[data-bundle-price]').forEach(inp => {
+    inp.addEventListener('input', e => {
+      updateProjectionBundle(proj.id, inp.dataset.bundlePrice, { price: parseFloat(e.target.value) || 0 });
+      renderProjectionAnalysisBlock(body, appData.projections[proj.id]);
+    });
+  });
+  body.querySelectorAll('[data-bundle-delete]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      deleteProjectionBundle(proj.id, btn.dataset.bundleDelete);
+      renderProjectionDetail(body, container, proj.id);
+    });
+  });
+  body.querySelector('#qmProjAddBundleBtn').addEventListener('click', () => renderProjectionAddBundleForm(body, container, proj.id));
 
   body.querySelectorAll('.qm-star-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1176,6 +1300,58 @@ function renderProjectionAddUnitForm(body, container, projId) {
       modelTypeId: formEl.querySelector('#qmUnitType').value || null,
       owned: formEl.querySelector('#qmUnitOwned').value === '1',
       worth: parseFloat(formEl.querySelector('#qmUnitWorth').value) || 0
+    });
+    renderProjectionDetail(body, container, projId);
+  });
+}
+
+// Inline "add bundle" mini-form — pick ≥2 units not already in another
+// bundle and give the set a single box price. Appended below the bundle
+// list, same pattern as the add-item form above.
+function renderProjectionAddBundleForm(body, container, projId) {
+  const proj = appData.projections[projId];
+  const formEl = body.querySelector('#qmProjAddBundleForm');
+  const bundledIds = new Set((proj.bundles || []).flatMap(b => b.unitIds));
+  const available = proj.units.filter(u => !bundledIds.has(u.id));
+
+  formEl.innerHTML = `
+    <div class="dash-card" style="margin-top:0.5em">
+      <div class="form-group">
+        <label>Bundle Name</label>
+        <input id="qmBundleName" type="text" class="form-input" placeholder="e.g. Combat Patrol">
+      </div>
+      <div class="form-group">
+        <label>Bundle Price (£)</label>
+        <input id="qmBundlePrice" type="number" class="form-input" min="0" step="0.01" value="0">
+      </div>
+      <div class="form-group">
+        <label>Units in this bundle</label>
+        ${available.length === 0 ? `<p class="empty-text">Every unit is already in a bundle.</p>` : `
+          <div class="qm-bundle-picker">
+            ${available.map(u => `
+              <label class="qm-owned-check">
+                <input type="checkbox" class="qm-bundle-unit-cb" value="${u.id}"> ${u.name} ×${u.quantity}${u.owned ? ' (owned)' : ''}
+              </label>
+            `).join('')}
+          </div>
+        `}
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary" id="qmBundleAddSave">Add Bundle</button>
+        <button class="btn" id="qmBundleAddCancel">Cancel</button>
+      </div>
+    </div>
+  `;
+  formEl.querySelector('#qmBundleAddCancel').addEventListener('click', () => { formEl.innerHTML = ''; });
+  formEl.querySelector('#qmBundleAddSave')?.addEventListener('click', () => {
+    const name = formEl.querySelector('#qmBundleName').value.trim();
+    if (!name) { toast('Please name the bundle', 'error'); return; }
+    const unitIds = [...formEl.querySelectorAll('.qm-bundle-unit-cb:checked')].map(cb => cb.value);
+    if (unitIds.length < 2) { toast('Pick at least 2 units to bundle together', 'error'); return; }
+    addProjectionBundle(projId, {
+      name,
+      price: parseFloat(formEl.querySelector('#qmBundlePrice').value) || 0,
+      unitIds
     });
     renderProjectionDetail(body, container, projId);
   });
@@ -1310,9 +1486,11 @@ function buildProjectionShareText(proj) {
 
   const unitLines = proj.units.map(u => {
     const pts = unitHobbyPoints(u);
+    const bundle = (proj.bundles || []).find(b => b.unitIds.includes(u.id));
+    const bundleTag = bundle ? ` [🎁 ${bundle.name}]` : '';
     return u.owned
       ? `✅ ${u.name} ×${u.quantity} — already owned`
-      : `⬜ ${u.name} ×${u.quantity} — £${(u.worth || 0).toFixed(0)}, ${pts} pt${pts !== 1 ? 's' : ''}`;
+      : `⬜ ${u.name} ×${u.quantity}${bundleTag} — £${(u.worth || 0).toFixed(0)}, ${pts} pt${pts !== 1 ? 's' : ''}`;
   }).join('\n');
 
   const lines = [
