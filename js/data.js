@@ -87,13 +87,13 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Cavalry',
     builtIn: true,
     stages: [
-      { id: 's1', name: 'Assembly',  points: 3, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 6, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 8, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 6, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 3, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -101,13 +101,13 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Monster / Large',
     builtIn: true,
     stages: [
-      { id: 's1', name: 'Assembly',  points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 4, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 3, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 3, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 18, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 9,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 18, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 14, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 9,  phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 18, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 14, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -115,13 +115,13 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Behemoth',
     builtIn: true,
     stages: [
-      { id: 's1', name: 'Assembly',  points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 6, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 4, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 6, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 4, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 38, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 19, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 37, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 25, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 19, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 37, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 25, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -130,15 +130,15 @@ export const BUILTIN_MODEL_TYPES = [
     builtIn: true,
     defaultSkipped: ['s8', 's9'],
     stages: [
-      { id: 's1', name: 'Assembly',     points: 2, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's1', name: 'Assembly',     points: 3, phase: 'assembly', skippable: false, threshold: 'table_ready' },
       { id: 's2', name: 'Prime',        points: 1, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',     points: 4, phase: 'painting', skippable: false, threshold: null },
       { id: 's4', name: 'Shade',        points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',        points: 3, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight',    points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Face Detail',  points: 3, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's8', name: 'Freehand',     points: 4, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's9', name: 'OSL',          points: 4, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's5', name: 'Layer',        points: 4, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight',    points: 5, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Face Detail',  points: 4, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's8', name: 'Freehand',     points: 5, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's9', name: 'OSL',          points: 5, phase: 'painting', skippable: true,  threshold: null },
       { id: 's10', name: 'Basing',      points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
@@ -177,12 +177,12 @@ export const BUILTIN_MODEL_TYPES = [
     // stand) rather than a scenic base, so Highlight is the final stage and
     // carries the 'finished' threshold directly.
     stages: [
-      { id: 's1', name: 'Assembly',  points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 5, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 6, phase: 'painting', skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 12, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 6,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 10, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 4,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 6,  phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 12, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -193,27 +193,27 @@ export const BUILTIN_MODEL_TYPES = [
     // proportionally rather than being an arbitrary round number. No Basing
     // stage — see Light Vehicle.
     stages: [
-      { id: 's1', name: 'Assembly',  points: 12, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 6,  phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 10, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 4,  phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 6,  phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 12, phase: 'painting', skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 24, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 12, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 20, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 8,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 12, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 24, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
     id: 'super_heavy_vehicle',
     name: 'Super-Heavy Vehicle',
     builtIn: true,
-    // Baneblade-chassis tanks, gargants, and titans — triple a Light
-    // Vehicle's stage points (25 → 75). No Basing stage — see Light Vehicle.
+    // Baneblade-chassis tanks, gargants, and titans — quadruple a Light
+    // Vehicle's stage points (50 → 200). No Basing stage — see Light Vehicle.
     stages: [
-      { id: 's1', name: 'Assembly',  points: 18, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 9,  phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 15, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 6,  phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 9,  phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 18, phase: 'painting', skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 48, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 24, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 40, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 16, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 24, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 48, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -225,12 +225,12 @@ export const BUILTIN_MODEL_TYPES = [
     // icon instead of the tracked-tank icon in the pile pictogram. No Basing
     // stage — skimmers mount on a flight stand instead of a scenic base.
     stages: [
-      { id: 's1', name: 'Assembly',  points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 5, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 6, phase: 'painting', skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 12, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 6,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 10, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 4,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 6,  phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 12, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -241,27 +241,27 @@ export const BUILTIN_MODEL_TYPES = [
     // Super-Heavy split used for tracked Vehicles. No Basing stage — see
     // Light Skimmer.
     stages: [
-      { id: 's1', name: 'Assembly',  points: 12, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 6,  phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 10, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 4,  phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 6,  phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 12, phase: 'painting', skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 24, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 12, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 20, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 8,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 12, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 24, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
     id: 'super_heavy_skimmer',
     name: 'Super-Heavy Skimmer',
     builtIn: true,
-    // Superheavy flyers/grav-tanks (e.g. Tau Manta) — triple a Light
-    // Skimmer's stage points (25 → 75). No Basing stage — see Light Skimmer.
+    // Superheavy flyers/grav-tanks (e.g. Tau Manta) — quadruple a Light
+    // Skimmer's stage points (50 → 200). No Basing stage — see Light Skimmer.
     stages: [
-      { id: 's1', name: 'Assembly',  points: 18, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 9,  phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 15, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 6,  phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 9,  phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 18, phase: 'painting', skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 48, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 24, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 40, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 16, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 24, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 48, phase: 'painting', skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -283,13 +283,13 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Swarm',
     builtIn: true,
     stages: [
-      { id: 's1', name: 'Assembly',  points: 1, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 1, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 3, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 1, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 1, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 1, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 2, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 6, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 2, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -297,13 +297,13 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Jetbike',
     builtIn: true,
     stages: [
-      { id: 's1', name: 'Assembly',  points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 4, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 3, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 7, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 6, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 3, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 5, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 3, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -311,13 +311,13 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Monstrous Cavalry',
     builtIn: true,
     stages: [
-      { id: 's1', name: 'Assembly',  points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 4, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',     points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',     points: 2, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight', points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 3, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 8, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 7, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',     points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',     points: 4, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight', points: 7, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 6, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -325,14 +325,14 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Chariot',
     builtIn: true,
     stages: [
-      { id: 's1', name: 'Assembly',     points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',        points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',     points: 4, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',        points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',        points: 2, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight',    points: 3, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Crew Detail',  points: 2, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's8', name: 'Basing',       points: 3, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',     points: 9, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',        points: 5, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',     points: 9, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',        points: 5, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',        points: 4, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight',    points: 7, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Crew Detail',  points: 4, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's8', name: 'Basing',       points: 7, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -340,14 +340,14 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Character on Horseback',
     builtIn: true,
     stages: [
-      { id: 's1', name: 'Assembly',     points: 3, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',        points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',     points: 6, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',        points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',        points: 3, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight',    points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Horse Detail', points: 3, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's8', name: 'Face Detail',  points: 2, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's1', name: 'Assembly',     points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',        points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',     points: 8, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',        points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',        points: 4, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight',    points: 5, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Horse Detail', points: 4, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's8', name: 'Face Detail',  points: 3, phase: 'painting', skippable: true,  threshold: null },
       { id: 's9', name: 'Basing',       points: 1, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
@@ -356,14 +356,14 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Walker / Dreadnought',
     builtIn: true,
     stages: [
-      { id: 's1', name: 'Assembly',     points: 5, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',        points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',     points: 5, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Shade',        points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Layer',        points: 2, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's6', name: 'Highlight',    points: 4, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Panel Detail', points: 2, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's8', name: 'Basing',       points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',     points: 11, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',        points: 4,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',     points: 11, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Shade',        points: 4,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Layer',        points: 4,  phase: 'painting', skippable: true,  threshold: null },
+      { id: 's6', name: 'Highlight',    points: 8,  phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Panel Detail', points: 4,  phase: 'painting', skippable: true,  threshold: null },
+      { id: 's8', name: 'Basing',       points: 4,  phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
@@ -371,33 +371,159 @@ export const BUILTIN_MODEL_TYPES = [
     name: 'Character on Ridden Monster',
     builtIn: true,
     stages: [
-      { id: 's1',  name: 'Assembly',         points: 6, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2',  name: 'Prime',            points: 3, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3',  name: 'Monster Basecoat', points: 5, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4',  name: 'Monster Shade',    points: 3, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5',  name: 'Rider Basecoat',   points: 3, phase: 'painting', skippable: false, threshold: null },
-      { id: 's6',  name: 'Rider Shade',      points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's7',  name: 'Layer',            points: 3, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's8',  name: 'Highlight',        points: 5, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's9',  name: 'Face Detail',      points: 2, phase: 'painting', skippable: true,  threshold: null },
-      { id: 's10', name: 'Basing',           points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's1',  name: 'Assembly',         points: 22, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2',  name: 'Prime',            points: 11, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3',  name: 'Monster Basecoat', points: 19, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4',  name: 'Monster Shade',    points: 11, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5',  name: 'Rider Basecoat',   points: 11, phase: 'painting', skippable: false, threshold: null },
+      { id: 's6',  name: 'Rider Shade',      points: 7,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's7',  name: 'Layer',            points: 11, phase: 'painting', skippable: true,  threshold: null },
+      { id: 's8',  name: 'Highlight',        points: 19, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's9',  name: 'Face Detail',      points: 7,  phase: 'painting', skippable: true,  threshold: null },
+      { id: 's10', name: 'Basing',           points: 7,  phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  // Terrain splits four ways rather than sitting under one entry: a barricade
+  // and a Fortress of Redemption are the same seven stages but nowhere near
+  // the same evening. Scatter/Building/Fortification keep the original
+  // proportions and just scale; Natural leans on Drybrush, which is where
+  // nearly all the work on a hill or a wood actually goes.
+  {
+    id: 'terrain_scatter',
+    name: 'Scatter / Objective',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 2, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 1, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Drybrush',  points: 2, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Wash',      points: 1, phase: 'painting', skippable: false, threshold: null },
+      { id: 's6', name: 'Details',   points: 1, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 1, phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'terrain_natural',
+    name: 'Natural (Woods, Hills)',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 3, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 5, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Drybrush',  points: 9, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Wash',      points: 4, phase: 'painting', skippable: false, threshold: null },
+      { id: 's6', name: 'Details',   points: 3, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 2, phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
   {
     id: 'terrain',
-    name: 'Terrain / Scenery',
+    name: 'Building / Ruin',
     builtIn: true,
     stages: [
-      { id: 's1', name: 'Assembly',  points: 4, phase: 'assembly', skippable: false, threshold: 'table_ready' },
-      { id: 's2', name: 'Prime',     points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's3', name: 'Basecoat',  points: 3, phase: 'painting', skippable: false, threshold: null },
-      { id: 's4', name: 'Drybrush',  points: 4, phase: 'painting', skippable: false, threshold: null },
-      { id: 's5', name: 'Wash',      points: 2, phase: 'painting', skippable: false, threshold: null },
-      { id: 's6', name: 'Details',   points: 2, phase: 'painting', skippable: true,  threshold: 'painted' },
-      { id: 's7', name: 'Basing',    points: 1, phase: 'basing',   skippable: true,  threshold: 'finished' },
+      { id: 's1', name: 'Assembly',  points: 11, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 6,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 8,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Drybrush',  points: 11, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Wash',      points: 6,  phase: 'painting', skippable: false, threshold: null },
+      { id: 's6', name: 'Details',   points: 6,  phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 2,  phase: 'basing',   skippable: true,  threshold: 'finished' },
+    ]
+  },
+  {
+    id: 'terrain_fortification',
+    name: 'Fortification',
+    builtIn: true,
+    stages: [
+      { id: 's1', name: 'Assembly',  points: 27, phase: 'assembly', skippable: false, threshold: 'table_ready' },
+      { id: 's2', name: 'Prime',     points: 13, phase: 'painting', skippable: false, threshold: null },
+      { id: 's3', name: 'Basecoat',  points: 20, phase: 'painting', skippable: false, threshold: null },
+      { id: 's4', name: 'Drybrush',  points: 27, phase: 'painting', skippable: false, threshold: null },
+      { id: 's5', name: 'Wash',      points: 13, phase: 'painting', skippable: false, threshold: null },
+      { id: 's6', name: 'Details',   points: 13, phase: 'painting', skippable: true,  threshold: 'painted' },
+      { id: 's7', name: 'Basing',    points: 7,  phase: 'basing',   skippable: true,  threshold: 'finished' },
     ]
   },
 ];
+
+// --- Hobby point rescale (scale 2) ---
+//
+// Stage points used to sit far too close together: a rank-and-file infantry
+// model scored 10 and a Baneblade only 75, so with modelPoints() multiplying
+// by squad size, one box of infantry outscored seven super-heavies. Scale 2
+// re-pegs every type against a single infantry model (still 10 points) using
+// the infantry-equivalents below, keeping each type's stage-to-stage
+// proportions intact. Batch size stays linear on purpose — painting 100
+// guardsmen genuinely is twenty times the slog of painting 5.
+//
+//   swarm 2 · jetbike/cavalry 3 · monstrous cavalry 4 · chariot/walker 5
+//   light vehicle/skimmer 5 · monster 10 · large vehicle/skimmer 10
+//   character on foot 2.5 (as-default) · on horse 3.5 · on monster 12.5
+//   behemoth 20 · super-heavies 20
+//
+// Points a built-in type's stages carried before the rescale. Models snapshot
+// their stage table at creation (see createModel), so without this the old
+// scale would live on in every existing entry and quietly mix with the new
+// one. Types whose totals didn't move (infantry, jump infantry, monstrous
+// infantry, war machine) are absent — there is nothing to migrate.
+const LEGACY_TYPE_POINTS = {
+  cavalry: { s1: 3, s2: 2, s3: 6, s4: 2, s5: 2, s6: 4, s7: 2 },
+  monster: { s1: 4, s2: 2, s3: 4, s4: 3, s5: 2, s6: 4, s7: 3 },
+  behemoth: { s1: 6, s2: 3, s3: 6, s4: 4, s5: 3, s6: 6, s7: 4 },
+  character: { s1: 2, s2: 1, s3: 3, s4: 2, s5: 3, s6: 4, s7: 3, s8: 4, s9: 4, s10: 2 },
+  vehicle: { s1: 6, s2: 3, s3: 5, s4: 2, s5: 3, s6: 6 },
+  large_vehicle: { s1: 12, s2: 6, s3: 10, s4: 4, s5: 6, s6: 12 },
+  super_heavy_vehicle: { s1: 18, s2: 9, s3: 15, s4: 6, s5: 9, s6: 18 },
+  skimmer: { s1: 6, s2: 3, s3: 5, s4: 2, s5: 3, s6: 6 },
+  large_skimmer: { s1: 12, s2: 6, s3: 10, s4: 4, s5: 6, s6: 12 },
+  super_heavy_skimmer: { s1: 18, s2: 9, s3: 15, s4: 6, s5: 9, s6: 18 },
+  swarm: { s1: 1, s2: 1, s3: 2, s4: 3, s5: 1, s6: 1, s7: 1 },
+  jetbike: { s1: 4, s2: 2, s3: 4, s4: 2, s5: 2, s6: 3, s7: 2 },
+  monstrous_cavalry: { s1: 4, s2: 2, s3: 4, s4: 2, s5: 2, s6: 4, s7: 3 },
+  chariot: { s1: 4, s2: 2, s3: 4, s4: 2, s5: 2, s6: 3, s7: 2, s8: 3 },
+  character_horse: { s1: 3, s2: 2, s3: 6, s4: 2, s5: 3, s6: 4, s7: 3, s8: 2, s9: 1 },
+  walker: { s1: 5, s2: 2, s3: 5, s4: 2, s5: 2, s6: 4, s7: 2, s8: 2 },
+  character_monster: { s1: 6, s2: 3, s3: 5, s4: 3, s5: 3, s6: 2, s7: 3, s8: 5, s9: 2, s10: 2 },
+  terrain: { s1: 4, s2: 2, s3: 3, s4: 4, s5: 2, s6: 2, s7: 1 },
+};
+
+export const HOBBY_POINT_SCALE = 2;
+
+// Re-point one snapshotted stage table onto the current scale. A stage is only
+// rewritten when it still carries exactly the old built-in value — anything
+// else is a number the user typed by hand on that model, and deliberate
+// tuning outranks a bulk rescale. Returns true if anything changed.
+function repointStages(stages, typeId) {
+  const legacy = LEGACY_TYPE_POINTS[typeId];
+  const current = BUILTIN_MODEL_TYPES.find(t => t.id === typeId);
+  if (!legacy || !current || !Array.isArray(stages)) return false;
+  let changed = false;
+  stages.forEach(s => {
+    const was = legacy[s.id];
+    const now = current.stages.find(c => c.id === s.id)?.points;
+    if (was === undefined || now === undefined) return;
+    if (s.points !== was || s.points === now) return;
+    s.points = now;
+    changed = true;
+  });
+  return changed;
+}
+
+// One-time lift of existing data onto the current point scale. Progress is
+// stored as per-stage model counts and sessions as {modelId, stageId, qty},
+// so nothing here touches history — totals and velocity simply recompute
+// against the new stage values. Returns true when it ran, so the caller knows
+// the result still needs persisting.
+function migrateHobbyPointScale() {
+  if (appData.config.hobbyPointScale >= HOBBY_POINT_SCALE) return false;
+  Object.values(appData.models).forEach(m => {
+    if (m.modelTypeId) repointStages(m.stages, m.modelTypeId);
+  });
+  const overrides = appData.config.modelTypeOverrides || {};
+  Object.entries(overrides).forEach(([typeId, stages]) => repointStages(stages, typeId));
+  appData.config.hobbyPointScale = HOBBY_POINT_SCALE;
+  return true;
+}
 
 // Get all model types (built-in + custom), applying any user overrides to built-in stages
 export function getAllModelTypes() {
@@ -421,7 +547,7 @@ export const TYPE_GROUPS = {
   'Large':          ['monster', 'walker', 'behemoth'],
   'Characters':     ['character', 'character_horse', 'character_monster'],
   'Vehicles':       ['warmachine', 'vehicle', 'skimmer', 'large_vehicle', 'super_heavy_vehicle', 'large_skimmer', 'super_heavy_skimmer'],
-  'Special':        ['terrain'],
+  'Terrain':        ['terrain_scatter', 'terrain_natural', 'terrain', 'terrain_fortification'],
 };
 
 export const MODEL_GROUP_ORDER = [...Object.keys(TYPE_GROUPS), 'Custom', 'Other'];
@@ -492,6 +618,7 @@ export let appData = {
     pieChartMode: 'count',
     monthlyBudgetGBP: 0,
     budgetPeriod: 'monthly', // 'monthly' | 'annual' — display/input preference; monthlyBudgetGBP stays the source of truth
+    hobbyPointScale: HOBBY_POINT_SCALE, // stage-point scale this data is on; older values are lifted by migrateHobbyPointScale()
     tipsDismissed: [], // tip ids the user asked never to see again
     tipsSnoozed: {}    // tip id -> ISO date string; hidden until that date passes
   },
@@ -574,10 +701,12 @@ export function loadData() {
           pieChartMode: parsed.config?.pieChartMode || 'count',
           monthlyBudgetGBP: parsed.config?.monthlyBudgetGBP || 0,
           budgetPeriod: parsed.config?.budgetPeriod || 'monthly',
+          hobbyPointScale: parsed.config?.hobbyPointScale || 1,
           tipsDismissed: parsed.config?.tipsDismissed || [],
           tipsSnoozed: parsed.config?.tipsSnoozed || {}
         }
       };
+      if (migrateHobbyPointScale()) saveData();
     }
   } catch (e) {
     console.error('Failed to load data:', e);
@@ -627,9 +756,11 @@ export function replaceData(parsed) {
       imageSize: parsed.config?.imageSize || 'small',
       pieChartMode: parsed.config?.pieChartMode || 'count',
       monthlyBudgetGBP: parsed.config?.monthlyBudgetGBP || 0,
-      budgetPeriod: parsed.config?.budgetPeriod || 'monthly'
+      budgetPeriod: parsed.config?.budgetPeriod || 'monthly',
+      hobbyPointScale: parsed.config?.hobbyPointScale || 1
     }
   };
+  migrateHobbyPointScale();
   saveData();
 }
 

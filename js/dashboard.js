@@ -523,7 +523,7 @@ const GROUP_CLASS = {
   'Large':          'fig-grp-large',
   'Characters':     'fig-grp-characters',
   'Vehicles':       'fig-grp-vehicles',
-  'Special':        'fig-grp-special',
+  'Terrain':        'fig-grp-special',
   'Custom':         'fig-grp-custom',
   'Other':          'fig-grp-other',
 };
