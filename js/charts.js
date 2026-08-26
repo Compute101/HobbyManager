@@ -1,6 +1,7 @@
 // charts.js — all Chart.js rendering
 
 import { appData, GAME_SYSTEMS, modelPoints, modelThresholdBreakdown, stageCap, saveData, unstartedCount } from './data.js';
+import { localDateStr } from './ui.js';
 
 // Track chart instances so we can destroy before re-creating
 const _charts = {};
@@ -400,17 +401,32 @@ export function renderBurndown(canvasId, models, deadline) {
 // cumulative snapshot attributed entirely to whichever date a stage was last
 // touched (so partial progress logged earlier gets silently swallowed into
 // the most recent date, badly distorting day-to-day velocity).
+//
+// Historical entries (logged with no session time) are backfilled records of
+// work finished at some unknown point in the past — their date is only the day
+// they were typed into the app, not when the painting happened. They count as
+// a starting baseline of work already done, never as activity on that date, so
+// a big backfill can't masquerade as a burst of recent painting and inflate
+// the trailing-30-day velocity. Same rule the activity calendar already uses.
 export function pileBurndownStats() {
+  const sessionPoints = s => (s.modelEntries || []).reduce((acc, e) => {
+    const model = appData.models[e.modelId];
+    if (!model) return acc;
+    const stage = (model.stages || appData.config.stages).find(st => st.id === e.stageId);
+    return acc + (stage?.points || 1) * (e.qty || 0);
+  }, 0);
+
   const byDay = {};
+  let baselinePoints = 0;
+  let historicalSessions = 0;
   (appData.sessions || []).forEach(s => {
+    if (!s.duration) {
+      baselinePoints += sessionPoints(s);
+      historicalSessions++;
+      return;
+    }
     if (!s.date) return;
-    const pts = (s.modelEntries || []).reduce((acc, e) => {
-      const model = appData.models[e.modelId];
-      if (!model) return acc;
-      const stage = (model.stages || appData.config.stages).find(st => st.id === e.stageId);
-      return acc + (stage?.points || 1) * (e.qty || 0);
-    }, 0);
-    byDay[s.date] = (byDay[s.date] || 0) + pts;
+    byDay[s.date] = (byDay[s.date] || 0) + sessionPoints(s);
   });
 
   const pileRemainingPoints = Object.values(appData.models)
@@ -432,7 +448,7 @@ export function pileBurndownStats() {
     clearDate = new Date(Date.now() + daysToClear * 86400000).toISOString().split('T')[0];
   }
 
-  return { byDay, sortedDates, todayStr, pileRemainingPoints, velocity, daysToClear, clearDate };
+  return { byDay, sortedDates, todayStr, pileRemainingPoints, velocity, daysToClear, clearDate, baselinePoints, historicalSessions };
 }
 
 // Shared "how fast am I painting" rate (pts/day), used by both Sprint capacity
@@ -462,17 +478,26 @@ export function renderPileBurndown(canvasId) {
   if (!canvas) return;
   destroyChart(canvasId);
 
-  const { byDay, sortedDates, todayStr, pileRemainingPoints, daysToClear, clearDate } = pileBurndownStats();
+  const { byDay, sortedDates, todayStr, pileRemainingPoints, daysToClear, clearDate, baselinePoints } = pileBurndownStats();
 
-  let cum = 0;
+  // Historical (undated) work is where the line starts, not a step on the day
+  // it was entered — so the cumulative total opens at the baseline.
+  let cum = baselinePoints;
   const cumulativeDates = sortedDates.map(d => { cum += byDay[d]; return { d, cum }; });
   const totalDone = cum;
 
   const allDates = new Set([...sortedDates, todayStr]);
   const dateRange = [...allDates].sort();
 
-  let cumSoFar = 0;
+  let cumSoFar = baselinePoints;
   const actualData = [];
+  // Anchor the baseline the day before the first real session so it reads as
+  // the starting level rather than being folded into that day's jump.
+  if (baselinePoints > 0 && dateRange.length) {
+    const anchor = new Date(dateRange[0] + 'T00:00:00');
+    anchor.setDate(anchor.getDate() - 1);
+    actualData.push({ x: localDateStr(anchor), y: baselinePoints });
+  }
   dateRange.forEach(d => {
     const entry = cumulativeDates.find(e => e.d === d);
     if (entry) cumSoFar = entry.cum;
