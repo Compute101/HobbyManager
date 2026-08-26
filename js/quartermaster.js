@@ -3,7 +3,7 @@
 import {
   appData, saveData, uid, unstartedCount, createModel, updateModel, GAME_SYSTEMS,
   resolveGameSystemId, greyBrigadeCount, modelPoints, getModelType, singleModelPoints,
-  getAllModelTypes
+  getAllModelTypes, resolveModelGroup
 } from './data.js';
 import { toast, today, formatDate } from './ui.js';
 import { parseOwbList } from './owb-import.js';
@@ -209,8 +209,42 @@ export function deleteProjectionBundle(projId, bundleId) {
 // stub rather than a real pooled model.
 export function unitHobbyPoints(unit) {
   const type = unit.modelTypeId ? getModelType(unit.modelTypeId) : null;
-  const perModel = singleModelPoints({ stages: type?.stages || null, skippedStages: [] });
+  // Score the stub the way a real model of this type would be scored: the
+  // type's default skipped stages are off (the model form pre-ticks them, so
+  // the benchmark models this is compared against don't carry those points),
+  // and crewed types get their default crew so crew stages aren't silently
+  // worth nothing.
+  const perModel = singleModelPoints({
+    stages: type?.stages || null,
+    skippedStages: type?.defaultSkipped || [],
+    crewQuantity: type?.defaultCrewQuantity || 0
+  });
   return perModel * (unit.quantity || 1);
+}
+
+// --- Unit classes ---
+// A unit's "class" is the model type it's built from — Infantry, Light
+// Vehicle, Character, and so on. Value is judged class by class rather than
+// across a whole list, because £/hobby-point isn't comparable between them:
+// a rank of infantry is always cheap per point and a tank is always dear,
+// so pooling them makes any list with infantry in it look like good value
+// and any list without look like bad value.
+const GENERIC_CLASS_ID = '__generic__';
+
+export function unitClassId(unit) {
+  return unit.modelTypeId || GENERIC_CLASS_ID;
+}
+
+export function unitClassLabel(classId) {
+  if (classId === GENERIC_CLASS_ID) return 'Untyped';
+  return getModelType(classId)?.name || 'Unknown type';
+}
+
+// The broader family a class sits in (Infantry-scale, Vehicles, Characters,
+// …) — the second-best benchmark when you've never priced this exact class.
+function classGroup(classId) {
+  if (classId === GENERIC_CLASS_ID) return null;
+  return resolveModelGroup({ modelTypeId: classId });
 }
 
 // --- Calculations ---
@@ -258,6 +292,38 @@ export function collectionCostPerPoint(gameSystemId = null) {
     points += modelPoints(m).total;
   });
   return points > 0 ? worth / points : null;
+}
+
+// The same £/hobby-point history, cut by unit class instead of pooled — the
+// per-class benchmarks a projection's value is actually judged against.
+// Follows collectionCostPerPoint()'s two rules inside each class (only
+// priced models count; the whole collection counts, not just the pile) and
+// rolls the classes up into their groups too, so a class you've never
+// priced can still borrow a figure from its neighbours rather than falling
+// straight back to an average that mixes £1/point infantry in with
+// £6/point tanks.
+export function collectionCostPerPointByClass(gameSystemId = null) {
+  const byClass = {}, byGroup = {};
+  const add = (bucket, key, worth, points) => {
+    if (!key) return;
+    const entry = bucket[key] || (bucket[key] = { worth: 0, points: 0, modelCount: 0 });
+    entry.worth += worth;
+    entry.points += points;
+    entry.modelCount += 1;
+  };
+  Object.values(appData.models).forEach(m => {
+    if (!(m.worth > 0)) return;
+    if (gameSystemId && resolveGameSystemId(m) !== gameSystemId) return;
+    const points = modelPoints(m).total;
+    if (!(points > 0)) return;
+    const classId = unitClassId(m);
+    add(byClass, classId, m.worth, points);
+    add(byGroup, classGroup(classId), m.worth, points);
+  });
+  const finish = bucket => Object.fromEntries(
+    Object.entries(bucket).map(([k, v]) => [k, { ...v, costPerPoint: v.worth / v.points }])
+  );
+  return { byClass: finish(byClass), byGroup: finish(byGroup) };
 }
 
 export function backlogScoreMonths(gameSystemId = null) {
@@ -358,11 +424,76 @@ export function yearToDateSpend(year = new Date().getFullYear()) {
 // a projection's value against.
 const FALLBACK_COST_PER_POINT = 5;
 
+// Which £/point figure a class gets measured against, strongest evidence
+// first: the same class in the same game system, then the same class across
+// every system, then the class's wider group, then the collection-wide
+// average, and only then a flat reference. Each tier carries a label so the
+// working can say which one the score actually came from — a benchmark
+// borrowed from a group reads very differently from one built out of a
+// dozen priced models of exactly this class.
+function resolveClassBenchmark(classId, sys, scoped, allSystems, overallScoped, overallGlobal) {
+  const group = classGroup(classId);
+  const label = unitClassLabel(classId);
+  const sysTag = sys ? `${sys.shortLabel} ` : '';
+  const tiers = [
+    { stat: scoped.byClass[classId], source: `your priced ${sysTag}${label} models`, tier: 'class' }
+  ];
+  if (sys) tiers.push({ stat: allSystems.byClass[classId], source: `your priced ${label} models across all systems`, tier: 'class-all-systems' });
+  if (group) {
+    tiers.push({ stat: scoped.byGroup[group], source: `your priced ${sysTag}${group} models`, tier: 'group' });
+    if (sys) tiers.push({ stat: allSystems.byGroup[group], source: `your priced ${group} models across all systems`, tier: 'group-all-systems' });
+  }
+  tiers.push({ value: overallScoped, source: `your whole priced ${sysTag}collection`, tier: 'collection' });
+  if (sys) tiers.push({ value: overallGlobal, source: 'your whole priced collection', tier: 'collection-all-systems' });
+  tiers.push({ value: FALLBACK_COST_PER_POINT, source: `a flat £${FALLBACK_COST_PER_POINT.toFixed(2)}/point reference`, tier: 'fallback' });
+
+  for (const t of tiers) {
+    const costPerPoint = t.stat ? t.stat.costPerPoint : t.value;
+    if (costPerPoint > 0) {
+      return { costPerPoint, source: t.source, tier: t.tier, modelCount: t.stat?.modelCount || 0 };
+    }
+  }
+  return { costPerPoint: FALLBACK_COST_PER_POINT, source: 'a flat reference', tier: 'fallback', modelCount: 0 };
+}
+
+// What each unowned unit costs on its own, with bundle prices spread across
+// the units inside them. A box's price is split between its unowned members
+// in proportion to what they'd cost individually; with nothing priced, hobby
+// points stand in; failing both, it splits evenly. Owned members take no
+// share — they add no points either, so charging them would make the box
+// look worse than it is. The allocation only redistributes money that's
+// already in totalCost, so per-class costs always add back up to it.
+function allocateUnitCosts(units, activeBundles, unownedIds) {
+  const costs = new Map();
+  const bundled = new Set(activeBundles.flatMap(b => b.unitIds));
+  units.forEach(u => {
+    if (!unownedIds.has(u.id) || bundled.has(u.id)) return;
+    costs.set(u.id, u.worth || 0);
+  });
+  activeBundles.forEach(b => {
+    const members = b.unitIds
+      .map(id => units.find(u => u.id === id))
+      .filter(u => u && unownedIds.has(u.id));
+    if (members.length === 0) return;
+    const price = b.price || 0;
+    let weights = members.map(u => u.worth || 0);
+    if (weights.every(w => w <= 0)) weights = members.map(u => unitHobbyPoints(u));
+    if (weights.every(w => w <= 0)) weights = members.map(() => 1);
+    const totalWeight = weights.reduce((s, w) => s + w, 0);
+    members.forEach((u, i) => {
+      costs.set(u.id, (costs.get(u.id) || 0) + price * (weights[i] / totalWeight));
+    });
+  });
+  return costs;
+}
+
 // Cost-benefit analysis for a projection: prices and points only count the
 // unowned units (what you'd actually be buying), benchmarked against what
-// your own pile currently costs you per hobby point. Every number used in
-// the verdict is also returned in workingLines, in the order it's applied,
-// so the verdict can always show its working.
+// your own collection has cost you per hobby point — class by class, so
+// infantry is judged against infantry and tanks against tanks rather than
+// everything against one blended average. Every number used in the verdict
+// is also returned in workingLines, in the order it's applied, so the
+// verdict can always show its working.
 //
 // Bundles (box deals like a Combat Patrol) replace their members' individual
 // worths with one price for the set. A bundle counts toward cost as soon as
@@ -405,15 +536,59 @@ export function projectionAnalysis(projection) {
 
   const baseWorth = pileWorth(projection.gameSystemId);
   const baselineCostPerPoint = collectionCostPerPoint(projection.gameSystemId);
-  const referenceCostPerPoint = baselineCostPerPoint ?? FALLBACK_COST_PER_POINT;
 
-  // Only score value once the unowned items are actually priced — £0 just
-  // means "not priced yet" (the default on import), not "free", so it must
-  // not read as a maximal-value acquisition.
-  let valueScore10 = null;
-  if (costPerPoint !== null && totalCost > 0) {
-    valueScore10 = Math.max(0, Math.min(10, 5 * (referenceCostPerPoint / costPerPoint)));
-  }
+  // --- Value, scored class by class ---
+  // Each class of unit in the list is priced against the benchmark for that
+  // same class, and those per-class scores are then weighted by how much of
+  // the money goes into each. That's the whole point of the split: a squad
+  // of infantry can no longer carry a list's value score just by being
+  // cheap per point, and a tank is no longer marked down for being a tank —
+  // each only scores well by being good value *for its own kind*.
+  const overallGlobalCostPerPoint = collectionCostPerPoint(null);
+  const scopedClassStats = collectionCostPerPointByClass(projection.gameSystemId);
+  const globalClassStats = projection.gameSystemId ? collectionCostPerPointByClass(null) : scopedClassStats;
+  const unitCosts = allocateUnitCosts(units, activeBundles, unownedIds);
+
+  const classTotals = new Map();
+  unowned.forEach(u => {
+    const classId = unitClassId(u);
+    const entry = classTotals.get(classId)
+      || { classId, label: unitClassLabel(classId), unitCount: 0, modelCount: 0, cost: 0, points: 0 };
+    entry.unitCount += 1;
+    entry.modelCount += u.quantity || 1;
+    entry.cost += unitCosts.get(u.id) || 0;
+    entry.points += unitHobbyPoints(u);
+    classTotals.set(classId, entry);
+  });
+
+  // Only score a class once its units are actually priced — £0 just means
+  // "not priced yet" (the default on import), not "free", so it must not
+  // read as a maximal-value acquisition.
+  const classBreakdown = [...classTotals.values()].map(entry => {
+    const benchmark = resolveClassBenchmark(
+      entry.classId, sys, scopedClassStats, globalClassStats,
+      baselineCostPerPoint, overallGlobalCostPerPoint
+    );
+    const classCostPerPoint = entry.points > 0 && entry.cost > 0 ? entry.cost / entry.points : null;
+    const score10 = classCostPerPoint !== null
+      ? Math.max(0, Math.min(10, 5 * (benchmark.costPerPoint / classCostPerPoint)))
+      : null;
+    return {
+      ...entry,
+      costPerPoint: classCostPerPoint,
+      benchmarkCostPerPoint: benchmark.costPerPoint,
+      benchmarkSource: benchmark.source,
+      benchmarkTier: benchmark.tier,
+      benchmarkModelCount: benchmark.modelCount,
+      score10
+    };
+  }).sort((a, b) => b.cost - a.cost);
+
+  const scoredClasses = classBreakdown.filter(c => c.score10 !== null);
+  const scoredCost = scoredClasses.reduce((sum, c) => sum + c.cost, 0);
+  const valueScore10 = scoredCost > 0
+    ? scoredClasses.reduce((sum, c) => sum + c.score10 * c.cost, 0) / scoredCost
+    : null;
 
   // Pile headroom: would buying this push your backlog past what your
   // budget (and, by extension, your painting pace) can clear? Reuses the
@@ -466,12 +641,28 @@ export function projectionAnalysis(projection) {
     }
     if (valueScore10 !== null) {
       workingLines.push(
-        `Cost: £${totalCost.toFixed(0)} for ${unowned.length} unowned item${unowned.length !== 1 ? 's' : ''} adding ${hobbyPointsAdded} hobby points → £${costPerPoint.toFixed(2)}/point`
+        `Cost: £${totalCost.toFixed(0)} for ${unowned.length} unowned item${unowned.length !== 1 ? 's' : ''} adding ${hobbyPointsAdded} hobby points → £${costPerPoint.toFixed(2)}/point overall`
       );
       workingLines.push(
-        baselineCostPerPoint
-          ? `Your priced ${sys ? `${sys.shortLabel} ` : ''}models have cost £${baselineCostPerPoint.toFixed(2)}/point on average, so this scores ${valueScore10.toFixed(1)}/10 for value`
-          : `No priced ${sys ? `${sys.shortLabel} ` : ''}models to benchmark against yet, so value is scored against a flat £${FALLBACK_COST_PER_POINT.toFixed(2)}/point reference: ${valueScore10.toFixed(1)}/10`
+        `Value is scored per unit class, so cheap-per-point classes like infantry are only ever measured against their own kind:`
+      );
+      scoredClasses.forEach(c => {
+        workingLines.push(
+          `${c.label} — £${c.cost.toFixed(0)} for ${c.points} pts = £${c.costPerPoint.toFixed(2)}/point vs £${c.benchmarkCostPerPoint.toFixed(2)}/point from ${c.benchmarkSource}${c.benchmarkModelCount ? ` (${c.benchmarkModelCount} model${c.benchmarkModelCount !== 1 ? 's' : ''})` : ''} → ${c.score10.toFixed(1)}/10`
+        );
+      });
+      const unpriced = classBreakdown.filter(c => c.score10 === null && !(c.cost > 0));
+      const pointless = classBreakdown.filter(c => c.score10 === null && c.cost > 0);
+      if (unpriced.length > 0) {
+        workingLines.push(`Not scored (nothing priced yet): ${unpriced.map(c => c.label).join(', ')}`);
+      }
+      if (pointless.length > 0) {
+        workingLines.push(`Not scored (no hobby points to price against): ${pointless.map(c => c.label).join(', ')}`);
+      }
+      workingLines.push(
+        scoredClasses.length > 1
+          ? `Weighted by what each class costs you (${scoredClasses.map(c => `${c.label} ${Math.round(c.cost / scoredCost * 100)}%`).join(', ')}) → value score ${valueScore10.toFixed(1)}/10`
+          : `Value score ${valueScore10.toFixed(1)}/10`
       );
     } else {
       workingLines.push('No priced unowned items yet — value can\'t be scored.');
@@ -523,7 +714,7 @@ export function projectionAnalysis(projection) {
     totalCost, hobbyPointsAdded, costPerPoint,
     unownedCount: unowned.length, ownedCount: units.length - unowned.length,
     activeBundles, bundleCost, bundleSavings,
-    ratings, avgRating, ratingScore10, baselineCostPerPoint, valueScore10,
+    ratings, avgRating, ratingScore10, baselineCostPerPoint, valueScore10, classBreakdown,
     pileScopeLabel, currentRectitude, projectedPileWorth, projectedRectitude, pileHeadroomScore10,
     finalScore, verdict, verdictLabel, verdictIcon, workingLines,
     budgetWarning, pileWarning, nothingToBuy
@@ -1158,6 +1349,24 @@ function renderProjectionAnalysisBlock(body, proj) {
           ${a.activeBundles.length > 0 && a.bundleSavings !== 0 ? `<div class="pile-item"><span class="pile-item-name">Bundle savings</span><span class="pile-item-qty">${a.bundleSavings > 0 ? `£${a.bundleSavings.toFixed(0)} saved` : `£${Math.abs(a.bundleSavings).toFixed(0)} more`}</span></div>` : ''}
           ${a.projectedRectitude !== null ? `<div class="pile-item"><span class="pile-item-name">Rectitude after buying — ${a.pileScopeLabel}</span><span class="pile-item-qty">${fmtPct(a.currentRectitude)} → ${fmtPct(a.projectedRectitude)}</span></div>` : ''}
         </div>
+        ${a.classBreakdown.length > 0 ? `
+          <div class="qm-class-breakdown">
+            <div class="qm-working-title">Value by unit class</div>
+            <div class="pile-items">
+              ${a.classBreakdown.map(c => `
+                <div class="pile-item">
+                  <span class="pile-item-name">
+                    ${c.label} <span class="queue-entry-qty">×${c.modelCount}</span>
+                    ${c.costPerPoint !== null
+                      ? `— £${c.cost.toFixed(0)} · ${c.points} pts · £${c.costPerPoint.toFixed(2)}/pt vs £${c.benchmarkCostPerPoint.toFixed(2)}/pt for ${c.benchmarkSource}`
+                      : `— ${c.points} pts · ${c.cost > 0 ? 'no points to price against' : 'not priced yet'}`}
+                  </span>
+                  <span class="pile-item-qty ${c.score10 === null ? '' : c.score10 >= 5 ? 'qm-rect-positive' : 'qm-rect-negative'}">${c.score10 !== null ? `${c.score10.toFixed(1)}/10` : '—'}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
         ${a.budgetWarning ? `<p class="form-hint" style="color:var(--danger)">${a.budgetWarning}</p>` : ''}
         ${a.pileWarning ? `<p class="form-hint" style="color:var(--danger)">${a.pileWarning}</p>` : ''}
         <div class="qm-working">
