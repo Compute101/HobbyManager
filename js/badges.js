@@ -5,7 +5,7 @@
 // holds you to it and makes the payoff feel like an event when it lands.
 
 import {
-  appData, saveData, uid, globalStats, getAllModels, unstartedCount, modelThreshold,
+  appData, saveData, uid, globalStats, getActiveModels, unstartedCount, modelThreshold,
   modelPoints, greyBrigadeCount, getModelDateAdded,
   setBounty, clearBounty, addHallOfFameEntry, recordBadgeEarned
 } from './data.js';
@@ -34,7 +34,7 @@ export const BADGES = [
     name: 'Zero Shame',
     desc: 'Empty the Pile of Potential — nothing left on the sprue.',
     check: () => {
-      const models = getAllModels();
+      const models = getActiveModels();
       return models.length > 0 && models.every(m => unstartedCount(m) === 0);
     }
   },
@@ -44,7 +44,7 @@ export const BADGES = [
     name: 'Sprue Slayer',
     desc: 'Clear the Grey Brigade — nothing left assembled-but-unpainted.',
     check: () => {
-      const models = getAllModels();
+      const models = getActiveModels();
       const anyEverAssembled = models.some(m => modelThreshold(m) !== 'not_started');
       return anyEverAssembled && models.every(m => greyBrigadeCount(m) === 0);
     }
@@ -80,7 +80,7 @@ function bountyTier(ageDays) {
 
 // The oldest model still sitting on the sprue — the default bounty target.
 export function oldestPileModel() {
-  const candidates = getAllModels()
+  const candidates = getActiveModels()
     .map(m => ({ model: m, added: getModelDateAdded(m) }))
     .filter(e => unstartedCount(e.model) > 0);
   if (!candidates.length) return null;

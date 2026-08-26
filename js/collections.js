@@ -5,7 +5,7 @@ import {
   createList, deleteList, addModelToList, removeModelFromList,
   setModelSplits, removeModelSplits, splitModelPoints, splitModelThreshold,
   listStats, saveData, uid, GAME_SYSTEMS, modelPoints, modelThreshold,
-  addListToRoadmap, removeListFromRoadmap
+  addListToRoadmap, removeListFromRoadmap, isMothballed
 } from './data.js';
 import { showModal, closeModal, showConfirm, toast, progressBar, thresholdBadge, createDateInput, getDateValue, formatDate, fireworks } from './ui.js';
 import { applyTheme, resetTheme, setCurrentSystem, resetCurrentSystem, getTerm } from './theme.js';
@@ -335,19 +335,22 @@ function listModelRow(model, listId) {
 
   const pts = modelPoints(model);
   const thresh = modelThreshold(model);
+  // A mothballed model stays listed (removing it is the user's call) but is
+  // inert: no logging, and listStats() leaves it out of the list totals.
+  const mothballed = isMothballed(model);
   return `
-    <div class="list-model-row" data-model-view="${model.id}">
+    <div class="list-model-row${mothballed ? ' list-model-row-mothballed' : ''}" data-model-view="${model.id}">
       <div class="list-model-info">
-        <div class="list-model-name">${model.name}</div>
+        <div class="list-model-name">${model.name}${mothballed ? ' <span class="mothball-badge">🧊 Mothballed</span>' : ''}</div>
         <div class="list-model-qty">×${model.quantity}</div>
       </div>
       <div class="list-model-prog">
         <div class="prog-bar"><div class="prog-fill" style="width:${pts.pct}%"></div></div>
-        <span class="list-model-thresh">${thresholdBadge(thresh)}</span>
+        <span class="list-model-thresh">${mothballed ? '<span class="list-model-inert">not counted</span>' : thresholdBadge(thresh)}</span>
       </div>
       <div class="list-model-actions">
         <button class="btn btn-sm" data-model-split="${model.id}" title="Split unit">✂️</button>
-        <button class="btn btn-sm btn-primary" data-model-log="${model.id}">📝</button>
+        ${mothballed ? '' : `<button class="btn btn-sm btn-primary" data-model-log="${model.id}">📝</button>`}
         <button class="btn btn-sm btn-danger" data-model-remove="${model.id}">✕</button>
       </div>
     </div>
@@ -379,13 +382,13 @@ function listModelRowSplit(model, listId, splits) {
   }).join('');
 
   return `
-    <div class="list-model-split-group">
+    <div class="list-model-split-group${isMothballed(model) ? ' list-model-row-mothballed' : ''}">
       <div class="split-group-header">
-        <span class="split-group-name">${model.name}</span>
+        <span class="split-group-name">${model.name}${isMothballed(model) ? ' <span class="mothball-badge">🧊 Mothballed</span>' : ''}</span>
         <span class="split-group-meta">✂️ split · pool: ×${model.quantity}</span>
         <div class="list-model-actions" style="margin-left:auto">
           <button class="btn btn-sm" data-model-split="${model.id}" title="Edit split">✂️ Edit</button>
-          <button class="btn btn-sm btn-primary" data-model-log="${model.id}">📝</button>
+          ${isMothballed(model) ? '' : `<button class="btn btn-sm btn-primary" data-model-log="${model.id}">📝</button>`}
           <button class="btn btn-sm btn-danger" data-model-remove="${model.id}">✕</button>
         </div>
       </div>
@@ -513,6 +516,7 @@ function showAddModelToList(listId) {
 
   const renderPicker = (filter = '', folderId = '') => {
     const filtered = allModels.filter(m => {
+      if (isMothballed(m) && !already.includes(m.id)) return false;
       const matchName = m.name.toLowerCase().includes(filter.toLowerCase());
       const matchFolder = !folderId || m.folderId === folderId;
       return matchName && matchFolder;

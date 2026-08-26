@@ -3,7 +3,7 @@
 
 import {
   appData, saveData, uid, modelThreshold, modelPoints, getRoadmapLists,
-  splitModelPoints, splitModelThreshold, splitModelDoneCount
+  splitModelPoints, splitModelThreshold, splitModelDoneCount, isMothballed
 } from './data.js';
 import { showModal, closeModal, toast, thresholdBadge, progressBar, createDateInput, getDateValue, formatDate, today, addDays } from './ui.js';
 import { showLogProgress } from './models.js';
@@ -155,6 +155,9 @@ function sprintRemainingPoints(sprint) {
   return sprint.entries.reduce((sum, e) => {
     const model = appData.models[e.modelId];
     if (!model) return sum;
+    // Mothballed models can't be worked on, so they're not work this sprint
+    // has to absorb — leaving one in only holds its place in the order.
+    if (isMothballed(model)) return sum;
     const pts = entryPoints(model, e);
     return sum + Math.max(0, pts.total - pts.done);
   }, 0);
@@ -428,19 +431,23 @@ function sprintEntryCard(entry, idx, total, sprintId) {
       : `×${entry.chunkSize} of ${model.quantity}`)
     : `×${model.quantity}`;
 
+  const mothballed = isMothballed(model);
+
   return `
-    <div class="queue-entry ${isFirst ? 'queue-entry-next' : ''}" data-entry-id="${entry.id}" data-sprint-id="${sprintId}">
-      ${isFirst ? '<div class="queue-up-next-label">⭐ Up Next</div>' : ''}
+    <div class="queue-entry ${isFirst ? 'queue-entry-next' : ''}${mothballed ? ' queue-entry-mothballed' : ''}" data-entry-id="${entry.id}" data-sprint-id="${sprintId}">
+      ${isFirst && !mothballed ? '<div class="queue-up-next-label">⭐ Up Next</div>' : ''}
       <div class="queue-entry-main">
         <div class="queue-entry-info">
           <div class="queue-entry-name">${model.name}${isChunk ? ' <span class="split-badge">partial</span>' : ''}</div>
           <div class="queue-entry-qty">${qtyLabel}</div>
-          ${thresholdBadge(thresh)}
+          ${mothballed ? '<span class="mothball-badge">🧊 Mothballed</span>' : thresholdBadge(thresh)}
         </div>
         ${progressBar(pts.pct)}
         ${entry.note ? `<div class="queue-entry-note">📌 ${entry.note}</div>` : ''}
         <div class="queue-entry-actions">
-          <button class="btn btn-sm btn-primary" data-log-model="${entry.modelId}">📝 Log</button>
+          ${mothballed
+            ? `<span class="queue-entry-inert">Mothballed — remove it, or unmothball it in the Pool</span>`
+            : `<button class="btn btn-sm btn-primary" data-log-model="${entry.modelId}">📝 Log</button>`}
           <button class="btn btn-sm" data-edit-note="${entry.id}">📌 Note</button>
           ${model.quantity > 1 ? `<button class="btn btn-sm" data-edit-qty="${entry.id}" title="Change how many of this regiment are in this sprint">✂️ Qty</button>` : ''}
           <div class="queue-move-btns">
@@ -616,6 +623,7 @@ function showAddToSprint(sprintId) {
 
   const renderPicker = (filter = '', folderId = '') => {
     const available = allModels.filter(m => {
+      if (isMothballed(m)) return false;
       if (modelThreshold(m) === 'finished') return false;
       if (wholeEntryModelIds.has(m.id)) return false;
       const matchName = m.name.toLowerCase().includes(filter.toLowerCase());
@@ -623,7 +631,7 @@ function showAddToSprint(sprintId) {
       return matchName && matchFolder;
     });
 
-    if (!available.length) return '<p style="color:var(--text-muted);font-size:0.85em;padding:0.5em 0">No available models. Finished models and models already in this sprint are excluded.</p>';
+    if (!available.length) return '<p style="color:var(--text-muted);font-size:0.85em;padding:0.5em 0">No available models. Finished models, mothballed models and models already in this sprint are excluded.</p>';
 
     return available.map(m => `
       <label class="pool-pick-item">

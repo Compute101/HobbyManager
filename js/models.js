@@ -5,15 +5,18 @@ import {
   logProgress, logSession, modelPoints, modelThreshold, stageCap, uid, saveData,
   getAllModelTypes, saveCustomModelType, deleteCustomModelType,
   saveModelTypeOverride, resetModelTypeOverride, BUILTIN_MODEL_TYPES, TYPE_GROUPS,
-  createFolder, updateFolder, deleteFolder, getAllFolders
+  createFolder, updateFolder, deleteFolder, getAllFolders,
+  isMothballed, setModelMothballed
 } from './data.js';
-import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue, createTimeInput } from './ui.js';
+import { showModal, closeModal, toast, progressBar, thresholdBadge, stageRow, today, createDateInput, getDateValue, createTimeInput, formatDate } from './ui.js';
 import { getTerm } from './theme.js';
 import { compressImageToBase64, IMAGE_SIZE_PRESETS } from './imageUtils.js';
 
-// Select mode state for mass move
+// Select mode state for mass move / mass mothball
 let _selectMode = false;
 let _selectedIds = new Set();
+// The mothballed shelf starts collapsed — it's deliberately out of the way.
+let _mothballCollapsed = true;
 
 // Lazy import to avoid circular dependency
 async function pruneSprints() {
@@ -29,10 +32,14 @@ export function renderModelPool(containerId = 'modelPool') {
   const container = document.getElementById(containerId);
   if (!container) return;
 
-  const allModels = Object.values(appData.models);
+  const everyModel = Object.values(appData.models);
+  // Mothballed models are shelved together at the bottom rather than sitting
+  // in their folders — they're not part of the working collection any more.
+  const allModels = everyModel.filter(m => !isMothballed(m));
+  const mothballed = everyModel.filter(m => isMothballed(m));
   const folders = getAllFolders();
 
-  if (!allModels.length && !folders.length) {
+  if (!everyModel.length && !folders.length) {
     container.innerHTML = `
       <div class="onboarding-card">
         <div class="onboarding-title">👋 Welcome to Hobby Manager!</div>
@@ -128,7 +135,15 @@ export function renderModelPool(containerId = 'modelPool') {
   }
 
   if (!html) {
-    html = `<div class="empty-state"><p>No models yet. Use the + button to add one.</p></div>`;
+    html = mothballed.length
+      ? `<div class="empty-state"><p>Everything you own is mothballed. Bring something back below to start working on it again.</p></div>`
+      : `<div class="empty-state"><p>No models yet. Use the + button to add one.</p></div>`;
+  }
+
+  // Mothballed shelf — hidden entirely while selecting, since select mode
+  // only ever acts on the working collection.
+  if (mothballed.length && !_selectMode) {
+    html += mothballShelfHtml(mothballed);
   }
 
   if (!hasLists) {
@@ -163,6 +178,7 @@ export function renderModelPool(containerId = 'modelPool') {
             ${folders.map(f => `<option value="${f.id}">${f.name}</option>`).join('')}
           </select>
           <button class="btn btn-sm btn-primary" id="massMoveApply">Move</button>
+          <button class="btn btn-sm" id="massMothballApply" title="Shelve the selected models — they stop counting toward anything">🧊 Mothball</button>
         </div>
       ` : ''}
     `;
@@ -200,6 +216,16 @@ export function renderModelPool(containerId = 'modelPool') {
     _selectedIds.clear();
     const dest = folderId ? (appData.folders[folderId]?.name || 'folder') : 'Unfiled';
     toast(`Moved ${count} model${count !== 1 ? 's' : ''} to ${dest}`, 'success');
+    renderModelPool(containerId);
+  });
+
+  container.querySelector('#massMothballApply')?.addEventListener('click', () => {
+    const count = _selectedIds.size;
+    if (!confirm(`Mothball ${count} model${count !== 1 ? 's' : ''}? They stop counting toward your pile, Grey Brigade and rectitude until you bring them back.`)) return;
+    _selectedIds.forEach(id => setModelMothballed(id, true));
+    _selectMode = false;
+    _selectedIds.clear();
+    toast(`🧊 Mothballed ${count} model${count !== 1 ? 's' : ''}`, 'info');
     renderModelPool(containerId);
   });
 
@@ -269,6 +295,64 @@ export function renderModelPool(containerId = 'modelPool') {
   container.querySelectorAll('[data-model-log]').forEach(el => {
     el.addEventListener('click', e => { e.stopPropagation(); showLogProgress(el.dataset.modelLog); });
   });
+  container.querySelectorAll('[data-model-mothball]').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); confirmMothball(el.dataset.modelMothball); });
+  });
+  container.querySelectorAll('[data-model-unmothball]').forEach(el => {
+    el.addEventListener('click', e => { e.stopPropagation(); unmothballModel(el.dataset.modelUnmothball); });
+  });
+  container.querySelector('#mothballToggle')?.addEventListener('click', () => {
+    _mothballCollapsed = !_mothballCollapsed;
+    renderModelPool(containerId);
+  });
+}
+
+// --- Mothball shelf ---
+
+// Models the user has shelved. Still visible, and one click from coming back,
+// but kept out of the working collection — and with no Log button, since
+// there's nothing to log against a deactivated model.
+function mothballShelfHtml(mothballed) {
+  const total = mothballed.reduce((sum, m) => sum + m.quantity, 0);
+  return `
+    <div class="folder-section folder-mothballed">
+      <div class="folder-header">
+        <button class="folder-toggle" id="mothballToggle">
+          <span class="folder-chevron">${_mothballCollapsed ? '▶' : '▼'}</span>
+          <span class="folder-icon">🧊</span>
+          <span class="folder-name">Mothballed</span>
+          <span class="folder-count">${mothballed.length}</span>
+        </button>
+      </div>
+      ${_mothballCollapsed ? '' : `
+        <div class="folder-models">
+          <p class="mothball-note">
+            ${total} model${total !== 1 ? 's' : ''} shelved — deactivated, so they don't count toward your pile,
+            Grey Brigade, rectitude or completion. Progress is kept: bring one back and it picks up where it left off.
+          </p>
+          <div class="model-grid">${mothballed.map(modelCard).join('')}</div>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+function confirmMothball(modelId) {
+  const model = appData.models[modelId];
+  if (!model) return;
+  const msg = `Mothball "${model.name}"?\n\nIt stays in your collection but goes inert — you can't log progress against it, and it stops counting toward your pile, Grey Brigade, rectitude and completion stats. Its current progress is kept, and you can bring it back any time.`;
+  if (!window.confirm(msg)) return;
+  setModelMothballed(modelId, true);
+  toast(`🧊 "${model.name}" mothballed`, 'info');
+  renderModelPool();
+}
+
+function unmothballModel(modelId) {
+  const model = appData.models[modelId];
+  if (!model) return;
+  setModelMothballed(modelId, false);
+  toast(`♻️ "${model.name}" is back in service`, 'success');
+  renderModelPool();
 }
 
 function qtyLabel(model) {
@@ -298,21 +382,25 @@ function modelCard(model) {
 
   const thresh = modelThreshold(model);
   const badge = thresholdBadge(thresh);
+  const mothballed = isMothballed(model);
 
   return `
-    <div class="model-card" data-model-view="${model.id}">
+    <div class="model-card${mothballed ? ' model-card-mothballed' : ''}" data-model-view="${model.id}">
       ${model.image ? `<img class="model-card-thumb" src="${model.image}" alt="">` : ''}
       <div class="model-card-header">
         <div>
           <div class="model-card-name">${model.name}</div>
           <div class="model-card-qty">${qtyLabel(model)}</div>
         </div>
-        ${badge}
+        ${mothballed ? '<span class="mothball-badge">🧊 Mothballed</span>' : badge}
       </div>
       ${progressBar(pts.pct)}
       <div class="model-card-pts">${pts.pct}% complete <span class="pts-detail">${pts.done}/${pts.total} pts</span></div>
       <div class="model-card-actions">
-        <button class="btn btn-sm btn-primary" data-model-log="${model.id}">📝 Log</button>
+        ${mothballed
+          ? `<button class="btn btn-sm btn-primary" data-model-unmothball="${model.id}">♻️ Unmothball</button>`
+          : `<button class="btn btn-sm btn-primary" data-model-log="${model.id}">📝 Log</button>
+             <button class="btn btn-sm" data-model-mothball="${model.id}" title="Mothball — shelve this model so it stops counting toward anything">🧊</button>`}
         <button class="btn btn-sm" data-model-edit="${model.id}">✏️</button>
         <button class="btn btn-sm btn-danger" data-model-delete="${model.id}">🗑️</button>
       </div>
@@ -335,6 +423,8 @@ export function showModelDetail(modelId) {
     stageRow(s, model.progress[s.id], stageCap(s, model), skipped)
   ).join('');
 
+  const mothballed = isMothballed(model);
+
   const content = document.createElement('div');
   content.innerHTML = `
     ${model.image ? `<img class="detail-image" src="${model.image}" alt="${model.name}">` : ''}
@@ -343,20 +433,35 @@ export function showModelDetail(modelId) {
         <div class="detail-qty">${qtyLabel(model)}</div>
         ${model.notes ? `<div class="detail-notes">${model.notes}</div>` : ''}
       </div>
-      ${thresholdBadge(thresh)}
+      ${mothballed ? '<span class="mothball-badge">🧊 Mothballed</span>' : thresholdBadge(thresh)}
     </div>
+    ${mothballed ? `<div class="mothball-note">
+      Deactivated${model.mothballedDate ? ` on ${formatDate(model.mothballedDate)}` : ''} — it can't be worked on and doesn't count toward
+      your pile, Grey Brigade, rectitude or completion stats. The progress below is held exactly as it was.
+    </div>` : ''}
     ${progressBar(pts.pct)}
     <div class="detail-pts">${pts.done} / ${pts.total} pts (${pts.pct}%)</div>
     <div class="stages-list">${stagesHtml}</div>
     <div class="modal-actions">
-      <button class="btn btn-primary" id="detailLogBtn">📝 Log Progress</button>
+      ${mothballed
+        ? `<button class="btn btn-primary" id="detailUnmothballBtn">♻️ Unmothball</button>`
+        : `<button class="btn btn-primary" id="detailLogBtn">📝 Log Progress</button>`}
       <button class="btn" id="detailEditBtn">✏️ Edit</button>
+      ${mothballed ? '' : `<button class="btn" id="detailMothballBtn">🧊 Mothball</button>`}
     </div>
   `;
 
-  content.querySelector('#detailLogBtn').addEventListener('click', () => {
+  content.querySelector('#detailLogBtn')?.addEventListener('click', () => {
     closeModal();
     showLogProgress(modelId);
+  });
+  content.querySelector('#detailMothballBtn')?.addEventListener('click', () => {
+    closeModal();
+    confirmMothball(modelId);
+  });
+  content.querySelector('#detailUnmothballBtn')?.addEventListener('click', () => {
+    closeModal();
+    unmothballModel(modelId);
   });
   content.querySelector('#detailEditBtn').addEventListener('click', () => {
     closeModal();
@@ -767,6 +872,10 @@ function confirmDeleteModel(modelId) {
 export function showLogProgress(modelId) {
   const model = appData.models[modelId];
   if (!model) return;
+  if (isMothballed(model)) {
+    toast(`"${model.name}" is mothballed — unmothball it to log progress`, 'warning');
+    return;
+  }
 
   const stages = (model.stages || appData.config.stages).filter(s => !(model.skippedStages || []).includes(s.id));
   const hasCrew = (model.stages || appData.config.stages).some(s => s.group === 'crew');

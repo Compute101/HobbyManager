@@ -863,6 +863,13 @@
     .list-models-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6em; }
     .list-models-header h3 { font-family: var(--font-display); font-size: 0.95em; }
 
+    .list-model-row-mothballed {
+      opacity: 0.62;
+      filter: saturate(0.35);
+      border-style: dashed;
+    }
+    .list-model-inert { font-size: 0.75em; color: var(--text-muted); font-style: italic; }
+
     .list-model-row {
       display: flex;
       align-items: center;
@@ -1077,6 +1084,14 @@
     .qm-rect-figure { font-size: 1.8em; font-weight: 700; font-family: var(--font-display); }
     .qm-rect-positive { color: var(--accent); }
     .qm-rect-negative { color: var(--danger); }
+    .pile-mothball-note {
+      font-size: 0.78em;
+      color: var(--text-muted);
+      margin-top: 0.75em;
+      padding-top: 0.6em;
+      border-top: 1px dashed var(--border);
+    }
+
     .pile-shame-badge { display: inline-block; font-size: 0.7em; padding: 0.1em 0.45em; border-radius: 3px; margin-left: 0.5em; font-family: var(--font-ui); white-space: nowrap; vertical-align: middle; }
     .shame-fresh { background: color-mix(in srgb, var(--text-muted) 20%, transparent); color: var(--text-muted); }
     .shame-dusty { background: color-mix(in srgb, var(--warning) 25%, transparent); color: var(--warning); }
@@ -1857,6 +1872,21 @@
       background: color-mix(in srgb, var(--accent) 6%, var(--surface));
     }
 
+    .queue-entry-mothballed {
+      opacity: 0.62;
+      filter: saturate(0.35);
+      border-style: dashed;
+      border-color: var(--border) !important;
+      background: var(--surface);
+    }
+
+    .queue-entry-inert {
+      font-size: 0.78em;
+      color: var(--text-muted);
+      font-style: italic;
+      align-self: center;
+    }
+
     .queue-up-next-label {
       font-size: 0.75em;
       font-weight: 700;
@@ -1992,6 +2022,34 @@
     }
 
     .folder-actions { display: flex; gap: 0.3em; align-items: center; }
+
+    /* Mothballed shelf — deliberately muted, it isn't working stock */
+    .folder-mothballed { opacity: 0.9; }
+    .folder-mothballed .folder-header { background: var(--bg2); }
+    .folder-mothballed .folder-name { color: var(--text-muted); }
+    .mothball-note {
+      font-size: 0.8em;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 0.75em;
+    }
+    .model-card-mothballed {
+      opacity: 0.62;
+      filter: saturate(0.35);
+      border-style: dashed;
+    }
+    .model-card-mothballed:hover { opacity: 0.85; }
+    .mothball-badge {
+      display: inline-block;
+      font-size: 0.7em;
+      padding: 0.15em 0.5em;
+      border-radius: 3px;
+      font-family: var(--font-ui);
+      white-space: nowrap;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
     .folder-models { padding: 0.75em; background: var(--bg); }
     .folder-empty { font-size: 0.85em; color: var(--text-muted); font-style: italic; padding: 0.25em 0; }
     .folder-unfiled .folder-header { background: var(--bg2); }

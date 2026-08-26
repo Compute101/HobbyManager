@@ -796,6 +796,8 @@ export function createModel({ name, quantity = 1, notes = '', gameSystemId = nul
     sentimentLove,
     purchaseDate,
     resaleValue,
+    mothballed: false,
+    mothballedDate: null,
     dateAdded: new Date().toISOString().slice(0, 10),
     progress: {},
     sessions: []
@@ -828,9 +830,40 @@ export function deleteModel(id) {
   saveData();
 }
 
+// --- Mothballing ---
+// A mothballed model is one you have no intention of working on — for now, or
+// maybe ever. It stays in the collection (and in any army list or sprint it
+// already belonged to) but goes inert: no progress can be logged against it,
+// and it drops out of every hobby stat — the pile, the Grey Brigade,
+// rectitude, completion percentages. Nothing is destroyed while it sleeps,
+// so unmothballing brings it back with its progress exactly as it was.
+
+export function isMothballed(model) {
+  return !!model?.mothballed;
+}
+
+export function getActiveModels() {
+  return getAllModels().filter(m => !m.mothballed);
+}
+
+export function getMothballedModels() {
+  return getAllModels().filter(m => m.mothballed);
+}
+
+export function setModelMothballed(id, mothballed) {
+  const model = appData.models[id];
+  if (!model) return;
+  model.mothballed = !!mothballed;
+  model.mothballedDate = mothballed ? new Date().toISOString().slice(0, 10) : null;
+  saveData();
+}
+
 export function logProgress(modelId, stageId, done, date) {
   const model = appData.models[modelId];
   if (!model) return;
+  // Mothballed models are deactivated — guarded here so no caller can put
+  // work against something the user has explicitly shelved.
+  if (model.mothballed) return;
   const stage = (model.stages || appData.config.stages).find(s => s.id === stageId);
   const cap = stageCap(stage, model);
   if (!model.progress[stageId]) model.progress[stageId] = { done: 0, lastDate: null };
@@ -870,6 +903,9 @@ export function modelThreshold(model) {
 }
 
 export function unstartedCount(model) {
+  // Mothballed models contribute nothing to the pile — zeroing it here is what
+  // keeps them out of pileCount/pileWorth (and so out of rectitude) everywhere.
+  if (model.mothballed) return 0;
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
   const activeStages = stages.filter(s => !skipped.includes(s.id));
@@ -915,6 +951,8 @@ export function resolveGameSystemId(model) {
 // multi-part entries (hull + crew) don't map onto it, so skip them rather
 // than report bogus counts.
 export function greyBrigadeCount(model) {
+  // Same as unstartedCount: a shelved model isn't languishing, it's parked.
+  if (model.mothballed) return 0;
   const stages = model.stages || appData.config.stages;
   const skipped = model.skippedStages || [];
 
@@ -1048,8 +1086,10 @@ export function listStats(list) {
   let tableReady = 0, painted = 0, finished = 0, total = 0;
 
   (list.modelIds || []).forEach(id => {
+    // A mothballed model stays in the list but leaves its totals — otherwise
+    // shelving one would leave the list permanently short of 100%.
     const m = appData.models[id];
-    if (!m) return;
+    if (!m || m.mothballed) return;
     const splits = modelSplits[id];
     if (splits && splits.length > 0) {
       let offset = 0;
@@ -1085,8 +1125,10 @@ export function listStats(list) {
   };
 }
 
+// Collection-wide totals. Mothballed models are excluded: shelving something
+// you'll never paint shouldn't go on dragging your completion down forever.
 export function globalStats() {
-  const models = getAllModels();
+  const models = getActiveModels();
   let totalPts = 0, donePts = 0;
   let tableReady = 0, painted = 0, finished = 0, total = 0;
 

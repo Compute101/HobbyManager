@@ -1,6 +1,6 @@
 // charts.js — all Chart.js rendering
 
-import { appData, GAME_SYSTEMS, modelPoints, modelThresholdBreakdown, stageCap, saveData, unstartedCount } from './data.js';
+import { appData, GAME_SYSTEMS, modelPoints, modelThresholdBreakdown, stageCap, saveData, unstartedCount, getActiveModels } from './data.js';
 import { localDateStr } from './ui.js';
 
 // Track chart instances so we can destroy before re-creating
@@ -84,8 +84,9 @@ export function renderCompositionPie(canvasId) {
     });
   });
 
-  // Weight (model count or hobby points) per system it belongs to
-  Object.values(appData.models).forEach(m => {
+  // Weight (model count or hobby points) per system it belongs to.
+  // Mothballed models are out of the picture entirely.
+  getActiveModels().forEach(m => {
     const systems = modelSystems[m.id];
     const weight = modelWeight(m, mode);
     if (!systems || systems.size === 0) {
@@ -150,7 +151,7 @@ export function renderCompletionPie(canvasId) {
   const unit = mode === 'points' ? 'pts' : 'models';
   let finished = 0, painted = 0, tableReady = 0, inProgress = 0, notStarted = 0;
 
-  Object.values(appData.models).forEach(m => {
+  getActiveModels().forEach(m => {
     const b = modelThresholdBreakdown(m);
     finished   += tierWeight(m, b.finished, mode);
     painted    += tierWeight(m, b.painted, mode);
