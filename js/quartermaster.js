@@ -899,10 +899,9 @@ function requisitionCard(item) {
   `;
 }
 
-// Add/edit form for a requisition, rendered inline in the office body (NOT
-// a nested showModal — this app's modal system only tracks one overlay at a
-// time, so opening a second modal on top of the office would silently close
-// it). Shows a live "what would promoting this do to the pile / rectitude"
+// Add/edit form for a requisition, rendered inline in the office body rather
+// than in a modal — the office is a full page, so its forms stay on that page.
+// Shows a live "what would promoting this do to the pile / rectitude"
 // preview as the worth field changes — nothing is written to appData until Save.
 function renderRequisitionForm(body, container, editId) {
   const item = editId ? appData.purchaseQueue[editId] : null;
@@ -1662,9 +1661,8 @@ function autoDetectProjectionFormat(text) {
   return null;
 }
 
-// Rendered inline in the office body, not a nested showModal — the office
-// itself is already inside one modal, and this app's modal system only
-// tracks a single overlay at a time.
+// Rendered inline in the office body rather than in a modal, matching the
+// rest of the office's forms.
 function renderProjectionImportForm(body, container) {
   let currentFormat = 'owb';
 
@@ -1752,7 +1750,7 @@ function renderProjectionImportForm(body, container) {
 }
 
 // Shares via the OS share sheet or clipboard where available; the fallback
-// is an inline read-only view (not a nested showModal — see note above).
+// is an inline read-only view in the office body (see note above).
 function shareProjection(body, container, proj) {
   const text = buildProjectionShareText(proj);
   if (navigator.share) {

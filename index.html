@@ -328,6 +328,12 @@
       align-items: center;
     }
 
+    .header-actions .btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
     .tips-btn { position: relative; }
     .tips-dot {
       position: absolute;
@@ -2360,6 +2366,14 @@
       <div id="activityView"></div>
     </div>
 
+    <!-- Quartermaster's Office (reached from the header button, not the tab bar) -->
+    <div class="tab-panel" id="tab-quartermaster">
+      <div class="panel-header">
+        <h2>🎖️ Quartermaster's Office</h2>
+      </div>
+      <div id="qmView"></div>
+    </div>
+
     <!-- Settings (modal, not a tab) -->
     <div id="settingsModal" style="display:none"></div>
 
@@ -2422,6 +2436,10 @@
     if (tabId === 'roadmap') renderRoadmap();
     if (tabId === 'sprints') renderSprints();
     if (tabId === 'activity') renderActivity();
+    if (tabId === 'quartermaster') renderQuartermaster(document.getElementById('qmView'));
+    // The office has no nav tab of its own, so its header button doubles as
+    // the "you are here" indicator.
+    document.getElementById('quartermasterBtn').classList.toggle('active', tabId === 'quartermaster');
     refreshTipsBadge();
   }
 
@@ -2439,7 +2457,8 @@
     showModal({ title: '⚙️ Settings', content, wide: false });
     renderSettings(content);
   });
-  // --- Quartermaster's Office (modal, not a tab — always reminds before entering) ---
+  // --- Quartermaster's Office (a full page panel reached from the header,
+  // not the tab bar — always reminds before entering) ---
   document.getElementById('quartermasterBtn').addEventListener('click', () => {
     const count = pileCount();
     const worth = pileWorth();
@@ -2448,12 +2467,7 @@
       message: `You currently have <b>${count}</b> model${count !== 1 ? 's' : ''} on the pile, worth <b>£${worth.toFixed(0)}</b>.` +
         (rect === null ? '' : ` Rectitude: <b>${Math.round(rect)}%</b>.`),
       confirmLabel: 'Enter',
-      onConfirm: () => {
-        const content = document.createElement('div');
-        content.id = 'qmView';
-        showModal({ title: "🎖️ Quartermaster's Office", content, wide: true });
-        renderQuartermaster(content);
-      }
+      onConfirm: () => switchTab('quartermaster')
     });
   });
 
