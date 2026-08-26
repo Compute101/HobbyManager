@@ -392,6 +392,46 @@ export function renderBurndown(canvasId, models, deadline) {
 // models would clear at the current rate.
 // ----------------------------------------------------------------
 
+// How far back the pile burndown measures pace. A month away from the desk
+// drags a 30-day window to zero and takes the projected clear date with it,
+// so the window is selectable and persisted alongside the other chart prefs.
+export const BURNDOWN_WINDOWS = [
+  { days: 30, label: '30 days', shortLabel: 'last 30 days' },
+  { days: 90, label: '3 months', shortLabel: 'last 3 months' }
+];
+
+export function getBurndownWindow() {
+  const days = appData.config.burndownWindowDays;
+  return BURNDOWN_WINDOWS.some(w => w.days === days) ? days : 30;
+}
+
+export function burndownWindowLabel(days = getBurndownWindow()) {
+  return (BURNDOWN_WINDOWS.find(w => w.days === days) || BURNDOWN_WINDOWS[0]).shortLabel;
+}
+
+export function burndownWindowToggleHtml() {
+  const current = getBurndownWindow();
+  return `
+    <div class="chart-opt-toggle">
+      ${BURNDOWN_WINDOWS.map(w => `
+        <button class="btn btn-xs chart-opt-btn ${w.days === current ? 'active' : ''}" data-burndown-window="${w.days}">${w.label}</button>
+      `).join('')}
+    </div>
+  `;
+}
+
+export function wireBurndownWindowToggle(container, onChange) {
+  container.querySelectorAll('[data-burndown-window]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const days = parseInt(btn.dataset.burndownWindow, 10);
+      if (getBurndownWindow() === days) return;
+      appData.config.burndownWindowDays = days;
+      saveData();
+      onChange();
+    });
+  });
+}
+
 // Trailing-window velocity + projected clear date, computed once and shared
 // by the chart and its text summary so they never disagree.
 //
@@ -408,7 +448,7 @@ export function renderBurndown(canvasId, models, deadline) {
 // a starting baseline of work already done, never as activity on that date, so
 // a big backfill can't masquerade as a burst of recent painting and inflate
 // the trailing-30-day velocity. Same rule the activity calendar already uses.
-export function pileBurndownStats() {
+export function pileBurndownStats(windowDays = getBurndownWindow()) {
   const sessionPoints = s => (s.modelEntries || []).reduce((acc, e) => {
     const model = appData.models[e.modelId];
     if (!model) return acc;
@@ -438,9 +478,17 @@ export function pileBurndownStats() {
 
   const sortedDates = Object.keys(byDay).sort();
   const todayStr = new Date().toISOString().split('T')[0];
-  const windowStart = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+  const windowStart = new Date(Date.now() - windowDays * 86400000).toISOString().split('T')[0];
   const recentPts = sortedDates.filter(d => d >= windowStart).reduce((sum, d) => sum + byDay[d], 0);
-  const velocity = recentPts / 30;
+
+  // Never average over more history than exists: a 3-month window on three
+  // weeks of logs would report a third of the real pace. Floored at a week so
+  // a single day at the desk can't extrapolate into a fantasy rate.
+  const trackedDays = sortedDates.length
+    ? Math.floor((Date.parse(todayStr) - Date.parse(sortedDates[0])) / 86400000) + 1
+    : 0;
+  const effectiveDays = Math.min(windowDays, Math.max(7, trackedDays));
+  const velocity = recentPts / effectiveDays;
 
   let daysToClear = null, clearDate = null;
   if (velocity > 0 && pileRemainingPoints > 0) {
@@ -448,12 +496,13 @@ export function pileBurndownStats() {
     clearDate = new Date(Date.now() + daysToClear * 86400000).toISOString().split('T')[0];
   }
 
-  return { byDay, sortedDates, todayStr, pileRemainingPoints, velocity, daysToClear, clearDate, baselinePoints, historicalSessions };
+  return { byDay, sortedDates, todayStr, pileRemainingPoints, velocity, daysToClear, clearDate, baselinePoints, historicalSessions, windowDays, effectiveDays };
 }
 
 // Shared "how fast am I painting" rate (pts/day), used by both Sprint capacity
 // checks and Roadmap finish-date projections: your weekly goal if you've set
-// one, otherwise the trailing-30-day pace pileBurndownStats() already computes.
+// one, otherwise the trailing-window pace pileBurndownStats() already computes
+// (over whichever window the pile burndown is currently set to).
 // Pool-wide, not scoped per sprint/campaign — juggling several active sprints
 // or campaigns at once will double-count against this one shared rate.
 export function paceRate() {

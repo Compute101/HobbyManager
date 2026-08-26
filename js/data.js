@@ -616,6 +616,7 @@ export let appData = {
     weeklyGoal: 0,
     imageSize: 'small',
     pieChartMode: 'count',
+    burndownWindowDays: 30, // pile burndown pace window: 30 or 90 days
     monthlyBudgetGBP: 0,
     budgetPeriod: 'monthly', // 'monthly' | 'annual' — display/input preference; monthlyBudgetGBP stays the source of truth
     hobbyPointScale: HOBBY_POINT_SCALE, // stage-point scale this data is on; older values are lifted by migrateHobbyPointScale()
@@ -699,6 +700,7 @@ export function loadData() {
           weeklyGoal: parsed.config?.weeklyGoal || 0,
           imageSize: parsed.config?.imageSize || 'small',
           pieChartMode: parsed.config?.pieChartMode || 'count',
+          burndownWindowDays: parsed.config?.burndownWindowDays || 30,
           monthlyBudgetGBP: parsed.config?.monthlyBudgetGBP || 0,
           budgetPeriod: parsed.config?.budgetPeriod || 'monthly',
           hobbyPointScale: parsed.config?.hobbyPointScale || 1,
@@ -755,6 +757,7 @@ export function replaceData(parsed) {
       weeklyGoal: parsed.config?.weeklyGoal || 0,
       imageSize: parsed.config?.imageSize || 'small',
       pieChartMode: parsed.config?.pieChartMode || 'count',
+      burndownWindowDays: parsed.config?.burndownWindowDays || 30,
       monthlyBudgetGBP: parsed.config?.monthlyBudgetGBP || 0,
       budgetPeriod: parsed.config?.budgetPeriod || 'monthly',
       hobbyPointScale: parsed.config?.hobbyPointScale || 1
