@@ -164,19 +164,25 @@ export function renderDashboard() {
 // --- Pile burndown ---
 
 function pileBurndownSection() {
-  const { pileRemainingPoints, velocity, daysToClear, clearDate } = pileBurndownStats();
+  const { pileRemainingPoints, velocity, daysToClear, clearDate, baselinePoints, historicalSessions } = pileBurndownStats();
   let summary;
   if (!pileRemainingPoints) {
     summary = `<p class="empty-text">Nothing left on the pile to burn down. Impressive!</p>`;
   } else if (!daysToClear) {
-    summary = `<p class="empty-text">${pileRemainingPoints} points remain on the pile — log some progress to start projecting a clear date.</p>`;
+    summary = `<p class="empty-text">${pileRemainingPoints} points remain on the pile — log some timed progress to start projecting a clear date.</p>`;
   } else {
     summary = `<div class="pile-total">At ${velocity.toFixed(1)} pts/day (last 30 days), the pile clears in ~${daysToClear} days (${formatDate(clearDate, { month: 'short', day: 'numeric', year: 'numeric' })}).</div>`;
   }
+  // Historical entries have no session time and no known date, so they set the
+  // chart's starting level instead of counting towards the recent-pace figure.
+  const baselineNote = historicalSessions
+    ? `<div class="form-hint">${baselinePoints} pts from ${historicalSessions} historical ${historicalSessions === 1 ? 'entry' : 'entries'} counted as starting data, not recent activity.</div>`
+    : '';
   return `
     <div class="dash-card dash-chart-card dash-pile-burndown">
       <h3>Pile Burndown</h3>
       ${summary}
+      ${baselineNote}
       <div class="chart-wrap"><canvas id="pileBurndownChart"></canvas></div>
     </div>`;
 }
