@@ -2,7 +2,7 @@
 
 import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, singleModelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER, getModelDateAdded, resolveGameSystemId, greyBrigadeCount } from './data.js';
 import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
-import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle, renderPileBurndown, pileBurndownStats } from './charts.js';
+import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle, renderPileBurndown, pileBurndownStats, burndownWindowToggleHtml, wireBurndownWindowToggle, burndownWindowLabel } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
 import { renderBountySection, wireBountySection, renderHallOfFameSection, renderBadgesSection } from './badges.js';
 
@@ -149,6 +149,9 @@ export function renderDashboard() {
   // Pie chart weighting toggle (by model count or hobby points)
   wirePieModeToggle(container, () => renderDashboard());
 
+  // Pile burndown pace window (30 days / 3 months)
+  wireBurndownWindowToggle(container, () => renderDashboard());
+
   // Render pie charts
   requestAnimationFrame(() => {
     renderCompletionPie('completionPie');
@@ -164,25 +167,36 @@ export function renderDashboard() {
 // --- Pile burndown ---
 
 function pileBurndownSection() {
-  const { pileRemainingPoints, velocity, daysToClear, clearDate, baselinePoints, historicalSessions } = pileBurndownStats();
+  const { pileRemainingPoints, velocity, daysToClear, clearDate, baselinePoints, historicalSessions, windowDays, effectiveDays } = pileBurndownStats();
+  const windowLabel = burndownWindowLabel(windowDays);
   let summary;
   if (!pileRemainingPoints) {
     summary = `<p class="empty-text">Nothing left on the pile to burn down. Impressive!</p>`;
   } else if (!daysToClear) {
-    summary = `<p class="empty-text">${pileRemainingPoints} points remain on the pile — log some timed progress to start projecting a clear date.</p>`;
+    // A quiet spell can flatten the shorter window to zero — the longer one
+    // usually still has something to project from, so point at the toggle.
+    const tryWider = windowDays < 90 ? ` Been away from the desk for a while? Try the 3 month window.` : '';
+    summary = `<p class="empty-text">${pileRemainingPoints} points remain on the pile — no timed sessions in the ${windowLabel}, so there's no pace to project from.${tryWider}</p>`;
   } else {
-    summary = `<div class="pile-total">At ${velocity.toFixed(1)} pts/day (last 30 days), the pile clears in ~${daysToClear} days (${formatDate(clearDate, { month: 'short', day: 'numeric', year: 'numeric' })}).</div>`;
+    summary = `<div class="pile-total">At ${velocity.toFixed(1)} pts/day (${windowLabel}), the pile clears in ~${daysToClear} days (${formatDate(clearDate, { month: 'short', day: 'numeric', year: 'numeric' })}).</div>`;
   }
+  const notes = [];
   // Historical entries have no session time and no known date, so they set the
   // chart's starting level instead of counting towards the recent-pace figure.
-  const baselineNote = historicalSessions
-    ? `<div class="form-hint">${baselinePoints} pts from ${historicalSessions} historical ${historicalSessions === 1 ? 'entry' : 'entries'} counted as starting data, not recent activity.</div>`
-    : '';
+  if (historicalSessions) {
+    notes.push(`${baselinePoints} pts from ${historicalSessions} historical ${historicalSessions === 1 ? 'entry' : 'entries'} counted as starting data, not recent activity.`);
+  }
+  if (effectiveDays < windowDays) {
+    notes.push(`Pace averaged over ${effectiveDays} days — the full ${windowDays}-day window reaches back further than your session history.`);
+  }
   return `
     <div class="dash-card dash-chart-card dash-pile-burndown">
-      <h3>Pile Burndown</h3>
+      <div class="pile-card-header">
+        <h3>Pile Burndown</h3>
+        ${burndownWindowToggleHtml()}
+      </div>
       ${summary}
-      ${baselineNote}
+      ${notes.map(n => `<div class="form-hint">${n}</div>`).join('')}
       <div class="chart-wrap"><canvas id="pileBurndownChart"></canvas></div>
     </div>`;
 }
