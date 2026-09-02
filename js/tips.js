@@ -3,7 +3,7 @@
 // unused (or a situation where it would help) so people who already lean on
 // a feature stop getting nagged about it — the tip simply stops matching.
 
-import { appData, saveData, getAllModels, getAllModelTypes, modelThreshold, GAME_SYSTEMS, getRoadmapLists, getCampaignSprints, getModelDateAdded, resolveGameSystemId, unstartedCount, greyBrigadeCount } from './data.js';
+import { appData, saveData, getActiveModels, getMothballedModels, getAllModelTypes, modelThreshold, GAME_SYSTEMS, getRoadmapLists, getCampaignSprints, getModelDateAdded, resolveGameSystemId, unstartedCount, greyBrigadeCount } from './data.js';
 import { BADGES, oldestPileModel } from './badges.js';
 import { getBurndownWindow } from './charts.js';
 import { isConfigured, wasConnected } from './gdrive.js';
@@ -53,6 +53,12 @@ const TIP_DEFINITIONS = [
     icon: '🧩',
     text: "Got a unit that doesn't fit the built-in types? Create a Custom Model Type in Settings for precise stage tracking.",
     condition: ctx => (appData.config.modelTypes || []).length === 0 && ctx.modelCount >= 12
+  },
+  {
+    id: 'mothball',
+    icon: '🧊',
+    text: "Got something you'll realistically never get round to? Mothball it (🧊 on its card in the Model Pool). It stays in your collection with its progress intact, but goes inert — no logging, and it stops counting toward your pile, Grey Brigade and rectitude. Unmothball it whenever you change your mind.",
+    condition: ctx => ctx.mothballedCount === 0 && ctx.oldestPileAgeDays >= 365
   },
   {
     id: 'quartermaster',
@@ -165,7 +171,9 @@ const TIP_DEFINITIONS = [
 ];
 
 function buildContext() {
-  const models = getAllModels();
+  // Mothballed models are shelved — they shouldn't trigger nudges about work
+  // the user has explicitly decided not to do.
+  const models = getActiveModels();
   const folders = appData.folders || {};
   const sprints = Object.values(appData.sprints || {});
   const lists = Object.values(appData.lists || {});
@@ -239,6 +247,7 @@ function buildContext() {
 
   return {
     modelCount: models.length,
+    mothballedCount: getMothballedModels().length,
     folderCount: Object.keys(folders).length,
     sprintEntryCount,
     sprintCount: sprints.length,

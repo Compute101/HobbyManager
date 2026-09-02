@@ -1,6 +1,6 @@
 // dashboard.js — dashboard with pie charts and deadline cards
 
-import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, singleModelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER, getModelDateAdded, resolveGameSystemId, greyBrigadeCount } from './data.js';
+import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, singleModelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER, getModelDateAdded, resolveGameSystemId, greyBrigadeCount, getActiveModels, getMothballedModels } from './data.js';
 import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
 import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle, renderPileBurndown, pileBurndownStats, burndownWindowToggleHtml, wireBurndownWindowToggle, burndownWindowLabel } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
@@ -553,7 +553,7 @@ const GROUP_CLASS = {
 // batch total), so a Dragon-sized entry dwarfs an Ogre, which in turn dwarfs
 // a rank-and-file infantry model — regardless of how many are in the unit.
 function modelPointsRange() {
-  const totals = Object.values(appData.models).map(m => singleModelPoints(m) || 1);
+  const totals = getActiveModels().map(m => singleModelPoints(m) || 1);
   if (!totals.length) return { min: 1, max: 1 };
   return { min: Math.min(...totals), max: Math.max(...totals) };
 }
@@ -625,6 +625,15 @@ function wirePictoFigs(container) {
   });
 }
 
+// Mothballed models are absent from the pile by design — say so, so a model
+// you shelved doesn't just silently vanish from the count.
+function mothballFootnote() {
+  const shelved = getMothballedModels();
+  if (!shelved.length) return '';
+  const count = shelved.reduce((sum, m) => sum + m.quantity, 0);
+  return `<p class="pile-mothball-note">🧊 ${count} model${count !== 1 ? 's' : ''} mothballed and not counted here — see the Pool tab to bring ${count !== 1 ? 'them' : 'it'} back.</p>`;
+}
+
 function pileOfPotentialSection() {
   const withUnstarted = Object.values(appData.models)
     .map(m => ({ model: m, unstarted: unstartedCount(m) }))
@@ -689,6 +698,7 @@ function pileOfPotentialSection() {
           ${pictoLegendHtml(withUnstarted)}
         `
       }
+      ${mothballFootnote()}
     </div>`;
 }
 

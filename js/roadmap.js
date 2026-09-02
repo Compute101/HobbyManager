@@ -4,7 +4,7 @@
 import {
   appData, GAME_SYSTEMS, listStats, modelPoints, modelThreshold, splitModelPoints,
   getRoadmapLists, addListToRoadmap, removeListFromRoadmap, moveRoadmapList,
-  addCampaignSprint, getCampaignSprints
+  addCampaignSprint, getCampaignSprints, isMothballed
 } from './data.js';
 import { toast, progressBar, thresholdBadge, formatDate, daysUntil, today, addDays } from './ui.js';
 import { selectCollection, selectList } from './collections.js';
@@ -173,7 +173,7 @@ export function renderRoadmap(containerId = 'roadmapView') {
       const campaignSprints = getCampaignSprints(list);
       const unplanned = (list.modelIds || [])
         .map(id => appData.models[id])
-        .filter(m => m && modelThreshold(m) !== 'finished' && claimedQty(campaignSprints, m.id) < m.quantity);
+        .filter(m => m && !isMothballed(m) && modelThreshold(m) !== 'finished' && claimedQty(campaignSprints, m.id) < m.quantity);
 
       if (!unplanned.length) {
         toast('Everything in this campaign is already in a sprint', 'info');
@@ -275,8 +275,12 @@ function campaignCard(list, idx, total) {
   }
 
   const models = (list.modelIds || []).map(id => appData.models[id]).filter(Boolean);
-  const activeModels = models.filter(m => modelThreshold(m) !== 'finished');
-  const finishedModels = models.filter(m => modelThreshold(m) === 'finished');
+  // Mothballed models are neither outstanding work nor finished — they're out
+  // of the campaign's reckoning until they're brought back.
+  const mothballedModels = models.filter(isMothballed);
+  const liveModels = models.filter(m => !isMothballed(m));
+  const activeModels = liveModels.filter(m => modelThreshold(m) !== 'finished');
+  const finishedModels = liveModels.filter(m => modelThreshold(m) === 'finished');
   const showFinished = _showFinishedFor.has(list.id);
 
   const remainingPts = stats.totalPts - stats.donePts;
@@ -339,6 +343,7 @@ function campaignCard(list, idx, total) {
           </button>
           ${showFinished ? `<div class="roadmap-finished-list">${finishedModels.map(campaignModelRow).join('')}</div>` : ''}
         ` : ''}
+        ${mothballedModels.length ? `<p class="folder-empty">🧊 ${mothballedModels.length} mothballed and not counted here.</p>` : ''}
       </div>
     </div>
   `;
