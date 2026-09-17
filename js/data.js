@@ -1037,6 +1037,15 @@ export function modelThresholdBreakdown(model) {
   return thresholdBreakdown(stages, skipped, model.quantity, s => Math.min(model.progress[s.id]?.done || 0, model.quantity));
 }
 
+// How many of a model's quantity have crossed the 'finished' threshold — the
+// far end of the track that unstartedCount/greyBrigadeCount bracket from below.
+// Mothballed models score zero for the same reason they do there: a shelved
+// model isn't on parade.
+export function finishedCount(model) {
+  if (model.mothballed) return 0;
+  return modelThresholdBreakdown(model).finished;
+}
+
 // Per-tier counts for a virtual slice of a model (most-finished-first ordering), mirroring splitModelThreshold.
 function splitThresholdBreakdown(model, splitSize, offset) {
   const stages = model.stages || appData.config.stages;

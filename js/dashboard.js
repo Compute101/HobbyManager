@@ -1,6 +1,6 @@
 // dashboard.js — dashboard with pie charts and deadline cards
 
-import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, singleModelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER, getModelDateAdded, resolveGameSystemId, greyBrigadeCount, getActiveModels, getMothballedModels } from './data.js';
+import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, singleModelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER, getModelDateAdded, resolveGameSystemId, greyBrigadeCount, finishedCount, getActiveModels, getMothballedModels } from './data.js';
 import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
 import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle, renderPileBurndown, pileBurndownStats, burndownWindowToggleHtml, wireBurndownWindowToggle, burndownWindowLabel } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
@@ -75,6 +75,9 @@ export function renderDashboard() {
         </div>
         <div class="chart-wrap"><canvas id="compositionPie"></canvas></div>
       </div>
+
+      <!-- Parade Ground: finished models, by game system -->
+      ${paradeGroundSection()}
 
       <!-- Upcoming deadlines -->
       <div class="dash-card dash-deadlines">
@@ -632,6 +635,67 @@ function mothballFootnote() {
   if (!shelved.length) return '';
   const count = shelved.reduce((sum, m) => sum + m.quantity, 0);
   return `<p class="pile-mothball-note">🧊 ${count} model${count !== 1 ? 's' : ''} mothballed and not counted here — see the Pool tab to bring ${count !== 1 ? 'them' : 'it'} back.</p>`;
+}
+
+// The mirror of the Pile of Potential: everything that made it all the way to
+// the Finished threshold, laid out as the same pictogram pile so the two cards
+// read against each other at a glance. Grouped by game system to match the
+// Collection by Game System pie it sits under.
+function paradeGroundSection() {
+  const withFinished = Object.values(appData.models)
+    .map(m => ({ model: m, finished: finishedCount(m) }))
+    .filter(({ finished }) => finished > 0)
+    // Biggest first, so the centrepieces lead the parade — and so they survive
+    // the per-system figure cap rather than being crowded out by rank-and-file.
+    .sort((a, b) => (singleModelPoints(b.model) || 1) - (singleModelPoints(a.model) || 1));
+
+  const totalCount = withFinished.reduce((acc, { finished }) => acc + finished, 0);
+
+  const bySystem = {};
+  withFinished.forEach(entry => {
+    const key = resolveGameSystemId(entry.model) || 'none';
+    if (!bySystem[key]) bySystem[key] = [];
+    bySystem[key].push(entry);
+  });
+
+  const sortedSystems = Object.entries(bySystem)
+    .map(([sysId, entries]) => ({
+      sysId,
+      entries,
+      total: entries.reduce((a, e) => a + e.finished, 0),
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  const { min: minPts, max: maxPts } = modelPointsRange();
+
+  const systemSections = sortedSystems.map(({ sysId, entries, total }) => {
+    const sys = GAME_SYSTEMS[sysId];
+    const sysLabel = sys ? sys.shortLabel : 'Unassigned';
+    const sysTheme = sys ? sys.theme : '';
+    return `
+      <div class="pile-system-group">
+        <div class="pile-system-header">
+          ${sys ? `<span class="sys-tag ${sysTheme}">${sysLabel}</span>` : `<span class="pile-system-label">Unassigned</span>`}
+          <span class="pile-system-count">${total} model${total !== 1 ? 's' : ''}</span>
+        </div>
+        ${pictoPileHtml(entries.map(({ model, finished }) => ({ model, count: finished })), 'fig-finished', minPts, maxPts)}
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="dash-card dash-parade">
+      <div class="pile-card-header">
+        <h3>Parade Ground</h3>
+      </div>
+      ${!withFinished.length
+        ? `<p class="empty-text">Nothing on the parade ground yet — finish a model (all the way through its Finished stage) and it takes its place here.</p>`
+        : `
+          <div class="pile-total">🏆 ${totalCount} model${totalCount !== 1 ? 's' : ''} finished and on parade</div>
+          <div class="pile-groups">${systemSections}</div>
+          ${pictoLegendHtml(withFinished)}
+        `
+      }
+    </div>`;
 }
 
 function pileOfPotentialSection() {
