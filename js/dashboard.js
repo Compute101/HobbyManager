@@ -132,6 +132,9 @@ export function renderDashboard() {
   // Grey Brigade share button
   document.getElementById('shareGreyBtn')?.addEventListener('click', shareGreyBrigade);
 
+  // Parade Ground share button
+  document.getElementById('shareParadeBtn')?.addEventListener('click', shareParadeGround);
+
   // Bounty Board buttons + modal
   wireBountySection(container, () => renderDashboard());
 
@@ -637,34 +640,41 @@ function mothballFootnote() {
   return `<p class="pile-mothball-note">🧊 ${count} model${count !== 1 ? 's' : ''} mothballed and not counted here — see the Pool tab to bring ${count !== 1 ? 'them' : 'it'} back.</p>`;
 }
 
-// The mirror of the Pile of Potential: everything that made it all the way to
-// the Finished threshold, laid out as the same pictogram pile so the two cards
-// read against each other at a glance. Grouped by game system to match the
-// Collection by Game System pie it sits under.
-function paradeGroundSection() {
-  const withFinished = Object.values(appData.models)
+// Finished entries, biggest first, so the centrepieces lead the parade — and so
+// they survive the per-system figure cap rather than being crowded out by
+// rank-and-file. Shared by the card and its share text, which keeps the two
+// telling the same story in the same order.
+function paradeEntries() {
+  return Object.values(appData.models)
     .map(m => ({ model: m, finished: finishedCount(m) }))
     .filter(({ finished }) => finished > 0)
-    // Biggest first, so the centrepieces lead the parade — and so they survive
-    // the per-system figure cap rather than being crowded out by rank-and-file.
     .sort((a, b) => (singleModelPoints(b.model) || 1) - (singleModelPoints(a.model) || 1));
+}
 
-  const totalCount = withFinished.reduce((acc, { finished }) => acc + finished, 0);
-
+function paradeBySystem(entries) {
   const bySystem = {};
-  withFinished.forEach(entry => {
+  entries.forEach(entry => {
     const key = resolveGameSystemId(entry.model) || 'none';
     if (!bySystem[key]) bySystem[key] = [];
     bySystem[key].push(entry);
   });
-
-  const sortedSystems = Object.entries(bySystem)
+  return Object.entries(bySystem)
     .map(([sysId, entries]) => ({
       sysId,
       entries,
       total: entries.reduce((a, e) => a + e.finished, 0),
     }))
     .sort((a, b) => b.total - a.total);
+}
+
+// The mirror of the Pile of Potential: everything that made it all the way to
+// the Finished threshold, laid out as the same pictogram pile so the two cards
+// read against each other at a glance. Grouped by game system to match the
+// Collection by Game System pie it sits under.
+function paradeGroundSection() {
+  const withFinished = paradeEntries();
+  const totalCount = withFinished.reduce((acc, { finished }) => acc + finished, 0);
+  const sortedSystems = paradeBySystem(withFinished);
 
   const { min: minPts, max: maxPts } = modelPointsRange();
 
@@ -686,6 +696,7 @@ function paradeGroundSection() {
     <div class="dash-card dash-parade">
       <div class="pile-card-header">
         <h3>Parade Ground</h3>
+        ${withFinished.length ? `<button class="btn btn-sm" id="shareParadeBtn">📤 Share</button>` : ''}
       </div>
       ${!withFinished.length
         ? `<p class="empty-text">Nothing on the parade ground yet — finish a model (all the way through its Finished stage) and it takes its place here.</p>`
@@ -696,6 +707,41 @@ function paradeGroundSection() {
         `
       }
     </div>`;
+}
+
+function shareParadeGround() {
+  const withFinished = paradeEntries();
+  if (!withFinished.length) return;
+
+  const totalCount = withFinished.reduce((acc, { finished }) => acc + finished, 0);
+
+  const systemLines = paradeBySystem(withFinished).map(({ sysId, entries, total }) => {
+    const sys = GAME_SYSTEMS[sysId];
+    const sysLabel = sys ? sys.shortLabel : 'Unassigned';
+    const modelLines = entries.map(({ model: m, finished }) =>
+      `  • ${m.name} ×${finished}`
+    ).join('\n');
+    return `🏆 ${sysLabel} (${total} model${total !== 1 ? 's' : ''}):\n${modelLines}`;
+  }).join('\n\n');
+
+  const text = [
+    `🏆 My Parade Ground`,
+    `${'━'.repeat(24)}`,
+    ``,
+    `${totalCount} model${totalCount !== 1 ? 's' : ''} finished — based, done, and ready for the table.`,
+    ``,
+    systemLines,
+    ``,
+    `⚔️ All present and correct. The pile lives to fight another day.`,
+  ].join('\n').trim();
+
+  if (navigator.share) {
+    navigator.share({ title: 'My Parade Ground', text }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(text)
+      .then(() => toast('Copied to clipboard!', 'success'))
+      .catch(() => showShareFallback('📤 Share Parade Ground', text, 16));
+  }
 }
 
 function pileOfPotentialSection() {
@@ -815,17 +861,20 @@ function sharePileOfPotential() {
   } else {
     navigator.clipboard.writeText(text)
       .then(() => toast('Copied to clipboard!', 'success'))
-      .catch(() => showPileShareFallback(text));
+      .catch(() => showShareFallback('📤 Share Pile of Potential', text, 16));
   }
 }
 
-function showPileShareFallback(text) {
+// Last resort when neither the share sheet nor the clipboard API is available
+// (older browsers, or a page served without a secure context): hand the user
+// the text in a modal to copy by hand.
+function showShareFallback(title, text, rows = 16) {
   const content = document.createElement('div');
   content.innerHTML = `
     <p style="font-size:0.85em;color:var(--text-muted);margin-bottom:0.75em">
       Copy the text below and paste it into WhatsApp or any messenger:
     </p>
-    <textarea class="form-input share-text-area" readonly rows="16">${text}</textarea>
+    <textarea class="form-input share-text-area" readonly rows="${rows}">${text}</textarea>
     <div class="modal-actions">
       <button class="btn btn-primary" id="shareCopyBtn">📋 Copy</button>
       <button class="btn" id="shareCloseBtn">Close</button>
@@ -837,7 +886,7 @@ function showPileShareFallback(text) {
     toast('Copied!', 'success');
   });
   content.querySelector('#shareCloseBtn').addEventListener('click', () => closeModal());
-  showModal({ title: '📤 Share Pile of Potential', content, wide: true });
+  showModal({ title, content, wide: true });
 }
 
 // --- Grey Brigade ---
@@ -960,29 +1009,8 @@ function shareGreyBrigade() {
   } else {
     navigator.clipboard.writeText(text)
       .then(() => toast('Copied to clipboard!', 'success'))
-      .catch(() => showGreyShareFallback(text));
+      .catch(() => showShareFallback('📤 Share Grey Brigade', text, 14));
   }
-}
-
-function showGreyShareFallback(text) {
-  const content = document.createElement('div');
-  content.innerHTML = `
-    <p style="font-size:0.85em;color:var(--text-muted);margin-bottom:0.75em">
-      Copy the text below and paste it into WhatsApp or any messenger:
-    </p>
-    <textarea class="form-input share-text-area" readonly rows="14">${text}</textarea>
-    <div class="modal-actions">
-      <button class="btn btn-primary" id="greyCopyBtn">📋 Copy</button>
-      <button class="btn" id="greyCloseBtn">Close</button>
-    </div>
-  `;
-  content.querySelector('#greyCopyBtn').addEventListener('click', () => {
-    content.querySelector('.share-text-area').select();
-    document.execCommand('copy');
-    toast('Copied!', 'success');
-  });
-  content.querySelector('#greyCloseBtn').addEventListener('click', () => closeModal());
-  showModal({ title: '📤 Share Grey Brigade', content, wide: true });
 }
 
 // --- Per-list burndown modal ---
