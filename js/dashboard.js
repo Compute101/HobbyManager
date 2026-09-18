@@ -522,8 +522,10 @@ const FIG_ASPECT = 32 / 24; // matches the #miniFig symbol's viewBox (0 0 24 32)
 // figure, keyed by model type id (not group — Vehicle and Skimmer share a
 // color group but get different shapes). `mult` scales the figure up beyond
 // its points-driven size so hardware/mounts read as visibly bigger than a
-// same-scoring infantry model, not just a bigger person.
+// same-scoring infantry model, not just a bigger person; for the swarm base
+// it buys width for the cluster, which its flat aspect keeps short.
 const ICON_CONFIG = {
+  swarm:               { symbol: 'miniSwarm',   aspect: 16 / 30, mult: 1.4  },
   vehicle:             { symbol: 'miniTank',    aspect: 20 / 34, mult: 1.6  },
   large_vehicle:       { symbol: 'miniTank',    aspect: 20 / 34, mult: 2.0  },
   super_heavy_vehicle: { symbol: 'miniTank',    aspect: 20 / 34, mult: 2.6  },
