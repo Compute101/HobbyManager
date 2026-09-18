@@ -68,7 +68,7 @@
   button:hover { border-color: var(--accent); }
 
   /* --- specimen cards (section 1 & 2) --- */
-  .specimens { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, max(168px, calc(var(--stage-h, 78px) * 1.9))), 1fr)); }
+  .specimens { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 235px), 1fr)); }
   .specimen {
     background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
     padding: 8px 8px 7px; display: flex; flex-direction: column;
@@ -84,6 +84,18 @@
     margin-bottom: 7px;
   }
   .stage .ref { opacity: 0.4; }
+  /* The dashed rule marks the height those default points ought to buy, so the
+     gap between the figure's own top and that line is the shortfall, to the pixel. */
+  .target-rule {
+    position: absolute; left: 4px; right: 4px; height: 0;
+    border-top: 1px dashed var(--accent2); pointer-events: none;
+  }
+  .target-rule::after {
+    content: attr(data-label); position: absolute; right: 0; top: -14px;
+    font-size: 9.5px; letter-spacing: 0.04em; color: var(--accent2);
+  }
+  .target-rule.over { border-top-color: var(--accent); }
+  .target-rule.over::after { color: var(--accent); }
   .name { font-size: 12px; font-weight: 600; line-height: 1.25; }
   .meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
   .ratio { font-size: 11px; margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -149,9 +161,17 @@
           <label for="zoom">Zoom <span id="zoomOut">1×</span></label>
           <input type="range" id="zoom" min="1" max="6" step="0.5" value="1" style="width:140px">
         </div>
+        <div class="ctl">
+          <label for="anchor">Cavalry target <span id="anchorOut">2.50×</span></label>
+          <input type="range" id="anchor" min="1" max="4" step="0.05" value="2.5" style="width:140px">
+        </div>
         <div class="ctl check">
           <input type="checkbox" id="showRef" checked>
           <label for="showRef">Ghost a 10-pt infantryman beside each</label>
+        </div>
+        <div class="ctl check">
+          <input type="checkbox" id="showTarget" checked>
+          <label for="showTarget">Outline the target height</label>
         </div>
         <button id="resetBtn">Reset to defaults</button>
       </div>
@@ -159,13 +179,18 @@
         The range drives <code>figSize()</code> exactly as <code>modelPointsRange()</code> does in the app —
         10 → 200 is the everyday case (a rank-and-file infantryman up to a Behemoth).
         Zoom magnifies every figure by the same factor, so relative sizes hold — the px figures quoted below stay true.
-        Grid lines are 10px at 1×.
+        Grid lines are 10px at 1×. <b>Cavalry target</b> anchors the whole target curve: every type's target height is
+        its infantry-equivalent worth raised to whatever exponent puts Cavalry on that number.
       </p>
     </section>
 
     <section>
-      <h2>1 · Defaults, at their real points</h2>
-      <p class="note">Each type at the hobby points its own stage table actually scores. This is the pile as it ships.</p>
+      <h2>1 · What the default points buy, vs what they should</h2>
+      <p class="note">
+        Each type at the hobby points its own stage table actually scores. Solid figure = what ships.
+        Faint figure = the 10-pt infantryman for scale. Dashed rule = the target height those default points
+        ought to buy, with Cavalry anchored at 2.5×.
+      </p>
       <div class="specimens" id="specDefault"></div>
     </section>
 
@@ -184,10 +209,15 @@
     </section>
 
     <section>
-      <h2>4 · Measurements</h2>
+      <h2>4 · Measurements — actual against target</h2>
       <p class="note">
-        <b>Height vs infantry</b> is the one that matters: the rendered height of that type next to a 10-pt infantryman
-        in the same pile. Under 1.0 means it draws <i>shorter</i> than a lone foot soldier.
+        <b>Now</b> is the rendered height of that type next to a 10-pt infantryman in the same pile; under 1.0 means it
+        draws <i>shorter</i> than a lone foot soldier. <b>Points-only</b> is what that type's own default points give a
+        plain <code>miniFig</code> with no icon override — the neutral line. <b>Target</b> is the anchored curve, and
+        <b>needs mult</b> is what <code>ICON_CONFIG</code> would have to carry to reach it, with the width that comes with it.
+        The last column is the other road: the aspect the artwork would need if the target were hit by drawing the symbol
+        <i>taller</i> instead, holding today's width. Widths past 60px are flagged — that's where a single
+        figure starts swallowing the row.
       </p>
       <div style="overflow-x:auto"><table id="measure"></table></div>
     </section>
@@ -201,8 +231,10 @@
 
     <section>
       <h2>6 · Tuner</h2>
-      <p class="note">Drag to re-judge live; sections 1–4 follow. The block below is paste-ready for
+      <p class="note">Drag a multiplier to re-judge live; sections 1–4 follow. <b>Snap all to target</b> sets every
+         multiplier to whatever hits its target height. The block below is paste-ready for
          <code>ICON_CONFIG</code> in <code>js/dashboard.js</code>.</p>
+      <p class="note"><button id="snapBtn">Snap all to target</button></p>
       <div class="tuner" id="tuner"></div>
       <pre id="output"></pre>
     </section>
@@ -235,18 +267,60 @@ const groupOf = id => Object.entries(TYPE_GROUPS).find(([, ids]) => ids.includes
 // Working copy the tuner mutates; ICON_CONFIG itself stays the pristine baseline.
 const mults = Object.fromEntries(Object.entries(ICON_CONFIG).map(([k, v]) => [k, v.mult]));
 
-const state = { min: 10, max: 200, showRef: true, zoom: 1 };
+const state = { min: 10, max: 200, showRef: true, showTarget: true, zoom: 1, anchor: 2.5 };
+
+// Past this the figure stops reading as one item in a pile and starts reading as
+// a banner across it — the practical ceiling on buying height through width.
+const WIDTH_ALARM = 60;
 const INFANTRY_PTS = 10;
 const round1 = n => Math.round(n * 10) / 10;
 
+// How many rank-and-file infantry each type is reckoned to be worth. These are
+// the figures the hobby-point rescale was built on — see the "infantry
+// equivalents" note above LEGACY_TYPE_POINTS in data.js — and they're what the
+// target heights are derived from, rather than raw points, so the target says
+// "a knight is three infantry" rather than "a knight is thirty points".
+const INFANTRY_EQ = {
+  infantry: 1, jump_infantry: 1.5, monstrous_infantry: 1.8, swarm: 2,
+  cavalry: 3, jetbike: 3, monstrous_cavalry: 4, chariot: 5,
+  character: 2.5, character_horse: 3.5, character_monster: 12.5,
+  warmachine: 4, vehicle: 5, large_vehicle: 10, super_heavy_vehicle: 20,
+  skimmer: 5, large_skimmer: 10, super_heavy_skimmer: 20,
+  walker: 5, monster: 10, behemoth: 20,
+};
+
+// One anchor sets the whole curve: pick the exponent that puts Cavalry (worth 3
+// infantry) on the target you asked for, then apply it to every type's worth.
+// At 2.5x for Cavalry the exponent is ~0.834, which is a long way above the
+// sqrt(0.5) compression figSize() applies today.
+function targetExponent() {
+  return Math.log(state.anchor) / Math.log(INFANTRY_EQ.cavalry);
+}
+function targetRatio(typeId) {
+  const eq = INFANTRY_EQ[typeId] || 1;
+  return Math.pow(eq, targetExponent());
+}
+
 // The dashboard's own sizing maths, lifted verbatim from pictoPileHtml().
+// `neutralH` is the same points, drawn as a plain miniFig — the height that type
+// would get from its default points alone, before any icon override.
 function sizeFor(typeId, basePts) {
   const icon = ICON_CONFIG[typeId];
-  let w = figSize(basePts, state.min, state.max);
-  const base = w;
+  const base = figSize(basePts, state.min, state.max);
+  let w = base;
   if (icon) w = round1(w * mults[typeId]);
   const h = round1(w * (icon ? icon.aspect : FIG_ASPECT));
-  return { w, h, base, symbol: icon ? icon.symbol : 'miniFig', icon };
+  return { w, h, base, neutralH: round1(base * FIG_ASPECT), symbol: icon ? icon.symbol : 'miniFig', icon };
+}
+
+// The multiplier that would land this type exactly on its target height. Only
+// meaningful where the type has an icon — a plain miniFig has no knob to turn.
+function multForTarget(typeId) {
+  const icon = ICON_CONFIG[typeId];
+  if (!icon) return null;
+  const refH = sizeFor('infantry', INFANTRY_PTS).h;
+  const base = figSize(typePoints[typeId], state.min, state.max);
+  return (targetRatio(typeId) * refH) / (base * icon.aspect);
 }
 
 // Zoom scales width and height by the same factor, so every ratio on this page
@@ -266,21 +340,35 @@ const ORDER = [
   'walker', 'warmachine', 'monster', 'behemoth',
 ].filter(id => id in typePoints);
 
-function ratioClass(r) { return r < 1 ? 'r-low' : r < 1.35 ? 'r-mid' : 'r-ok'; }
+// Graded against that type's own target: within a tenth is fine, half-way short
+// is the amber case, and anything worse than three-quarters short is the red one.
+function ratioClass(r, tgt) {
+  if (tgt == null) return r < 1 ? 'r-low' : r < 1.35 ? 'r-mid' : 'r-ok';
+  const frac = r / tgt;
+  return frac < 0.6 ? 'r-low' : frac < 0.9 ? 'r-mid' : 'r-ok';
+}
 
 function specimenHtml(typeId, pts, label) {
   const s = sizeFor(typeId, pts);
   const ref = sizeFor('infantry', INFANTRY_PTS);
   const r = s.h / ref.h;
+  const tgt = targetRatio(typeId);
+  const tgtH = tgt * ref.h;
+  // The rule is measured down from the stage ceiling, so it sits at the true
+  // target height above the same baseline every figure stands on.
+  const ruleTop = stageH() - tgtH * state.zoom;
+  const showRule = state.showTarget && typeId !== 'infantry' && ruleTop >= 0;
   return `
     <div class="specimen">
       <div class="stage">
+        ${showRule ? `<div class="target-rule${r >= tgt ? ' over' : ''}" style="top:${round1(ruleTop)}px"
+             data-label="target ${tgt.toFixed(2)}×"></div>` : ''}
         ${state.showRef && typeId !== 'infantry' ? figHtml('infantry', ref, 'ref') : ''}
         ${figHtml(typeId, s)}
       </div>
       <div class="name">${typeName[typeId]}</div>
       <div class="meta">${label} · ${s.w} × ${s.h} px</div>
-      <div class="ratio ${ratioClass(r)}">height vs infantry <b>${r.toFixed(2)}×</b></div>
+      <div class="ratio ${ratioClass(r, tgt)}">now <b>${r.toFixed(2)}×</b> · target <b>${tgt.toFixed(2)}×</b></div>
     </div>`;
 }
 
@@ -296,14 +384,31 @@ const SITU_ROWS = [
             ['vehicle', 1], ['skimmer', 1], ['monster', 1], ['behemoth', 1]] },
 ];
 
-function render() {
-  // One ceiling for every card, set by the tallest figure currently on show, so
-  // no silhouette gets to look big just because its own card is snug.
+// One ceiling for every card, set by the tallest thing currently on show —
+// figures and target rules alike — so no silhouette gets to look big just
+// because its own card is snug, and no target rule falls off the top.
+let _stageH = 90;
+function stageH() { return _stageH; }
+function computeStage() {
   const equalPtsPeek = Math.round((state.min + state.max) / 2);
-  const tallest = Math.max(...ORDER.flatMap(id =>
+  const refH = sizeFor('infantry', INFANTRY_PTS).h;
+  const tallestFig = Math.max(...ORDER.flatMap(id =>
     [sizeFor(id, typePoints[id]).h, sizeFor(id, equalPtsPeek).h]));
-  document.documentElement.style.setProperty('--stage-h', `${Math.round(tallest * state.zoom) + 12}px`);
+  const tallestTgt = state.showTarget
+    ? Math.max(...ORDER.map(id => targetRatio(id) * refH))
+    : 0;
+  // A runaway target (a Behemoth at 12x) would squash every other card, so the
+  // ceiling only stretches half again past the tallest figure; rules above that
+  // are dropped, and the table still reports what they were.
+  const ceiling = Math.max(tallestFig, Math.min(tallestTgt, tallestFig * 1.5));
+  _stageH = Math.round(ceiling * state.zoom) + 16;
+  document.documentElement.style.setProperty('--stage-h', `${_stageH}px`);
   document.documentElement.style.setProperty('--grid', `${10 * state.zoom}px`);
+}
+
+function render() {
+  computeStage();
+  const equalPtsPeek = Math.round((state.min + state.max) / 2);
 
   document.getElementById('specDefault').innerHTML =
     ORDER.map(id => specimenHtml(id, typePoints[id], `${typePoints[id]} pts`)).join('');
@@ -328,12 +433,18 @@ function render() {
   const ref = sizeFor('infantry', INFANTRY_PTS);
   document.getElementById('measure').innerHTML = `
     <thead><tr>
-      <th>Type</th><th>Pts</th><th>Symbol</th><th>mult</th><th>aspect</th>
-      <th>W</th><th>H</th><th>Area</th><th>H vs infantry</th>
+      <th>Type</th><th>Pts</th><th>Worth</th><th>Symbol</th><th>mult</th><th>aspect</th>
+      <th>W × H now</th><th>Now</th><th>Points-only</th><th>Target</th>
+      <th>Needs mult</th><th>W × H then</th><th>…or aspect</th>
     </tr></thead>
     <tbody>${ORDER.map(id => {
       const s = sizeFor(id, typePoints[id]);
       const r = s.h / ref.h;
+      const tgt = targetRatio(id);
+      const neutral = s.neutralH / ref.h;
+      const need = multForTarget(id);
+      const thenW = need == null ? null : round1(s.base * need);
+      const thenH = need == null ? null : round1(thenW * s.icon.aspect);
       const grp = groupOf(id).toLowerCase().replace('infantry-scale', 'infantry');
       const varName = { infantry: 'infantry', mounted: 'mounted', large: 'large',
                         characters: 'characters', vehicles: 'vehicles', terrain: 'special',
@@ -341,11 +452,17 @@ function render() {
       return `<tr>
         <td><span class="swatch" style="background:var(--grp-${varName})"></span>${typeName[id]}</td>
         <td>${typePoints[id]}</td>
+        <td>${(INFANTRY_EQ[id] || 1)}×</td>
         <td>${s.symbol}</td>
         <td>${s.icon ? mults[id].toFixed(2) : '—'}</td>
         <td>${(s.icon ? s.icon.aspect : FIG_ASPECT).toFixed(2)}</td>
-        <td>${s.w}</td><td>${s.h}</td><td>${Math.round(s.w * s.h)}</td>
-        <td class="${ratioClass(r)}"><b>${r.toFixed(2)}×</b></td>
+        <td>${s.w} × ${s.h}</td>
+        <td class="${ratioClass(r, tgt)}"><b>${r.toFixed(2)}×</b></td>
+        <td>${neutral.toFixed(2)}×</td>
+        <td>${tgt.toFixed(2)}×</td>
+        <td>${need == null ? '—' : need.toFixed(2)}</td>
+        <td class="${thenW != null && thenW > WIDTH_ALARM ? 'r-low' : ''}">${need == null ? '—' : `${thenW} × ${thenH}`}</td>
+        <td>${need == null ? '—' : round1(tgt * ref.h / s.w).toFixed(2)}</td>
       </tr>`;
     }).join('')}</tbody>`;
 
@@ -384,7 +501,7 @@ function renderTuner() {
   document.getElementById('tuner').innerHTML = Object.keys(ICON_CONFIG).map(id => `
     <div class="tune-row">
       <span>${typeName[id] || id}</span>
-      <input type="range" min="0.8" max="4" step="0.05" value="${mults[id]}" data-tune="${id}">
+      <input type="range" min="0.8" max="12" step="0.05" value="${mults[id]}" data-tune="${id}">
       <output id="out-${id}">${mults[id].toFixed(2)}</output>
     </div>`).join('');
   document.getElementById('tuner').addEventListener('input', e => {
@@ -400,19 +517,33 @@ function wireControls() {
   const min = document.getElementById('minPts');
   const max = document.getElementById('maxPts');
   const ref = document.getElementById('showRef');
+  const tgt = document.getElementById('showTarget');
   const zoom = document.getElementById('zoom');
+  const anchor = document.getElementById('anchor');
   const sync = () => {
     state.min = Math.max(1, parseFloat(min.value) || 1);
     state.max = Math.max(state.min + 1, parseFloat(max.value) || 2);
     state.showRef = ref.checked;
+    state.showTarget = tgt.checked;
     state.zoom = parseFloat(zoom.value) || 1;
+    state.anchor = parseFloat(anchor.value) || 2.5;
     document.getElementById('zoomOut').textContent = `${state.zoom}×`;
+    document.getElementById('anchorOut').textContent = `${state.anchor.toFixed(2)}×`;
     render();
   };
-  [min, max, ref, zoom].forEach(el => el.addEventListener('input', sync));
+  [min, max, ref, tgt, zoom, anchor].forEach(el => el.addEventListener('input', sync));
+  document.getElementById('snapBtn').addEventListener('click', () => {
+    Object.keys(ICON_CONFIG).forEach(id => {
+      const need = multForTarget(id);
+      if (need != null) mults[id] = Math.round(need * 100) / 100;
+    });
+    renderTuner();
+    render();
+  });
   document.getElementById('resetBtn').addEventListener('click', () => {
     Object.entries(ICON_CONFIG).forEach(([id, cfg]) => { mults[id] = cfg.mult; });
-    min.value = 10; max.value = 200; ref.checked = true; zoom.value = 1;
+    min.value = 10; max.value = 200; ref.checked = true; tgt.checked = true;
+    zoom.value = 1; anchor.value = 2.5;
     renderTuner();
     sync();
   });
