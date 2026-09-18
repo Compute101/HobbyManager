@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pictogram Scale Bench</title>
+<!--
+  A dev-only bench for judging pile-of-potential pictogram sizes side by side.
+
+  It imports ICON_CONFIG and the FIG_* constants straight from dashboard.js and
+  lifts the <symbol> sprite out of index.html at load, so there are no numbers
+  or shapes duplicated here — what you see is exactly what the dashboard draws.
+  Serve the repo over http (ES modules + fetch won't run from file://):
+
+      python3 -m http.server 8000     →     localhost:8000/tools/pictogram-scale.html
+-->
+<style>
+  :root {
+    --bg: #1a1a2e; --surface: #1e2140; --surface2: #252847; --border: #2e3260;
+    --text: #e0e0f0; --text-muted: #8888aa; --accent: #4a9d6f; --accent2: #c5a028;
+    --warning: #e67e22; --danger: #c0392b;
+    --grp-infantry: #3987e5; --grp-mounted: #d95926; --grp-large: #199e70;
+    --grp-characters: #c98500; --grp-vehicles: #d55181; --grp-special: #008300;
+    --grp-custom: #9085e9; --grp-other: #e66767;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 20px 16px 60px; background: var(--bg); color: var(--text);
+    font-family: system-ui, sans-serif; font-size: 14px; line-height: 1.5;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 0 0 4px; letter-spacing: 0.02em; }
+  .sub { color: var(--text-muted); margin: 0 0 24px; }
+  .note { color: var(--text-muted); font-size: 12.5px; margin: 0 0 14px; }
+  section {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+    padding: 16px; margin-bottom: 18px;
+  }
+
+  /* Same rules the dashboard uses for .picto-figs / .fig, so the bench renders
+     figures under identical layout and stroke conditions. */
+  .picto-figs { display: flex; flex-wrap: wrap; gap: 3px; align-items: flex-end; }
+  .fig { display: block; overflow: visible; flex-shrink: 0; stroke-width: 1; }
+  .fig-grp-infantry   { fill: var(--grp-infantry);   stroke: color-mix(in srgb, var(--grp-infantry) 55%, black); }
+  .fig-grp-mounted    { fill: var(--grp-mounted);    stroke: color-mix(in srgb, var(--grp-mounted) 55%, black); }
+  .fig-grp-large      { fill: var(--grp-large);      stroke: color-mix(in srgb, var(--grp-large) 55%, black); }
+  .fig-grp-characters { fill: var(--grp-characters); stroke: color-mix(in srgb, var(--grp-characters) 55%, black); }
+  .fig-grp-vehicles   { fill: var(--grp-vehicles);   stroke: color-mix(in srgb, var(--grp-vehicles) 55%, black); }
+  .fig-grp-special    { fill: var(--grp-special);    stroke: color-mix(in srgb, var(--grp-special) 55%, black); }
+  .fig-grp-custom     { fill: var(--grp-custom);     stroke: color-mix(in srgb, var(--grp-custom) 55%, black); }
+  .fig-grp-other      { fill: var(--grp-other);      stroke: color-mix(in srgb, var(--grp-other) 55%, black); }
+
+  /* --- controls --- */
+  .controls { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; }
+  .ctl label { display: block; font-size: 11px; text-transform: uppercase;
+               letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 4px; }
+  .ctl input[type=number] {
+    width: 84px; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 4px; padding: 5px 7px; font: inherit;
+  }
+  .ctl.check { display: flex; align-items: center; gap: 7px; padding-bottom: 6px; }
+  .ctl.check label { margin: 0; text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--text); }
+  button {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    border-radius: 4px; padding: 6px 12px; font: inherit; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+
+  /* --- specimen cards (section 1 & 2) --- */
+  .specimens { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, max(168px, calc(var(--stage-h, 78px) * 1.9))), 1fr)); }
+  .specimen {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+    padding: 8px 8px 7px; display: flex; flex-direction: column;
+  }
+  /* Figures sit on a shared baseline with a measured ceiling above them, so a
+     short-but-wide silhouette can't borrow apparent height from its own row. */
+  .stage {
+    position: relative; height: var(--stage-h, 78px); display: flex; align-items: flex-end;
+    justify-content: center; gap: 5px;
+    border-bottom: 1px solid var(--border);
+    background-image: repeating-linear-gradient(to top,
+        transparent 0 calc(var(--grid) - 1px), rgba(255,255,255,0.05) calc(var(--grid) - 1px) var(--grid));
+    margin-bottom: 7px;
+  }
+  .stage .ref { opacity: 0.4; }
+  .name { font-size: 12px; font-weight: 600; line-height: 1.25; }
+  .meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .ratio { font-size: 11px; margin-top: 3px; font-variant-numeric: tabular-nums; }
+  .ratio b { font-weight: 700; }
+  .r-low  { color: var(--danger); }
+  .r-mid  { color: var(--warning); }
+  .r-ok   { color: var(--accent); }
+
+  /* --- in-situ strip --- */
+  .situ {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+    padding: 12px 10px; margin-bottom: 10px;
+  }
+  .situ-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+
+  /* --- table --- */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: right; padding: 5px 8px; border-bottom: 1px solid var(--border); }
+  th:first-child, td:first-child { text-align: left; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
+       color: var(--text-muted); font-weight: 600; }
+  tbody tr:hover { background: var(--surface2); }
+  td .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px;
+               margin-right: 6px; vertical-align: middle; }
+
+  /* --- tabletop yardstick --- */
+  .bases { display: flex; gap: 22px; align-items: flex-end; flex-wrap: wrap; }
+  .base-item { text-align: center; }
+  .base-item .cap { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+  /* --- tuner --- */
+  .tuner { display: grid; gap: 10px 16px; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+  .tune-row { display: grid; grid-template-columns: 116px 1fr 42px; gap: 8px; align-items: center; }
+  .tune-row span:first-child { font-size: 12px; }
+  .tune-row output { font-size: 12px; color: var(--accent2); font-variant-numeric: tabular-nums; text-align: right; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  pre {
+    background: #12142b; border: 1px solid var(--border); border-radius: 5px;
+    padding: 12px; overflow-x: auto; font-size: 12px; margin: 14px 0 0;
+    color: #cfd2f0;
+  }
+  .err { color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Pictogram Scale Bench</h1>
+  <p class="sub">Every pile-of-potential silhouette at its committed default size, on a shared baseline.</p>
+  <div id="boot" class="note">Loading sprite from <code>../index.html</code>…</div>
+  <div id="content" hidden>
+
+    <section>
+      <div class="controls">
+        <div class="ctl">
+          <label for="minPts">Collection min pts</label>
+          <input type="number" id="minPts" value="10" min="1" step="1">
+        </div>
+        <div class="ctl">
+          <label for="maxPts">Collection max pts</label>
+          <input type="number" id="maxPts" value="200" min="2" step="1">
+        </div>
+        <div class="ctl">
+          <label for="zoom">Zoom <span id="zoomOut">1×</span></label>
+          <input type="range" id="zoom" min="1" max="6" step="0.5" value="1" style="width:140px">
+        </div>
+        <div class="ctl check">
+          <input type="checkbox" id="showRef" checked>
+          <label for="showRef">Ghost a 10-pt infantryman beside each</label>
+        </div>
+        <button id="resetBtn">Reset to defaults</button>
+      </div>
+      <p class="note" style="margin:12px 0 0">
+        The range drives <code>figSize()</code> exactly as <code>modelPointsRange()</code> does in the app —
+        10 → 200 is the everyday case (a rank-and-file infantryman up to a Behemoth).
+        Zoom magnifies every figure by the same factor, so relative sizes hold — the px figures quoted below stay true.
+        Grid lines are 10px at 1×.
+      </p>
+    </section>
+
+    <section>
+      <h2>1 · Defaults, at their real points</h2>
+      <p class="note">Each type at the hobby points its own stage table actually scores. This is the pile as it ships.</p>
+      <div class="specimens" id="specDefault"></div>
+    </section>
+
+    <section>
+      <h2>2 · Shapes only, points held equal</h2>
+      <p class="note">Every silhouette forced to the same base width, so what you're judging is <code>mult</code> and the
+         viewBox aspect alone — with the points curve taken out of it.</p>
+      <div class="specimens" id="specEqual"></div>
+    </section>
+
+    <section>
+      <h2>3 · In situ</h2>
+      <p class="note">Rendered under the dashboard's own flex row — 3px gap, bottom-aligned — because that baseline is
+         what makes height read as size.</p>
+      <div id="situRows"></div>
+    </section>
+
+    <section>
+      <h2>4 · Measurements</h2>
+      <p class="note">
+        <b>Height vs infantry</b> is the one that matters: the rendered height of that type next to a 10-pt infantryman
+        in the same pile. Under 1.0 means it draws <i>shorter</i> than a lone foot soldier.
+      </p>
+      <div style="overflow-x:auto"><table id="measure"></table></div>
+    </section>
+
+    <section>
+      <h2>5 · Tabletop yardstick</h2>
+      <p class="note">What the real thing does, for calibration — footprints to scale (1mm = 0.42px), and
+         typical model height above the base.</p>
+      <div class="bases" id="bases"></div>
+    </section>
+
+    <section>
+      <h2>6 · Tuner</h2>
+      <p class="note">Drag to re-judge live; sections 1–4 follow. The block below is paste-ready for
+         <code>ICON_CONFIG</code> in <code>js/dashboard.js</code>.</p>
+      <div class="tuner" id="tuner"></div>
+      <pre id="output"></pre>
+    </section>
+
+  </div>
+</div>
+
+<script type="module">
+import { ICON_CONFIG, GROUP_CLASS, FIG_MIN_W, FIG_MAX_W, FIG_ASPECT, figSize }
+  from '../js/dashboard.js';
+import { BUILTIN_MODEL_TYPES, TYPE_GROUPS } from '../js/data.js';
+
+// Lift the <symbol> sprite out of index.html rather than keeping a second copy
+// of the artwork here — a shape tweak in the app shows up in the bench for free.
+async function loadSprite() {
+  const res = await fetch('../index.html');
+  if (!res.ok) throw new Error(`fetch ../index.html → ${res.status}`);
+  const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
+  const sprite = doc.querySelector('body > svg');
+  if (!sprite || !sprite.querySelector('symbol')) throw new Error('no <symbol> sprite found in index.html');
+  document.body.prepend(document.importNode(sprite, true));
+}
+
+const typePoints = Object.fromEntries(
+  BUILTIN_MODEL_TYPES.map(t => [t.id, (t.stages || []).reduce((a, s) => a + (s.points || 1), 0)])
+);
+const typeName = Object.fromEntries(BUILTIN_MODEL_TYPES.map(t => [t.id, t.name]));
+const groupOf = id => Object.entries(TYPE_GROUPS).find(([, ids]) => ids.includes(id))?.[0] || 'Other';
+
+// Working copy the tuner mutates; ICON_CONFIG itself stays the pristine baseline.
+const mults = Object.fromEntries(Object.entries(ICON_CONFIG).map(([k, v]) => [k, v.mult]));
+
+const state = { min: 10, max: 200, showRef: true, zoom: 1 };
+const INFANTRY_PTS = 10;
+const round1 = n => Math.round(n * 10) / 10;
+
+// The dashboard's own sizing maths, lifted verbatim from pictoPileHtml().
+function sizeFor(typeId, basePts) {
+  const icon = ICON_CONFIG[typeId];
+  let w = figSize(basePts, state.min, state.max);
+  const base = w;
+  if (icon) w = round1(w * mults[typeId]);
+  const h = round1(w * (icon ? icon.aspect : FIG_ASPECT));
+  return { w, h, base, symbol: icon ? icon.symbol : 'miniFig', icon };
+}
+
+// Zoom scales width and height by the same factor, so every ratio on this page
+// survives magnification untouched; the quoted px are always the true 1x size.
+function figHtml(typeId, { w, h, symbol }, extraCls = '') {
+  const grp = GROUP_CLASS[groupOf(typeId)] || GROUP_CLASS.Other;
+  const z = state.zoom;
+  return `<svg class="fig ${grp} ${extraCls}" width="${round1(w * z)}" height="${round1(h * z)}"><use href="#${symbol}"></use></svg>`;
+}
+
+const ORDER = [
+  'infantry', 'jump_infantry', 'monstrous_infantry', 'swarm',
+  'cavalry', 'jetbike', 'monstrous_cavalry', 'chariot',
+  'character', 'character_horse', 'character_monster',
+  'vehicle', 'large_vehicle', 'super_heavy_vehicle',
+  'skimmer', 'large_skimmer', 'super_heavy_skimmer',
+  'walker', 'warmachine', 'monster', 'behemoth',
+].filter(id => id in typePoints);
+
+function ratioClass(r) { return r < 1 ? 'r-low' : r < 1.35 ? 'r-mid' : 'r-ok'; }
+
+function specimenHtml(typeId, pts, label) {
+  const s = sizeFor(typeId, pts);
+  const ref = sizeFor('infantry', INFANTRY_PTS);
+  const r = s.h / ref.h;
+  return `
+    <div class="specimen">
+      <div class="stage">
+        ${state.showRef && typeId !== 'infantry' ? figHtml('infantry', ref, 'ref') : ''}
+        ${figHtml(typeId, s)}
+      </div>
+      <div class="name">${typeName[typeId]}</div>
+      <div class="meta">${label} · ${s.w} × ${s.h} px</div>
+      <div class="ratio ${ratioClass(r)}">height vs infantry <b>${r.toFixed(2)}×</b></div>
+    </div>`;
+}
+
+// Mixed rows a real collection actually produces, so the odd one out is obvious
+// in company rather than in isolation.
+const SITU_ROWS = [
+  { label: 'A regiment of foot, a unit of knights, a hero on horse',
+    cells: [['infantry', 8], ['cavalry', 5], ['character_horse', 1], ['character', 1]] },
+  { label: 'Infantry line with armour support',
+    cells: [['infantry', 10], ['vehicle', 2], ['large_vehicle', 1]] },
+  { label: 'Everything at once',
+    cells: [['infantry', 6], ['swarm', 2], ['cavalry', 4], ['jetbike', 2], ['walker', 1],
+            ['vehicle', 1], ['skimmer', 1], ['monster', 1], ['behemoth', 1]] },
+];
+
+function render() {
+  // One ceiling for every card, set by the tallest figure currently on show, so
+  // no silhouette gets to look big just because its own card is snug.
+  const equalPtsPeek = Math.round((state.min + state.max) / 2);
+  const tallest = Math.max(...ORDER.flatMap(id =>
+    [sizeFor(id, typePoints[id]).h, sizeFor(id, equalPtsPeek).h]));
+  document.documentElement.style.setProperty('--stage-h', `${Math.round(tallest * state.zoom) + 12}px`);
+  document.documentElement.style.setProperty('--grid', `${10 * state.zoom}px`);
+
+  document.getElementById('specDefault').innerHTML =
+    ORDER.map(id => specimenHtml(id, typePoints[id], `${typePoints[id]} pts`)).join('');
+
+  // Section 2 pins every type to one mid-range base width by feeding figSize the
+  // midpoint of the range, so only mult × aspect varies.
+  const equalPts = equalPtsPeek;
+  document.getElementById('specEqual').innerHTML =
+    ORDER.map(id => specimenHtml(id, equalPts, `all @ ${equalPts} pts`)).join('');
+
+  document.getElementById('situRows').innerHTML = SITU_ROWS.map(row => `
+    <div class="situ">
+      <div class="situ-label">${row.label}</div>
+      <div class="picto-figs">
+        ${row.cells.map(([id, n]) => {
+          const s = sizeFor(id, typePoints[id]);
+          return figHtml(id, s).repeat(n);
+        }).join('')}
+      </div>
+    </div>`).join('');
+
+  const ref = sizeFor('infantry', INFANTRY_PTS);
+  document.getElementById('measure').innerHTML = `
+    <thead><tr>
+      <th>Type</th><th>Pts</th><th>Symbol</th><th>mult</th><th>aspect</th>
+      <th>W</th><th>H</th><th>Area</th><th>H vs infantry</th>
+    </tr></thead>
+    <tbody>${ORDER.map(id => {
+      const s = sizeFor(id, typePoints[id]);
+      const r = s.h / ref.h;
+      const grp = groupOf(id).toLowerCase().replace('infantry-scale', 'infantry');
+      const varName = { infantry: 'infantry', mounted: 'mounted', large: 'large',
+                        characters: 'characters', vehicles: 'vehicles', terrain: 'special',
+                        other: 'other' }[grp] || 'other';
+      return `<tr>
+        <td><span class="swatch" style="background:var(--grp-${varName})"></span>${typeName[id]}</td>
+        <td>${typePoints[id]}</td>
+        <td>${s.symbol}</td>
+        <td>${s.icon ? mults[id].toFixed(2) : '—'}</td>
+        <td>${(s.icon ? s.icon.aspect : FIG_ASPECT).toFixed(2)}</td>
+        <td>${s.w}</td><td>${s.h}</td><td>${Math.round(s.w * s.h)}</td>
+        <td class="${ratioClass(r)}"><b>${r.toFixed(2)}×</b></td>
+      </tr>`;
+    }).join('')}</tbody>`;
+
+  document.getElementById('output').textContent =
+    'const ICON_CONFIG = {\n' +
+    Object.entries(ICON_CONFIG).map(([id, cfg]) =>
+      `  ${(id + ':').padEnd(21)}{ symbol: '${cfg.symbol}',`.padEnd(56) +
+      `aspect: ${cfg.aspect.toFixed(4)}, mult: ${mults[id].toFixed(2)} },`
+    ).join('\n') + '\n};';
+}
+
+// Real base footprints (mm) and a typical model height above the base, for the
+// only comparison that actually settles "is a knight big enough" — the tabletop.
+const REAL = [
+  { label: 'Infantry<br>25 × 25mm', w: 25, d: 25, h: 32 },
+  { label: 'Cavalry<br>25 × 50mm', w: 50, d: 25, h: 45 },
+  { label: 'Monstrous cav<br>40 × 40mm', w: 40, d: 40, h: 55 },
+  { label: 'Chariot<br>50 × 100mm', w: 100, d: 50, h: 45 },
+  { label: 'Light tank<br>~120 × 60mm', w: 120, d: 60, h: 50 },
+];
+function renderBases() {
+  const MM = 0.42;
+  document.getElementById('bases').innerHTML = REAL.map(b => `
+    <div class="base-item">
+      <svg width="${b.w * MM}" height="${(b.h + b.d * 0.4) * MM}" style="overflow:visible">
+        <rect x="0" y="${b.h * MM}" width="${b.w * MM}" height="${b.d * 0.4 * MM}"
+              fill="var(--surface2)" stroke="var(--border)"></rect>
+        <rect x="${b.w * MM * 0.15}" y="0" width="${b.w * MM * 0.7}" height="${b.h * MM}"
+              fill="var(--accent)" opacity="0.5" rx="2"></rect>
+      </svg>
+      <div class="cap">${b.label}</div>
+    </div>`).join('');
+}
+
+function renderTuner() {
+  document.getElementById('tuner').innerHTML = Object.keys(ICON_CONFIG).map(id => `
+    <div class="tune-row">
+      <span>${typeName[id] || id}</span>
+      <input type="range" min="0.8" max="4" step="0.05" value="${mults[id]}" data-tune="${id}">
+      <output id="out-${id}">${mults[id].toFixed(2)}</output>
+    </div>`).join('');
+  document.getElementById('tuner').addEventListener('input', e => {
+    const id = e.target.dataset.tune;
+    if (!id) return;
+    mults[id] = parseFloat(e.target.value);
+    document.getElementById(`out-${id}`).textContent = mults[id].toFixed(2);
+    render();
+  });
+}
+
+function wireControls() {
+  const min = document.getElementById('minPts');
+  const max = document.getElementById('maxPts');
+  const ref = document.getElementById('showRef');
+  const zoom = document.getElementById('zoom');
+  const sync = () => {
+    state.min = Math.max(1, parseFloat(min.value) || 1);
+    state.max = Math.max(state.min + 1, parseFloat(max.value) || 2);
+    state.showRef = ref.checked;
+    state.zoom = parseFloat(zoom.value) || 1;
+    document.getElementById('zoomOut').textContent = `${state.zoom}×`;
+    render();
+  };
+  [min, max, ref, zoom].forEach(el => el.addEventListener('input', sync));
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    Object.entries(ICON_CONFIG).forEach(([id, cfg]) => { mults[id] = cfg.mult; });
+    min.value = 10; max.value = 200; ref.checked = true; zoom.value = 1;
+    renderTuner();
+    sync();
+  });
+}
+
+loadSprite().then(() => {
+  document.getElementById('boot').hidden = true;
+  document.getElementById('content').hidden = false;
+  wireControls();
+  renderTuner();
+  renderBases();
+  render();
+}).catch(err => {
+  document.getElementById('boot').innerHTML =
+    `<span class="err">Couldn't load the sprite: ${err.message}.</span> ` +
+    `Serve the repo over http — <code>python3 -m http.server 8000</code>, then open ` +
+    `<code>localhost:8000/tools/pictogram-scale.html</code>.`;
+});
+</script>
+</body>
+</html>

@@ -513,10 +513,10 @@ function shameLabel(model) {
   return { text: 'Never started', cls: 'shame-fresh' };
 }
 
-const PICTO_CAP = 150;
-const FIG_MIN_W = 8;
-const FIG_MAX_W = 22;
-const FIG_ASPECT = 32 / 24; // matches the #miniFig symbol's viewBox (0 0 24 32) — default for any type without its own icon
+export const PICTO_CAP = 150;
+export const FIG_MIN_W = 8;
+export const FIG_MAX_W = 22;
+export const FIG_ASPECT = 32 / 24; // matches the #miniFig symbol's viewBox (0 0 24 32) — default for any type without its own icon
 
 // Model types with a dedicated silhouette instead of the default standing
 // figure, keyed by model type id (not group — Vehicle and Skimmer share a
@@ -524,7 +524,7 @@ const FIG_ASPECT = 32 / 24; // matches the #miniFig symbol's viewBox (0 0 24 32)
 // its points-driven size so hardware/mounts read as visibly bigger than a
 // same-scoring infantry model, not just a bigger person; for the swarm base
 // it buys width for the cluster, which its flat aspect keeps short.
-const ICON_CONFIG = {
+export const ICON_CONFIG = {
   swarm:               { symbol: 'miniSwarm',   aspect: 16 / 30, mult: 1.4  },
   vehicle:             { symbol: 'miniTank',    aspect: 20 / 34, mult: 1.6  },
   large_vehicle:       { symbol: 'miniTank',    aspect: 20 / 34, mult: 2.0  },
@@ -539,7 +539,7 @@ const ICON_CONFIG = {
   jump_infantry:       { symbol: 'miniFigWinged', aspect: 32 / 32, mult: 1.05 },
 };
 
-const GROUP_CLASS = {
+export const GROUP_CLASS = {
   'Infantry-scale': 'fig-grp-infantry',
   'Mounted':        'fig-grp-mounted',
   'Large':          'fig-grp-large',
@@ -560,7 +560,7 @@ function modelPointsRange() {
   return { min: Math.min(...totals), max: Math.max(...totals) };
 }
 
-function figSize(pts, minPts, maxPts) {
+export function figSize(pts, minPts, maxPts) {
   if (maxPts <= minPts) return FIG_MIN_W;
   const t = Math.sqrt(Math.max(0, Math.min(1, (pts - minPts) / (maxPts - minPts))));
   return Math.round((FIG_MIN_W + t * (FIG_MAX_W - FIG_MIN_W)) * 10) / 10;
