@@ -1060,6 +1060,7 @@
     .dash-pile { grid-column: 1 / -1; }
     .dash-pile-burndown { grid-column: 1 / -1; }
     .dash-grey-brigade { grid-column: 1 / -1; }
+    .dash-parade { grid-column: 1 / -1; }
     .pile-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75em; }
     .pile-card-header h3 { margin-bottom: 0; }
     .pile-total { font-size: 0.9em; color: var(--text-muted); margin-bottom: 0.75em; }
@@ -1199,6 +1200,14 @@
     .fig-grp-special    { fill: var(--grp-special);    stroke: color-mix(in srgb, var(--grp-special) 55%, black); }
     .fig-grp-custom     { fill: var(--grp-custom);     stroke: color-mix(in srgb, var(--grp-custom) 55%, black); }
     .fig-grp-other      { fill: var(--grp-other);      stroke: color-mix(in srgb, var(--grp-other) 55%, black); }
+    /* Parade Ground figures keep their full group colour and pick up a faint
+       gilt halo — the same gold the Finished threshold uses — so a finished
+       rank reads as "done" next to the washed-out Grey Brigade. A glow rather
+       than a stroke override, which would swamp the smallest figures' fill. */
+    .fig-finished { filter: drop-shadow(0 0 1.5px color-mix(in srgb, #c5a028 80%, transparent)); }
+    /* No per-model text list above the pile here, so the figures need their own
+       breathing room where the divider provides it on the other pile cards. */
+    .dash-parade .picto-figs { margin-top: 0.2em; }
     .picto-overflow { font-size: 0.72em; color: var(--text-muted); border: 1px solid var(--border); border-radius: 4px; padding: 0.15em 0.4em; align-self: center; }
     .pictograph-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6em; font-size: 0.78em; color: var(--text-muted); margin-top: 0.85em; }
     .picto-legend-item { display: inline-flex; align-items: center; gap: 0.3em; }
