@@ -1,6 +1,6 @@
 // dashboard.js — dashboard with pie charts and deadline cards
 
-import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, singleModelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER, getModelDateAdded, resolveGameSystemId, greyBrigadeCount, finishedCount, getActiveModels, getMothballedModels } from './data.js';
+import { appData, globalStats, listStats, saveData, GAME_SYSTEMS, modelThreshold, unstartedCount, singleModelPoints, getModelType, resolveModelGroup, MODEL_GROUP_ORDER, getModelDateAdded, resolveGameSystemId, greyBrigadeCount, finishedCount, getActiveModels, getMothballedModels, sessionModelIds, sessionTimeOnlyModelIds } from './data.js';
 import { progressBar, toast, daysUntil, formatDate, localDateStr } from './ui.js';
 import { renderCompositionPie, renderCompletionPie, renderBurndown, renderStageBar, renderListCompletionPie, pieModeToggleHtml, wirePieModeToggle, renderPileBurndown, pileBurndownStats, burndownWindowToggleHtml, wireBurndownWindowToggle, burndownWindowLabel } from './charts.js';
 import { showModal, closeModal, createDateInput, getDateValue } from './ui.js';
@@ -246,7 +246,7 @@ function renderWeeklySummary() {
 
   // Models worked on
   const modelsWorked = new Set(
-    sessions.flatMap(s => (s.modelEntries || []).map(e => e.modelId))
+    sessions.flatMap(sessionModelIds)
   ).size;
 
   // Goal progress
@@ -261,13 +261,13 @@ function renderWeeklySummary() {
   let message = '';
   if (goal > 0) {
     if (goalPct >= 100) message = '🎉 Weekly goal smashed!';
-    else if (weekPts === 0 && daysLeft <= 1) message = '⚠️ Last chance to paint this week!';
-    else if (weekPts === 0) message = '🖌️ Time to get the brushes out!';
+    else if (!daysPainted && daysLeft <= 1) message = '⚠️ Last chance to paint this week!';
+    else if (!daysPainted) message = '🖌️ Time to get the brushes out!';
     else if (goalPct >= 60) message = '💪 Almost there — keep going!';
     else if (daysLeft <= 2 && goalPct < 50) message = '⏰ Weekend crunch time!';
     else message = '🎨 Good progress — keep it up!';
   } else {
-    if (weekPts === 0) message = '🖌️ No painting yet this week.';
+    if (!daysPainted) message = '🖌️ No painting yet this week.';
     else message = `🎨 ${daysPainted} day${daysPainted !== 1 ? 's' : ''} painted this week!`;
   }
 
@@ -333,8 +333,8 @@ function renderHobbyStats() {
   const modelMins = {};
   sessions.forEach(s => {
     if (!s.duration) return;
-    (s.modelEntries || []).forEach(e => {
-      modelMins[e.modelId] = (modelMins[e.modelId] || 0) + s.duration;
+    sessionModelIds(s).forEach(id => {
+      modelMins[id] = (modelMins[id] || 0) + s.duration;
     });
   });
   const topModelId = Object.entries(modelMins).sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -447,6 +447,10 @@ function renderRecentSessions() {
             const m = appData.models[e.modelId];
             const stage = (m?.stages || appData.config.stages).find(st => st.id === e.stageId);
             return m ? `<span class="session-tag">${m.name} — ${stage?.name || e.stageId} ×${e.qty}</span>` : '';
+          }).join('')}
+          ${sessionTimeOnlyModelIds(s).map(id => {
+            const m = appData.models[id];
+            return m ? `<span class="session-tag">${m.name} — in progress</span>` : '';
           }).join('')}
         </div>
       </div>

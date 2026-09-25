@@ -1,6 +1,6 @@
 // activity.js — painting activity calendar and session history
 
-import { appData, deleteSession } from './data.js';
+import { appData, deleteSession, sessionTimeOnlyModelIds } from './data.js';
 import { formatDate, localDateStr, showConfirm, toast } from './ui.js';
 
 export function renderActivity() {
@@ -49,6 +49,7 @@ function renderCalendar(sessions) {
   // Build a map of date -> points earned (exclude historical sessions with no duration)
   sessions = sessions.filter(s => s.duration);
   const byDate = {};
+  const minsByDate = {};
   sessions.forEach(s => {
     if (!s.date) return;
     const pts = (s.modelEntries || []).reduce((acc, e) => {
@@ -58,6 +59,7 @@ function renderCalendar(sessions) {
       return acc + (stage?.points || 1) * (e.qty || 0);
     }, 0);
     byDate[s.date] = (byDate[s.date] || 0) + pts;
+    minsByDate[s.date] = (minsByDate[s.date] || 0) + s.duration;
   });
 
   // Build 52 weeks of dates ending today (local dates, matching in-memory session dates)
@@ -85,7 +87,9 @@ function renderCalendar(sessions) {
 
   days.forEach((date, i) => {
     const pts = byDate[date] || 0;
-    const intensity = pts === 0 ? 0 : pts <= 5 ? 1 : pts <= 15 ? 2 : pts <= 30 ? 3 : 4;
+    const mins = minsByDate[date] || 0;
+    // Time spent without finishing a stage still lights the day up
+    const intensity = pts === 0 ? (mins ? 1 : 0) : pts <= 5 ? 1 : pts <= 15 ? 2 : pts <= 30 ? 3 : 4;
     const month = parseInt(date.split('-')[1]);
 
     if (month !== lastMonth) {
@@ -93,7 +97,7 @@ function renderCalendar(sessions) {
       lastMonth = month;
     }
 
-    week.push({ date, pts, intensity });
+    week.push({ date, pts, mins, intensity });
     if (week.length === 7) {
       weeks.push(week);
       week = [];
@@ -127,8 +131,8 @@ function renderCalendar(sessions) {
               <div class="cal-week">
                 ${week.map(day => `
                   <div class="cal-day cal-intensity-${day.intensity}"
-                    title="${day.date}${day.pts ? ': ' + day.pts + ' pts' : ''}"
-                    data-date="${day.date}" data-pts="${day.pts}">
+                    title="${day.date}${day.pts ? ': ' + day.pts + ' pts' : day.mins ? ': ' + day.mins + ' mins' : ''}"
+                    data-date="${day.date}" data-pts="${day.pts}" data-mins="${day.mins}">
                   </div>
                 `).join('')}
               </div>
@@ -161,13 +165,16 @@ function renderCalendar(sessions) {
   container.querySelectorAll('[data-date]').forEach(el => {
     el.addEventListener('click', () => {
       const date = el.dataset.date;
-      const pts = el.dataset.pts;
-      if (pts > 0) {
+      if (el.dataset.pts > 0 || el.dataset.mins > 0) {
         const daySessions = sessions.filter(s => s.date === date);
         showDayDetail(date, daySessions);
       }
     });
   });
+}
+
+function timeOnlyNames(s) {
+  return sessionTimeOnlyModelIds(s).map(id => appData.models[id]?.name).filter(Boolean);
 }
 
 function showDayDetail(date, daySessions) {
@@ -177,7 +184,7 @@ function showDayDetail(date, daySessions) {
       const model = appData.models[e.modelId];
       const stage = (model?.stages || appData.config.stages).find(st => st.id === e.stageId);
       return model ? `${model.name} — ${stage?.name || e.stageId}` : null;
-    }).filter(Boolean);
+    }).filter(Boolean).concat(timeOnlyNames(s).map(n => `${n} — in progress`));
     return `${s.duration ? `⏱️ ${s.duration} mins` : ''}${models.length ? '\n' + models.join('\n') : ''}`;
   }).join('\n\n');
 
@@ -231,7 +238,7 @@ function sessionRow(s) {
     const model = appData.models[e.modelId];
     const stage = (model?.stages || appData.config.stages).find(st => st.id === e.stageId);
     return model ? `<span class="session-tag">${model.name} — ${stage?.name || e.stageId}</span>` : null;
-  }).filter(Boolean).join('');
+  }).filter(Boolean).concat(timeOnlyNames(s).map(n => `<span class="session-tag">${n} — in progress</span>`)).join('');
 
   return `
     <div class="session-item">
