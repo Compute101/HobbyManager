@@ -1351,14 +1351,31 @@ export function getCampaignSprints(list) {
 
 // --- Session helpers ---
 
-export function logSession({ date, duration, notes, modelEntries }) {
+export function logSession({ date, duration, notes, modelEntries, modelIds }) {
   // modelEntries: [{modelId, stageId, qty}]
+  // modelIds: models worked on without finishing a stage (time only, no points)
   // Note: progress is applied separately by the caller via logProgress
   const id = uid();
   const session = { id, date, duration, notes, modelEntries };
+  if (modelIds?.length) session.modelIds = modelIds;
   appData.sessions.push(session);
   saveData();
   return id;
+}
+
+// Every model a session touched — those that finished stages plus those that
+// only had time logged against them.
+export function sessionModelIds(s) {
+  return [...new Set([
+    ...(s.modelEntries || []).map(e => e.modelId),
+    ...(s.modelIds || []),
+  ])];
+}
+
+// Models in a session that got time but no stage progress.
+export function sessionTimeOnlyModelIds(s) {
+  const staged = new Set((s.modelEntries || []).map(e => e.modelId));
+  return (s.modelIds || []).filter(id => !staged.has(id));
 }
 
 export function deleteSession(id) {

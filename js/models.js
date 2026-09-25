@@ -1039,9 +1039,10 @@ export function showLogProgress(modelId) {
       logProgress(modelId, s.id, done, date);
     });
 
-    // Record session for activity log (even if no changes — user may just be reviewing)
-    if (modelEntries.length > 0) {
-      logSession({ date, duration, notes: '', modelEntries });
+    // Record session for activity log. Timed work counts even if no stage was
+    // finished (e.g. an hour of base coating that isn't done yet).
+    if (modelEntries.length > 0 || duration) {
+      logSession({ date, duration, notes: '', modelEntries, modelIds: modelEntries.length ? [] : [modelId] });
     }
 
     toast('Progress saved!', 'success');
