@@ -297,7 +297,7 @@ export function renderBurndown(canvasId, models, deadline) {
   if (!canvas) return;
   destroyChart(canvasId);
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = localDateStr(new Date());
   const byDay = {};
   let totalPts = 0;
 
@@ -478,8 +478,8 @@ export function pileBurndownStats(windowDays = getBurndownWindow()) {
     }, 0);
 
   const sortedDates = Object.keys(byDay).sort();
-  const todayStr = new Date().toISOString().split('T')[0];
-  const windowStart = new Date(Date.now() - windowDays * 86400000).toISOString().split('T')[0];
+  const todayStr = localDateStr(new Date());
+  const windowStart = localDateStr(new Date(Date.now() - windowDays * 86400000));
   const recentPts = sortedDates.filter(d => d >= windowStart).reduce((sum, d) => sum + byDay[d], 0);
 
   // Never average over more history than exists: a 3-month window on three
@@ -494,7 +494,7 @@ export function pileBurndownStats(windowDays = getBurndownWindow()) {
   let daysToClear = null, clearDate = null;
   if (velocity > 0 && pileRemainingPoints > 0) {
     daysToClear = Math.ceil(pileRemainingPoints / velocity);
-    clearDate = new Date(Date.now() + daysToClear * 86400000).toISOString().split('T')[0];
+    clearDate = localDateStr(new Date(Date.now() + daysToClear * 86400000));
   }
 
   return { byDay, sortedDates, todayStr, pileRemainingPoints, velocity, daysToClear, clearDate, baselinePoints, historicalSessions, windowDays, effectiveDays };
@@ -519,7 +519,7 @@ export function projectedFinishDate(remainingPts) {
   const rate = paceRate();
   if (rate <= 0) return { date: null, rate: 0, days: null };
   const days = Math.ceil(remainingPts / rate);
-  const date = new Date(Date.now() + days * 86400000).toISOString().split('T')[0];
+  const date = localDateStr(new Date(Date.now() + days * 86400000));
   return { date, rate, days };
 }
 
