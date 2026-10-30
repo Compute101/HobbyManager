@@ -1243,7 +1243,7 @@
       max-width: 520px;
       max-height: 90dvh;
       overflow-y: auto;
-      -webkit-overflow-scrolling: touch;
+      overflow-x: hidden;
       transform: translateY(20px);
       transition: transform 0.25s ease;
       border: 1px solid var(--border);
@@ -1505,6 +1505,14 @@
 
     input[type="time"].form-input {
       flex: 1;
+      min-width: 0;
+    }
+
+    /* iOS gives empty native date/time inputs almost no height, leaving a
+       sliver that's hard to tap. */
+    input[type="date"].form-input,
+    input[type="time"].form-input {
+      min-height: 2.6em;
     }
 
     /* ================================================================
@@ -2214,9 +2222,13 @@
       gap: 0.75em;
     }
 
-    @media (max-width: 400px) {
+    /* Stack on phones: side by side, the date + two time inputs are wider
+       than the screen, which made the modal pan sideways and fight taps on
+       the native date/time pickers. */
+    @media (max-width: 600px) {
       .form-row-two { grid-template-columns: 1fr; }
     }
+    .form-row-two > * { min-width: 0; }
 
     .share-text-area {
       font-family: monospace;
