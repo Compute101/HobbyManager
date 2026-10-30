@@ -7,7 +7,7 @@ import { appData, saveData, getActiveModels, getMothballedModels, getAllModelTyp
 import { BADGES, oldestPileModel } from './badges.js';
 import { getBurndownWindow } from './charts.js';
 import { isConfigured, wasConnected } from './gdrive.js';
-import { showModal, today } from './ui.js';
+import { showModal, today, localDateStr } from './ui.js';
 
 // --- Tip definitions ---
 // condition(ctx) returns true when the tip is relevant right now.
@@ -240,7 +240,7 @@ function buildContext() {
   // which the burndown treats as baseline rather than recent activity.
   const historicalSessionCount = sessions.filter(s => !s.duration).length;
   const datedSessions = sessions.filter(s => s.duration && s.date);
-  const daysAgo = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  const daysAgo = n => localDateStr(new Date(Date.now() - n * 86400000));
   const last30 = daysAgo(30), last90 = daysAgo(90);
   const recentSessionCount = datedSessions.filter(s => s.date >= last30).length;
   const quarterSessionCount = datedSessions.filter(s => s.date >= last90).length;
@@ -309,7 +309,7 @@ export function snoozeTip(id, days = 14) {
   if (!appData.config.tipsSnoozed) appData.config.tipsSnoozed = {};
   const until = new Date();
   until.setDate(until.getDate() + days);
-  appData.config.tipsSnoozed[id] = until.toISOString().slice(0, 10);
+  appData.config.tipsSnoozed[id] = localDateStr(until);
   saveData();
 }
 

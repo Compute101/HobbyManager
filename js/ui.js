@@ -251,8 +251,14 @@ export function createDateInput(id, value = '') {
     'January','February','March','April','May','June',
     'July','August','September','October','November','December'
   ];
+  // Last year onwards, so recent past work (e.g. December, logged in January)
+  // can be entered, plus whatever year an existing value already holds.
   const currentYear = new Date().getFullYear();
-  const years = Array.from({length: 6}, (_, i) => currentYear + i);
+  const years = Array.from({length: 7}, (_, i) => currentYear - 1 + i);
+  if (y && !years.includes(Number(y))) {
+    years.push(Number(y));
+    years.sort((a, b) => a - b);
+  }
 
   return `
     <div class="date-dropdowns" id="${id}">
@@ -285,6 +291,9 @@ export function getDateValue(id) {
   const mm = el.querySelector('.date-mm')?.value;
   const yy = el.querySelector('.date-yy')?.value;
   if (!dd || !mm || !yy) return '';
+  // Reject impossible dates like 31 February rather than storing them
+  const dt = new Date(Number(yy), Number(mm) - 1, Number(dd));
+  if (dt.getMonth() !== Number(mm) - 1) return '';
   return `${yy}-${mm}-${dd}`;
 }
 

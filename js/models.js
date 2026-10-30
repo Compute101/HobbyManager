@@ -1020,6 +1020,10 @@ export function showLogProgress(modelId) {
 
   content.querySelector('#lpSave').addEventListener('click', () => {
     const date = getDateValue('lpDate');
+    if (!date) {
+      toast('Please pick a valid date', 'warning');
+      return;
+    }
     const duration = calcDurationFromContent();
     if (!duration && !confirm('No time entered — this will be recorded as historical activity with no session time. Log anyway?')) return;
 

@@ -9,7 +9,7 @@ import {
   modelPoints, greyBrigadeCount, getModelDateAdded,
   setBounty, clearBounty, addHallOfFameEntry, recordBadgeEarned
 } from './data.js';
-import { toast, showModal, closeModal, formatDate, fireworks, progressBar } from './ui.js';
+import { toast, showModal, closeModal, formatDate, fireworks, progressBar, today } from './ui.js';
 
 // --- Badge definitions ---
 
@@ -125,7 +125,7 @@ function checkBountyCompletion(silent) {
     id: uid(),
     modelName: model.name,
     ageDays,
-    dateCompleted: new Date().toISOString().slice(0, 10),
+    dateCompleted: today(),
     reward: bounty.reward,
     tier: tier.tier
   });

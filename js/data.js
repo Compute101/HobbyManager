@@ -648,25 +648,14 @@ export let appData = {
   badges: {}
 };
 
-// Convert a UTC date string (YYYY-MM-DD) to the equivalent local date string.
-// UTC midnight is shifted to local time; for UTC+1 (BST) this stays the same date.
-function utcToLocal(utcDateStr) {
-  if (!utcDateStr) return utcDateStr;
-  const [y, m, d] = utcDateStr.split('-').map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  const ly = date.getFullYear();
-  const lm = String(date.getMonth() + 1).padStart(2, '0');
-  const ld = String(date.getDate()).padStart(2, '0');
-  return `${ly}-${lm}-${ld}`;
-}
-
-// Convert a local date string back to UTC by treating the local date as local noon
-// (noon local always maps to the same UTC date as UTC midnight for that date,
-// covering all standard timezones from UTC-11 to UTC+12).
-function localToUtc(localDateStr) {
-  if (!localDateStr) return localDateStr;
-  const [y, m, d] = localDateStr.split('-').map(Number);
-  return new Date(y, m - 1, d, 12, 0, 0).toISOString().split('T')[0];
+// Session dates are plain calendar dates (YYYY-MM-DD) in the user's local
+// day, stored as-is. They used to be round-tripped through UTC on save/load,
+// which shifted every date back a day per load west of UTC (and in UTC+13).
+function localDateStr(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 export function loadData() {
@@ -679,8 +668,7 @@ export function loadData() {
         models: parsed.models || {},
         collections: parsed.collections || {},
         lists: parsed.lists || {},
-        // Convert stored UTC session dates to local on load
-        sessions: (parsed.sessions || []).map(s => s.date ? { ...s, date: utcToLocal(s.date) } : s),
+        sessions: parsed.sessions || [],
         folders: parsed.folders || {},
         // Sprints were called Queues before — fall back to that key so existing
         // data carries over untouched (they migrate in as dateless sprints).
@@ -717,13 +705,8 @@ export function loadData() {
 
 export function saveData() {
   try {
-    // Convert in-memory local session dates back to UTC before persisting
-    const dataToSave = {
-      ...appData,
-      sessions: appData.sessions.map(s => s.date ? { ...s, date: localToUtc(s.date) } : s)
-    };
-    localStorage.setItem('hobbymanager_v2', JSON.stringify(dataToSave));
-    driveSync.callback?.(dataToSave);
+    localStorage.setItem('hobbymanager_v2', JSON.stringify(appData));
+    driveSync.callback?.(appData);
   } catch (e) {
     console.error('Failed to save data:', e);
     alert('Could not save data — storage may be full.');
@@ -732,14 +715,14 @@ export function saveData() {
 }
 
 // Replace all in-memory data with a parsed snapshot (e.g. loaded from Drive).
-// Applies the same UTC→local date conversion as loadData(), then persists to localStorage.
+// Normalises missing fields the same way as loadData(), then persists to localStorage.
 export function replaceData(parsed) {
   if (!parsed?.models || !parsed?.collections) throw new Error('Invalid data structure');
   appData = {
     models: parsed.models || {},
     collections: parsed.collections || {},
     lists: parsed.lists || {},
-    sessions: (parsed.sessions || []).map(s => s.date ? { ...s, date: utcToLocal(s.date) } : s),
+    sessions: parsed.sessions || [],
     folders: parsed.folders || {},
     sprints: parsed.sprints || parsed.queues || {},
     purchaseQueue: parsed.purchaseQueue || {},
@@ -798,7 +781,7 @@ export function createModel({ name, quantity = 1, notes = '', gameSystemId = nul
     resaleValue,
     mothballed: false,
     mothballedDate: null,
-    dateAdded: new Date().toISOString().slice(0, 10),
+    dateAdded: localDateStr(),
     progress: {},
     sessions: []
   };
@@ -854,7 +837,7 @@ export function setModelMothballed(id, mothballed) {
   const model = appData.models[id];
   if (!model) return;
   model.mothballed = !!mothballed;
-  model.mothballedDate = mothballed ? new Date().toISOString().slice(0, 10) : null;
+  model.mothballedDate = mothballed ? localDateStr() : null;
   saveData();
 }
 
@@ -1417,7 +1400,7 @@ export function getAllFolders() {
 // whatever you typed in and makes the payoff feel like an event.
 
 export function setBounty(modelId, reward) {
-  appData.bounty = { id: uid(), modelId, reward, dateSet: new Date().toISOString().slice(0, 10) };
+  appData.bounty = { id: uid(), modelId, reward, dateSet: localDateStr() };
   saveData();
 }
 
@@ -1435,7 +1418,7 @@ export function addHallOfFameEntry(entry) {
 export function recordBadgeEarned(badgeId) {
   if (!appData.badges) appData.badges = {};
   if (appData.badges[badgeId]) return;
-  appData.badges[badgeId] = new Date().toISOString().slice(0, 10);
+  appData.badges[badgeId] = localDateStr();
   saveData();
 }
 
@@ -1446,7 +1429,7 @@ export function exportJSON() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `hobbymanager_${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `hobbymanager_${localDateStr()}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
